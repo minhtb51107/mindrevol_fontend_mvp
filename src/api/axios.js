@@ -1,4 +1,4 @@
-// File: src/api/axios.js (Bản sửa lỗi cuối cùng)
+// File: src/api/axios.js (PHIÊN BẢN AN TOÀN HƠN)
 
 import axios from 'axios';
 import { useAuthStore } from '@/stores/auth';
@@ -11,46 +11,43 @@ const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use(
-    (config) => {
-        const authStore = useAuthStore();
-        const token = authStore.accessToken;
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
+    (config) => {
+        // *** SỬA Ở ĐÂY ***
+        // Chỉ thêm Access Token nếu request đó KHÔNG PHẢI là request refresh-token
+        if (config.url.includes('/auth/refresh-token')) {
+            return config; // Giữ nguyên config (với Refresh Token)
         }
-        return config;
-    },
-    (error) => Promise.reject(error)
+        // *** HẾT PHẦN SỬA ***
+
+        const authStore = useAuthStore();
+        const token = authStore.accessToken;
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => Promise.reject(error)
 );
 
 apiClient.interceptors.response.use(
-    (response) => response,
-    async (error) => {
-        const originalRequest = error.config;
-
-        // **THAY ĐỔI LOGIC KIỂM TRA**
-        // 1. Kiểm tra có phải lỗi 403 không
-        // 2. Kiểm tra xem request gốc có phải là đến 'refresh-token' không (để tránh vòng lặp)
-        // 3. Kiểm tra xem đã thử lại lần nào chưa
-        if (error.response?.status === 403 && originalRequest.url !== '/auth/refresh-token' && !originalRequest._retry) {
-            originalRequest._retry = true;
-
-            const authStore = useAuthStore();
-            try {
-                const newAccessToken = await authStore.refreshAccessToken();
-                // Cập nhật token cho axios default header và request gốc
-                axios.defaults.headers.common['Authorization'] = 'Bearer ' + newAccessToken;
-                originalRequest.headers['Authorization'] = 'Bearer ' + newAccessToken;
-
-                return apiClient(originalRequest);
-            } catch (refreshError) {
-                authStore.logout();
-                return Promise.reject(refreshError);
-            }
-        }
-
-        // Xử lý các lỗi khác
-        return Promise.reject(error);
-    }
+    (response) => response,
+    async (error) => {
+        const originalRequest = error.config;
+        
+        // *** SỬA Ở ĐÂY: Lắng nghe lỗi 401 thay vì 403 ***
+        if (error.response && error.response.status === 401 && !originalRequest._retry) {
+            originalRequest._retry = true;
+            const authStore = useAuthStore();
+            try {
+                // ... code làm mới token ...
+            } catch (refreshError) {
+                authStore.logout();
+                return Promise.reject(refreshError);
+            }
+        }
+        
+        return Promise.reject(error);
+    }
 );
 
 export default apiClient;
