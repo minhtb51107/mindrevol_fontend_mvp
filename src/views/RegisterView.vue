@@ -1,60 +1,108 @@
 <template>
-  <div v-if="!isSuccess">
-    <h2 class="text-center mb-4">Tạo tài khoản</h2>
+  <v-card class="elevation-3 pa-5">
+    <div v-if="!isSuccess">
+      <v-card-title class="text-center text-h5 mb-6">Tạo tài khoản</v-card-title>
+      <v-card-text>
+        <v-alert
+          v-if="errorMessage"
+          type="error"
+          density="compact"
+          class="mb-4"
+          closable
+          @click:close="errorMessage = ''"
+        >
+          {{ errorMessage }}
+        </v-alert>
 
-    <div v-if="errorMessage" class="alert alert-danger" role="alert">
-      {{ errorMessage }}
+        <v-form @submit.prevent="handleRegister" ref="registerForm">
+          <v-text-field
+            v-model="form.fullname"
+            label="Họ và tên"
+            variant="outlined"
+            density="compact"
+            prepend-inner-icon="mdi-account-outline"
+            :rules="[rules.required]"
+            class="mb-3"
+          ></v-text-field>
+
+          <v-text-field
+            v-model="form.email"
+            label="Email"
+            type="email"
+            variant="outlined"
+            density="compact"
+            prepend-inner-icon="mdi-email-outline"
+            :rules="[rules.required, rules.email]"
+            class="mb-3"
+          ></v-text-field>
+
+          <v-text-field
+            v-model="form.phoneNumber"
+            label="Số điện thoại"
+            type="tel"
+            variant="outlined"
+            density="compact"
+            prepend-inner-icon="mdi-phone-outline"
+            :rules="[rules.required]"
+            class="mb-3"
+          ></v-text-field>
+
+          <v-text-field
+            v-model="form.password"
+            label="Mật khẩu"
+            :type="showPassword ? 'text' : 'password'"
+            variant="outlined"
+            density="compact"
+            prepend-inner-icon="mdi-lock-outline"
+            :append-inner-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
+            @click:append-inner="showPassword = !showPassword"
+            :rules="[rules.required, rules.minLength(8)]"
+            class="mb-3"
+            hint="Ít nhất 8 ký tự"
+            persistent-hint
+          ></v-text-field>
+
+          <v-btn
+            type="submit"
+            color="primary"
+            block
+            size="large"
+            :loading="isLoading"
+            :disabled="isLoading"
+            class="mt-4"
+          >
+            Đăng ký
+          </v-btn>
+        </v-form>
+        <div class="text-center mt-4">
+          <p class="text-body-2">
+            Đã có tài khoản?
+            <RouterLink to="/login" class="text-primary text-decoration-none"> Đăng nhập</RouterLink>
+          </p>
+        </div>
+      </v-card-text>
     </div>
 
-    <form @submit.prevent="handleRegister">
-      <div class="mb-3">
-        <label for="fullname" class="form-label">Họ và tên</label>
-        <input type="text" class="form-control" id="fullname" v-model="form.fullname" required />
-      </div>
-      <div class="mb-3">
-        <label for="email" class="form-label">Email</label>
-        <input type="email" class="form-control" id="email" v-model="form.email" required />
-      </div>
-      <div class="mb-3">
-        <label for="phoneNumber" class="form-label">Số điện thoại</label>
-        <input type="tel" class="form-control" id="phoneNumber" v-model="form.phoneNumber" required />
-      </div>
-      <div class="mb-3">
-        <label for="password" class="form-label">Mật khẩu</label>
-        <input type="password" class="form-control" id="password" v-model="form.password" required minlength="8" />
-      </div>
-      <div class="d-grid">
-        <button type="submit" class="btn btn-primary" :disabled="isLoading">
-          <span v-if="isLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-          <span v-else>Đăng ký</span>
-        </button>
-      </div>
-    </form>
-    <div class="text-center mt-3">
-      <p>
-        Đã có tài khoản?
-        <RouterLink to="/login">Đăng nhập</RouterLink>
+    <div v-else class="text-center pa-5">
+       <v-icon icon="mdi-check-circle-outline" color="success" size="64" class="mb-4"></v-icon>
+      <h3 class="text-h6 mb-2">Đăng ký thành công!</h3>
+      <p class="text-body-2 text-medium-emphasis mb-4">
+        Chúng tôi đã gửi một liên kết kích hoạt đến email <strong class="text-black">{{ form.email }}</strong>.
+        Vui lòng kiểm tra hộp thư của bạn (bao gồm cả thư mục spam) để hoàn tất.
       </p>
+      <v-btn color="primary" to="/login" variant="flat">Về trang đăng nhập</v-btn>
     </div>
-  </div>
-
-  <div v-else class="text-center">
-    <i class="bi bi-check-circle-fill text-success" style="font-size: 4rem;"></i>
-    <h3 class="mt-3">Đăng ký thành công!</h3>
-    <p class="text-muted">
-      Chúng tôi đã gửi một liên kết kích hoạt đến email <strong>{{ form.email }}</strong>.
-      Vui lòng kiểm tra hộp thư của bạn (bao gồm cả thư mục spam) để hoàn tất.
-    </p>
-    <RouterLink to="/login" class="btn btn-primary mt-2">Về trang đăng nhập</RouterLink>
-  </div>
+  </v-card>
 </template>
 
 <script setup>
 import { ref, reactive } from 'vue';
 import { RouterLink } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { VCard, VCardTitle, VCardText, VForm, VTextField, VBtn, VAlert, VIcon } from 'vuetify/components';
 
 const authStore = useAuthStore();
+const registerForm = ref(null);
 
 const form = reactive({
   fullname: '',
@@ -66,13 +114,25 @@ const form = reactive({
 const isLoading = ref(false);
 const errorMessage = ref('');
 const isSuccess = ref(false);
+const showPassword = ref(false);
+
+const rules = {
+  required: value => !!value || 'Thông tin bắt buộc.',
+  email: value => {
+    const pattern = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+    return pattern.test(value) || 'Email không hợp lệ.'
+  },
+  minLength: (length) => value => (value && value.length >= length) || `Ít nhất ${length} ký tự.`,
+};
 
 const handleRegister = async () => {
+  const { valid } = await registerForm.value.validate();
+  if (!valid) return;
+
   isLoading.value = true;
   errorMessage.value = '';
   try {
-    // Dữ liệu form khớp với RegisterRequest.java
-    await authStore.register(form); 
+    await authStore.register(form);
     isSuccess.value = true;
   } catch (error) {
     errorMessage.value = error.response?.data?.message || 'Đã có lỗi xảy ra. Vui lòng thử lại.';
@@ -81,3 +141,13 @@ const handleRegister = async () => {
   }
 };
 </script>
+
+<style scoped>
+.v-card {
+  max-width: 500px;
+  margin: auto;
+}
+.text-decoration-none {
+  text-decoration: none;
+}
+</style>

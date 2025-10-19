@@ -1,97 +1,160 @@
 <template>
-    <div class="modal fade show d-block" tabindex="-1" @click.self="close">
-        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content" v-if="progress">
-                <div class="modal-header">
-                    <div>
-                        <h5 class="modal-title">Chi tiết ngày {{ progress.date }}</h5>
-                        <small class="text-muted">của {{ progress.memberFullName }}</small>
-                      </div>
-                    <button type="button" class="btn-close" @click="close"></button>
-                  </div>
-                <div class="modal-body">
-                    <div class="mb-4">
-                        <h6><i class="bi bi-journal-text me-2"></i>Ghi chú của thành viên:</h6>
-                        <p class="p-3 bg-light rounded">{{ progress.notes || 'Không có ghi chú.' }}</p>
-                        <div v-if="progress.evidence">
-                            <h6><i class="bi bi-link-45deg me-2"></i>Bằng chứng:</h6>
-                            <a :href="progress.evidence" target="_blank" rel="noopener noreferrer">{{ progress.evidence
-                }}</a>
-                          </div>
-            <div v-if="!canInteract" class="alert alert-info mt-3">
-              Người dùng này chưa ghi nhận tiến độ cho ngày này. Không thể tương tác.
-            </div>
-                     
+  <v-dialog v-model="dialogVisible" persistent max-width="800px" scrollable @click:outside="close">
+    <v-card>
+      <v-card-title class="pa-4 bg-grey-lighten-3">
+        <div class="d-flex justify-space-between align-center">
+          <div>
+            <span class="text-h6">Chi tiết ngày {{ progress?.date }}</span>
+            <div class="text-subtitle-2 text-medium-emphasis">của {{ progress?.memberFullName }}</div>
           </div>
-                   
-          <hr>
+          <v-btn icon="mdi-close" variant="text" @click="close"></v-btn>
+        </div>
+      </v-card-title>
+      <v-divider></v-divider>
 
-                    <div v-if="canInteract">
-            <div class="d-flex align-items-center mb-3">
-                          <button v-for="reaction in reactionTypes" :key="reaction.type"
-                @click="handleToggleReaction(reaction.type)" class="btn btn-sm me-2 reaction-btn"
-                :class="{ 'active': isReacted(reaction.type) }">
-                              {{ reaction.emoji }} {{ getReactionCount(reaction.type) }}
-                            </button>
-                      </div>
-                   
-            <hr>
+      <v-card-text v-if="progress" class="pa-5">
+        <v-alert
+            v-if="!canInteract"
+            type="info"
+            variant="tonal"
+            density="compact"
+            class="mb-4"
+        >
+          Người dùng này chưa ghi nhận tiến độ cho ngày này. Không thể tương tác.
+        </v-alert>
 
-                    <div>
-                          <h6 class="mb-3">Thảo luận ({{ progress.comments.length }})</h6>
-                          <div class="comments-list mb-3">
-                              <div v-if="!progress.comments.length" class="text-center text-muted">
-                                  Chưa có bình luận nào. Hãy là người đầu tiên!
-                                </div>
-                              <div v-for="comment in progress.comments" :key="comment.id" class="d-flex mb-3">
-                                  <i class="bi bi-person-circle fs-4 me-2"></i>
-                                  <div class="flex-grow-1">
-                                      <strong>{{ comment.authorFullName }}</strong>
-                                      <p class="mb-0">{{ comment.content }}</p>
-                                    </div>
-                                </div>
-                            </div>
-                          <form @submit.prevent="submitComment">
-                              <div class="input-group">
-                                  <input type="text" class="form-control" v-model="newComment"
-                    placeholder="Viết bình luận..." :disabled="!canInteract || communityStore.isLoading" />
-                                  <button class="btn btn-outline-primary" type="submit"
-                    :disabled="!canInteract || communityStore.isLoading">
-                                      <span v-if="communityStore.isLoading"
-                      class="spinner-border spinner-border-sm"></span>
-                                      <i v-else class="bi bi-send"></i>
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
+        <div class="mb-4">
+          <p class="text-subtitle-1 font-weight-medium mb-1">
+            <v-icon start icon="mdi-note-text-outline"></v-icon> Ghi chú:
+          </p>
+          <v-sheet border rounded class="pa-3 text-body-2 bg-grey-lighten-4">
+            {{ progress.notes || 'Không có ghi chú.' }}
+          </v-sheet>
+        </div>
+
+        <div v-if="tasks.length > 0" class="mb-4">
+             <p class="text-subtitle-1 font-weight-medium mb-1">
+                 <v-icon start icon="mdi-format-list-checks"></v-icon>
+                 Công việc trong ngày ({{ getCompletedTasksCount(progress) }}/{{ tasks.length }}):
+             </p>
+             <v-list density="compact" lines="one" class="py-0">
+                <v-list-item v-for="(task, index) in tasks" :key="index" class="px-1">
+                   <template v-slot:prepend>
+                      <v-icon :color="isTaskCompleted(index) ? 'success' : 'grey-lighten-1'">
+                          {{ isTaskCompleted(index) ? 'mdi-check-circle' : 'mdi-circle-outline' }}
+                      </v-icon>
+                   </template>
+                   <v-list-item-title
+                      :class="{
+                        'text-decoration-line-through text-medium-emphasis': isTaskCompleted(index),
+                        'font-weight-regular': !isTaskCompleted(index)
+                      }"
+                    >
+                       {{ task }}
+                   </v-list-item-title>
+                </v-list-item>
+             </v-list>
+         </div>
+
+
+        <div v-if="progress.evidence" class="mb-4">
+          <p class="text-subtitle-1 font-weight-medium mb-1">
+            <v-icon start icon="mdi-link-variant"></v-icon> Bằng chứng:
+          </p>
+          <a :href="progress.evidence" target="_blank" rel="noopener noreferrer" class="text-body-2 text-primary text-decoration-none word-break">
+            {{ progress.evidence }}
+          </a>
+        </div>
+
+        <v-divider class="my-5"></v-divider>
+
+        <div v-if="canInteract">
+          <div class="mb-4">
+             <p class="text-subtitle-1 font-weight-medium mb-2">Bày tỏ cảm xúc:</p>
+            <v-chip-group mandatory selected-class="text-primary">
+              <v-chip
+                v-for="reaction in reactionTypes"
+                :key="reaction.type"
+                @click="handleToggleReaction(reaction.type)"
+                :variant="isReacted(reaction.type) ? 'tonal' : 'outlined'"
+                :color="isReacted(reaction.type) ? 'primary' : 'grey-darken-1'"
+                size="small"
+                class="me-2 px-3"
+              >
+                {{ reaction.emoji }} {{ getReactionCount(reaction.type) }}
+              </v-chip>
+            </v-chip-group>
           </div>
 
-                 
+          <v-divider class="mb-4"></v-divider>
+
+          <div>
+            <h6 class="text-subtitle-1 font-weight-medium mb-3">Thảo luận ({{ progress.comments?.length || 0 }})</h6>
+             <v-list lines="two" density="compact" class="comments-list mb-4 px-1 py-0">
+                <div v-if="!progress.comments || !progress.comments.length" class="text-center text-medium-emphasis text-caption py-3">
+                  Chưa có bình luận nào.
+                </div>
+                 <v-list-item
+                   v-for="comment in progress.comments"
+                   :key="comment.id"
+                   class="px-0 mb-1"
+                 >
+                   <template v-slot:prepend>
+                      <v-avatar size="32" color="grey-lighten-2" class="me-3">
+                         <v-icon icon="mdi-account" color="grey-darken-1"></v-icon>
+                      </v-avatar>
+                   </template>
+                   <v-list-item-title class="text-body-2 font-weight-medium">{{ comment.authorFullName }}</v-list-item-title>
+                   <v-list-item-subtitle class="text-body-2 text-wrap">{{ comment.content }}</v-list-item-subtitle>
+                 </v-list-item>
+             </v-list>
+
+            <v-form @submit.prevent="submitComment">
+              <v-textarea
+                v-model="newComment"
+                placeholder="Viết bình luận..."
+                rows="2"
+                variant="outlined"
+                density="compact"
+                hide-details
+                auto-grow
+                append-inner-icon="mdi-send"
+                @click:append-inner="submitComment"
+                :disabled="!canInteract || communityStore.isLoading"
+                :loading="communityStore.isLoading"
+                class="comment-input"
+              ></v-textarea>
+            </v-form>
+          </div>
         </div>
-              </div>
-      <div class="modal-content" v-else>
-        <div class="modal-body">
-          <p>Đang tải chi tiết...</p>
-        </div>
-      </div>
-         
-    </div>
-      </div>
-    <div class="modal-backdrop fade show"></div>
+
+      </v-card-text>
+
+      <v-card-text v-else class="pa-10 text-center">
+        <v-progress-circular indeterminate color="primary"></v-progress-circular>
+        <p class="mt-3 text-medium-emphasis">Đang tải chi tiết...</p>
+      </v-card-text>
+
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup>
-// SỬA LỖI: Thêm 'computed'
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useCommunityStore } from '@/stores/community';
+import { usePlanStore } from '@/stores/plan';
+import { VDialog, VCard, VCardTitle, VCardText, VBtn, VIcon, VSheet, VDivider, VChipGroup, VChip, VForm, VTextarea, VProgressCircular, VAlert, VList, VListItem, VListItemTitle, VListItemSubtitle, VAvatar } from 'vuetify/components';
 
 const communityStore = useCommunityStore();
-const progress = communityStore.selectedProgress;
+const planStore = usePlanStore();
+const dialogVisible = ref(true);
 const newComment = ref('');
 
-// SỬA LỖI: Thêm computed property để kiểm tra ID
+const progress = computed(() => communityStore.selectedProgress);
+const tasks = computed(() => planStore.currentPlan?.dailyTasks || []);
+
 const canInteract = computed(() => {
-  return progress && progress.id;
+  return progress.value && progress.value.id;
 });
 
 const reactionTypes = [
@@ -102,35 +165,51 @@ const reactionTypes = [
 ];
 
 const emit = defineEmits(['close']);
+
 const close = () => {
-  communityStore.clearSelectedProgress();
-  emit('close');
+  dialogVisible.value = false;
 };
 
 const getReactionCount = (type) => {
-  // SỬA LỖI: Thêm kiểm tra 'progress.reactions'
-  if (!progress || !progress.reactions) return 0;
-  const reaction = progress.reactions.find(r => r.type === type);
-  return reaction ? reaction.count : 0;
+  if (!progress.value || !progress.value.reactions) return 0;
+  const reactionSummary = progress.value.reactions.find(r => r.type === type);
+  return reactionSummary ? reactionSummary.count : 0;
 };
 
 const isReacted = (type) => {
-  // SỬA LỖI: Thêm kiểm tra 'progress.reactions'
-  if (!progress || !progress.reactions) return false;
-  const reaction = progress.reactions.find(r => r.type === type);
-  return reaction ? reaction.hasCurrentUserReacted : false;
+  if (!progress.value || !progress.value.reactions) return false;
+  const reactionSummary = progress.value.reactions.find(r => r.type === type);
+  return reactionSummary ? reactionSummary.hasCurrentUserReacted : false;
 };
 
-// SỬA LỖI: Thêm hàm wrapper mới cho reaction
+const isTaskCompleted = (index) => {
+    const completedIndices = progress.value?.completedTaskIndices;
+    if (completedIndices instanceof Set) {
+        return completedIndices.has(index);
+    } else if (Array.isArray(completedIndices)) {
+         return completedIndices.includes(index);
+    }
+    return false;
+};
+
+const getCompletedTasksCount = (progressData) => {
+    const completedIndices = progressData?.completedTaskIndices;
+    if (completedIndices instanceof Set) {
+        return completedIndices.size;
+    } else if (Array.isArray(completedIndices)) {
+        return completedIndices.length;
+    }
+    return 0;
+};
+
+
 const handleToggleReaction = async (reactionType) => {
-  // RÀO CHẮN: Kiểm tra ID trước khi gọi
   if (!canInteract.value) {
     console.error("Không thể reaction: progressId là null.");
     alert("Bạn không thể tương tác với một ngày chưa có dữ liệu.");
     return;
   }
   try {
-    // Bây giờ store sẽ dùng 'selectedProgress.id'
     await communityStore.toggleReaction(reactionType);
   } catch (error) {
     alert('Không thể thả reaction, vui lòng thử lại.');
@@ -138,9 +217,7 @@ const handleToggleReaction = async (reactionType) => {
 };
 
 const submitComment = async () => {
-  if (!newComment.value.trim()) return;
-
-  // SỬA LỖI: Thêm RÀO CHẮN (guard clause)
+  if (!newComment.value.trim() || communityStore.isLoading) return;
   if (!canInteract.value) {
     console.error("Không thể bình luận: progressId là null.");
     alert("Bạn không thể bình luận vào một ngày chưa có dữ liệu.");
@@ -148,31 +225,48 @@ const submitComment = async () => {
   }
 
   try {
-    // Hàm gọi store vẫn giữ nguyên, vì store sẽ tự lấy 'selectedProgress.id'
     await communityStore.addComment(newComment.value);
-    newComment.value = ''; // Xóa input sau khi gửi thành công
+    newComment.value = '';
   } catch (error) {
     alert('Không thể gửi bình luận, vui lòng thử lại.');
   }
 };
+
+watch(dialogVisible, (newValue) => {
+  if (!newValue) {
+     setTimeout(() => {
+        communityStore.clearSelectedProgress();
+        emit('close');
+     }, 300);
+  }
+});
+
+watch(() => communityStore.selectedProgress, (newVal) => {
+  dialogVisible.value = !!newVal;
+  if (!newVal && dialogVisible.value) {
+     close();
+  }
+});
+
 </script>
 
 <style scoped>
-.d-block {
-  display: block;
-}
-
 .comments-list {
-  max-height: 300px;
+  max-height: 250px;
   overflow-y: auto;
 }
-
-.reaction-btn {
-  border-radius: 20px;
+.text-decoration-none {
+  text-decoration: none;
+}
+.word-break {
+   word-break: break-all;
+}
+.comment-input :deep(.v-field__append-inner) {
+  cursor: pointer;
+  padding-top: 10px; /* Adjust icon position */
+}
+.text-wrap {
+    white-space: normal; /* Allow text wrapping */
 }
 
-.reaction-btn.active {
-  background-color: #cfe2ff;
-  border-color: #0d6efd;
-}
 </style>

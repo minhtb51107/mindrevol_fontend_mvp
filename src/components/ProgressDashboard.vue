@@ -1,56 +1,86 @@
 <template>
-  <div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <h4 class="mb-0">Bảng tiến độ nhóm</h4>
-      <button class="btn btn-primary" @click="openCheckInModal">
-        <i class="bi bi-check-circle-fill me-2"></i>Check-in hôm nay
-      </button>
-    </div>
-    <div class="card-body">
-      <div v-if="progressStore.isLoading" class="text-center">
-        <div class="spinner-border text-primary" role="status"></div>
-        <p class="mt-2">Đang tải dữ liệu tiến độ...</p>
+  <v-card class="elevation-1">
+    <v-toolbar density="compact" color="white">
+      <v-toolbar-title class="text-h6">Bảng tiến độ nhóm</v-toolbar-title>
+      <v-spacer></v-spacer>
+      <v-btn
+        color="primary"
+        @click="openCheckInModal"
+        prepend-icon="mdi-check-circle-outline"
+        variant="flat"
+      >
+        Check-in hôm nay
+      </v-btn>
+    </v-toolbar>
+    <v-divider></v-divider>
+
+    <v-card-text>
+      <div v-if="progressStore.isLoading" class="text-center py-10">
+        <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
+        <p class="mt-3 text-medium-emphasis">Đang tải dữ liệu tiến độ...</p>
       </div>
-      <div v-else-if="progressStore.error" class="alert alert-warning">
+
+      <v-alert
+        v-else-if="progressStore.error"
+        type="warning"
+        variant="tonal"
+        class="my-5"
+        density="compact"
+      >
         {{ progressStore.error }}
-      </div>
-      <div v-else-if="progressStore.dashboard" class="table-responsive">
-        <table class="table table-bordered table-hover text-center align-middle">
-          <thead class="table-light">
-            <tr>
-              <th class="text-start">Thành viên</th>
-              <th v-for="(status, date) in firstMemberDailyStatus" :key="date" class="day-header">
-                {{ formatDate(date) }}
-              </th>
-            </tr>
-          </thead>
-<tbody>
-            <tr v-for="member in progressStore.dashboard.membersProgress" :key="member.userEmail">
-              <td class="text-start fw-bold">{{ member.userFullName }}</td>
+      </v-alert>
 
-              <td v-for="(completed, date) in member.dailyStatus" :key="date" 
-                  @click="openDetailModal(member.userEmail, date)" 
-                  class="progress-cell"
-                  :class="{ 'completed': completed }">
-                <i 
-                  class="bi fs-4" 
-                  :class="{ 
-                    'bi-check-circle-fill text-success': completed, 
-                    'bi-circle text-muted': !completed && isPastOrToday(date),
-                    'bi-dash-circle text-light': !isPastOrToday(date)
-                  }"
-                  :title="completed ? 'Hoàn thành' : 'Chưa hoàn thành'"
-                ></i>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <v-table v-else-if="progressStore.dashboard && progressStore.dashboard.membersProgress.length" density="compact" fixed-header height="auto" class="progress-table">
+        <thead>
+          <tr>
+            <th class="text-left font-weight-bold">Thành viên</th>
+            <th v-for="(status, date) in firstMemberDailyStatus" :key="date" class="text-center font-weight-bold day-header">
+              {{ formatDateHeader(date) }}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="member in progressStore.dashboard.membersProgress" :key="member.userEmail">
+            <td class="text-left font-weight-medium">{{ member.userFullName }}</td>
+            <td
+            v-for="(progressData, date) in member.dailyStatus"
+            :key="date"
+            class="text-center progress-cell"
+            @click="openDetailModal(member, date, progressData)"
+            :class="{ 'has-progress': progressData && progressData.id }"
+          >
+             <v-icon
+                 size="large"
+                 :color="getProgressIconColor(progressData, date)"
+                 :icon="getProgressIcon(progressData, date)"
+                 :title="getProgressTitle(progressData, date)"
+             ></v-icon>
+             <span v-if="progressData && progressData.id && planTasks.length > 0" class="task-completion-indicator">
+                {{ getCompletedTasksCount(progressData) }}/{{ planTasks.length }}
+             </span>
+             <span v-else-if="progressData && progressData.id && progressData.completed && planTasks.length == 0" class="task-completion-indicator">
+               ✓
+             </span>
+             <v-icon
+               v-if="progressData && progressData.evidence"
+               icon="mdi-link-variant"
+               size="x-small"
+               color="blue-grey-lighten-1"
+               class="evidence-indicator"
+               title="Có bằng chứng đính kèm"
+             ></v-icon>
+          </td>
+          </tr>
+        </tbody>
+      </v-table>
+      <div v-else class="text-center py-5 text-medium-emphasis">
+        Chưa có thành viên nào trong kế hoạch này hoặc kế hoạch không có ngày nào.
       </div>
-    </div>
-  </div>
+    </v-card-text>
+  </v-card>
 
-  <CheckInModal 
-    v-if="isCheckInModalVisible" 
+  <CheckInModal
+    v-if="isCheckInModalVisible"
     :shareable-link="shareableLink"
     @close="closeCheckInModal"
   />
@@ -64,9 +94,11 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useProgressStore } from '@/stores/progress';
-import { useCommunityStore } from '@/stores/community'; // <-- THÊM IMPORT
+import { useCommunityStore } from '@/stores/community';
+import { usePlanStore } from '@/stores/plan';
 import CheckInModal from '@/components/CheckInModal.vue';
-import ProgressDetailModal from '@/components/ProgressDetailModal.vue'; // <-- THÊM IMPORT
+import ProgressDetailModal from '@/components/ProgressDetailModal.vue';
+import { VCard, VCardText, VTable, VIcon, VProgressCircular, VAlert, VToolbar, VToolbarTitle, VSpacer, VBtn, VDivider } from 'vuetify/components';
 
 const props = defineProps({
   shareableLink: {
@@ -76,50 +108,116 @@ const props = defineProps({
 });
 
 const progressStore = useProgressStore();
-const communityStore = useCommunityStore(); // <-- KHỞI TẠO STORE
-const isModalVisible = ref(false);
+const communityStore = useCommunityStore();
+const planStore = usePlanStore();
+const isCheckInModalVisible = ref(false);
 
-// Lấy dữ liệu của thành viên đầu tiên để render header của bảng
 const firstMemberDailyStatus = computed(() => {
-  return progressStore.dashboard?.membersProgress[0]?.dailyStatus || {};
+  return progressStore.dashboard?.membersProgress?.[0]?.dailyStatus || {};
 });
 
-// Lấy dữ liệu khi component được tạo
+const planTasks = computed(() => planStore.currentPlan?.dailyTasks || []);
+
 onMounted(() => {
   progressStore.fetchDashboard(props.shareableLink);
 });
 
-const formatDate = (dateString) => {
-  const date = new Date(dateString);
-  return `${date.getDate()}/${date.getMonth() + 1}`;
+const formatDateHeader = (dateString) => {
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    return `${date.getDate()}/${date.getMonth() + 1}`;
+  } catch (e) {
+    return dateString;
+  }
 };
 
 const isPastOrToday = (dateString) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Bỏ qua giờ, phút, giây
-    const date = new Date(dateString);
-    return date <= today;
+    try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return false;
+        return date <= today;
+    } catch (e) {
+        return false;
+    }
 };
 
-const openDetailModal = (memberEmail, date) => {
-  const memberProgress = progressStore.dashboard.membersProgress.find(m => m.userEmail === memberEmail);
-  if (!memberProgress) return;
+const isFuture = (dateString) => {
+    try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return false;
+        return date > today;
+    } catch (e) {
+        return false;
+    }
+};
 
-  // Lấy data chi tiết thực từ store
-  const progressDetail = memberProgress.dailyStatus[date];
+const getProgressIcon = (progressData, date) => {
+    if (progressData && progressData.id) {
+        // Nếu có task, ưu tiên icon warning nếu chưa xong hết
+        if (planTasks.value.length > 0) {
+            return progressData.completedTaskIndices?.length === planTasks.value.length ? 'mdi-check-circle' : 'mdi-progress-check';
+        }
+        // Nếu không có task, dùng trạng thái completed chung
+        return progressData.completed ? 'mdi-check-circle' : 'mdi-circle-slice-5'; // Icon khác cho trạng thái chưa hoàn thành chung
+    } else if (isPastOrToday(date)) {
+        return 'mdi-circle-outline';
+    } else {
+        return 'mdi-minus-circle-outline';
+    }
+};
 
-  // Chỉ mở modal nếu ngày đó đã có check-in
-  if (progressDetail) {
-    // Thêm trường 'memberFullName' vào để modal có thể hiển thị
+const getProgressIconColor = (progressData, date) => {
+    if (progressData && progressData.id) {
+        if (planTasks.value.length > 0) {
+            return progressData.completedTaskIndices?.length === planTasks.value.length ? 'success' : 'warning';
+        }
+        return progressData.completed ? 'success' : 'warning';
+    } else if (isPastOrToday(date)) {
+        return 'grey-lighten-1';
+    } else {
+        return 'grey-lighten-3';
+    }
+};
+
+const getProgressTitle = (progressData, date) => {
+     if (progressData && progressData.id) {
+        if (planTasks.value.length > 0) {
+            const completedCount = getCompletedTasksCount(progressData);
+            const totalCount = planTasks.value.length;
+            if (completedCount === totalCount) {
+                return `Hoàn thành (${completedCount}/${totalCount} công việc)`;
+            } else {
+                 return `Đang thực hiện (${completedCount}/${totalCount} công việc)`;
+            }
+        }
+        return progressData.completed ? 'Đã hoàn thành mục tiêu ngày' : 'Chưa hoàn thành mục tiêu ngày';
+    } else if (isPastOrToday(date)) {
+        return 'Chưa check-in';
+    } else {
+        return 'Ngày tương lai';
+    }
+};
+
+const getCompletedTasksCount = (progressData) => {
+    return progressData?.completedTaskIndices?.length || 0;
+};
+
+
+const openDetailModal = (member, date, progressData) => {
+  if (progressData && progressData.id) {
     const fullProgressData = {
-      ...progressDetail,
-      memberFullName: memberProgress.userFullName,
+      ...progressData,
+      memberFullName: member.userFullName,
       date: date,
     };
     communityStore.selectProgress(fullProgressData);
-  } else {
-    // Nếu không có dữ liệu, không làm gì cả (hoặc có thể mở modal check-in)
-    console.log("Chưa có check-in cho ngày này.");
+  } else if (isPastOrToday(date)) {
+      console.log("Chưa có check-in cho ngày này.");
   }
 };
 
@@ -127,33 +225,53 @@ const closeDetailModal = () => {
     communityStore.clearSelectedProgress();
 };
 
-const isCheckInModalVisible = ref(false); // Đổi tên cho rõ ràng
-
 const openCheckInModal = () => {
-  isModalVisible.value = true;
+  isCheckInModalVisible.value = true;
 };
 const closeCheckInModal = () => {
-  isModalVisible.value = false;
+  isCheckInModalVisible.value = false;
 };
 </script>
 
 <style scoped>
-/* File: src/components/ProgressDashboard.vue -> <style scoped> */
+.progress-table {
+  border: 1px solid #e0e0e0;
+}
 .progress-cell {
   cursor: pointer;
   transition: background-color 0.2s ease-in-out;
+  padding: 8px 4px !important;
+  position: relative;
+  min-width: 70px; /* Tăng chiều rộng tối thiểu ô */
+  vertical-align: top; /* Căn nội dung lên trên */
 }
 .progress-cell:hover {
-  background-color: #f8f9fa;
+  background-color: #f5f5f5;
 }
-.progress-cell.completed:hover {
-    background-color: #d1e7dd;
-}
-/* ... (CSS cũ) ... */
 .day-header {
-  min-width: 60px;
+   padding: 8px 4px !important;
+   min-width: 70px; /* Đồng bộ với ô cell */
+   white-space: nowrap;
 }
-.fs-4 {
-  font-size: 1.25rem;
+.has-progress:hover {
+   background-color: #eee;
+}
+.task-completion-indicator {
+    display: block;
+    font-size: 0.7rem;
+    color: #616161; /* grey darken-2 */
+    margin-top: -2px; /* Điều chỉnh vị trí gần icon hơn */
+    line-height: 1;
+    font-weight: 500;
+}
+/* Trong <style scoped> */
+.evidence-indicator {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    opacity: 0.7;
+}
+.progress-cell:hover .evidence-indicator {
+    opacity: 1;
 }
 </style>
