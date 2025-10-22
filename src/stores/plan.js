@@ -6,7 +6,7 @@ import { useAuthStore } from './auth';
 
 export const usePlanStore = defineStore('plan', {
   state: () => ({
-    currentPlan: null,
+    currentPlan: null, // currentPlan.dailyTasks sẽ là [{id: Long, description: String, order: Integer}, ...]
     userPlans: [],
     isLoading: false,
     isUserPlansLoading: false,
@@ -19,36 +19,38 @@ export const usePlanStore = defineStore('plan', {
       if (!state.currentPlan || !state.currentPlan.members) return false;
       const authStore = useAuthStore();
       if (!authStore.isAuthenticated) return false;
-      // Ensure member emails are compared case-insensitively if needed
       const currentUserEmail = authStore.currentUser?.email?.toLowerCase();
       if (!currentUserEmail) return false;
       return state.currentPlan.members.some(
         member => member.userEmail?.toLowerCase() === currentUserEmail
       );
     },
-     // Add getter for user plans if needed, though direct access is fine
      getUserPlans: (state) => state.userPlans,
+     // Getter mới để lấy danh sách tasks hiện tại (đảm bảo không null)
+     currentPlanTasks: (state) => state.currentPlan?.dailyTasks || [],
   },
 
   actions: {
     async createNewPlan(planData) {
-      this.isLoading = true; // Set loading state
+      this.isLoading = true;
       this.error = null;
       try {
         const response = await planService.createPlan(planData);
-        this.currentPlan = response.data; // Optionally update current plan
-        // Optionally add the new plan to userPlans list immediately
-        // await this.fetchUserPlans(); // Or refetch the list
+        // Sau khi tạo, fetch lại plan để đảm bảo có ID task đầy đủ
         const shareableLink = response.data.shareableLink;
         if (shareableLink) {
-          router.push({ name: 'plan-details', params: { shareableLink } });
+           await this.fetchPlan(shareableLink); // Fetch lại để có ID tasks
+           router.push({ name: 'plan-details', params: { shareableLink } });
+        } else {
+           // Xử lý lỗi nếu không có link trả về
+           this.error = "Tạo kế hoạch thành công nhưng không nhận được link chia sẻ.";
         }
       } catch (error) {
         console.error("Lỗi khi tạo kế hoạch:", error);
-        this.error = error.response?.data?.message || 'Không thể tạo kế hoạch.'; // Set error state
-        throw error; // Re-throw error for component handling
+        this.error = error.response?.data?.message || 'Không thể tạo kế hoạch.';
+        throw error;
       } finally {
-          this.isLoading = false; // Reset loading state
+          this.isLoading = false;
       }
     },
 
@@ -59,10 +61,13 @@ export const usePlanStore = defineStore('plan', {
       try {
         const response = await planService.getPlanByShareableLink(shareableLink);
         this.currentPlan = response.data;
+        // Đảm bảo dailyTasks là một mảng
+        if (!Array.isArray(this.currentPlan.dailyTasks)) {
+            this.currentPlan.dailyTasks = [];
+        }
       } catch (error) {
         console.error("Lỗi khi tải kế hoạch:", error);
         this.error = "Không tìm thấy kế hoạch hoặc bạn không có quyền truy cập.";
-        // Handle specific error codes e.g., 404 vs 403
       } finally {
         this.isLoading = false;
       }
@@ -73,11 +78,13 @@ export const usePlanStore = defineStore('plan', {
         console.error("joinCurrentPlan được gọi nhưng thiếu shareableLink");
         throw new Error("Không tìm thấy mã kế hoạch.");
       }
-      this.isLoading = true; // Consider a specific joining state?
+      this.isLoading = true;
       try {
         const response = await planService.joinPlan(shareableLink);
         this.currentPlan = response.data;
-        // After joining, also update the user's plan list
+        if (!Array.isArray(this.currentPlan.dailyTasks)) {
+            this.currentPlan.dailyTasks = [];
+        }
         await this.fetchUserPlans();
       } catch (error) {
         console.error("Lỗi khi tham gia kế hoạch:", error);
@@ -87,35 +94,30 @@ export const usePlanStore = defineStore('plan', {
       }
     },
 
-    // --- VERIFY THIS ACTION ---
     async fetchUserPlans() {
         this.isUserPlansLoading = true;
         this.userPlansError = null;
-        // Do not clear userPlans here if you want incremental loading or cache
         try {
             const response = await planService.getMyPlans();
             this.userPlans = response.data;
         } catch (error) {
             console.error("Lỗi khi tải danh sách kế hoạch:", error);
             this.userPlansError = "Không thể tải danh sách kế hoạch của bạn.";
-            this.userPlans = []; // Clear plans on error
+            this.userPlans = [];
         } finally {
             this.isUserPlansLoading = false;
         }
     },
-    // --- END VERIFICATION ---
 
     removePlanFromUserList(planId) {
         this.userPlans = this.userPlans.filter(p => p.id !== planId);
     },
-    
-    // --- THÊM ACTION NÀY ---
+
     clearUserPlans() {
         this.userPlans = [];
         this.userPlansError = null;
-        this.isUserPlansLoading = false; // Reset cả trạng thái loading/error
-        console.log("Cleared user plans."); // Log để debug
+        this.isUserPlansLoading = false;
+        console.log("Cleared user plans.");
     }
-    // --- KẾT THÚC THÊM ---
   },
 });

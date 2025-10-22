@@ -1,23 +1,31 @@
 // File: src/stores/community.js
 import { defineStore } from 'pinia';
 import communityService from '@/api/communityService';
-import { useProgressStore } from './progress'; // Import progress store
-import { usePlanStore } from './plan'; // Import plan store (nếu cần lấy task)
+import { useProgressStore } from './progress';
+import { usePlanStore } from './plan';
+import { useAuthStore } from './auth'; // Thêm import authStore
 
 export const useCommunityStore = defineStore('community', {
   state: () => ({
     selectedProgress: null,
     isLoading: false,
-    error: null, // Thêm state error
+    error: null,
+    // Thêm state để quản lý việc sửa comment
+    editingCommentId: null,
+    editingCommentContent: '',
   }),
   actions: {
     selectProgress(progressData) {
         this.selectedProgress = progressData;
-        this.error = null; // Reset lỗi khi chọn mới
+        this.error = null;
+        this.editingCommentId = null; // Reset trạng thái sửa khi chọn progress mới
+        this.editingCommentContent = '';
     },
 
     clearSelectedProgress() {
         this.selectedProgress = null;
+        this.editingCommentId = null;
+        this.editingCommentContent = '';
     },
 
     async addComment(content) {
@@ -29,7 +37,6 @@ export const useCommunityStore = defineStore('community', {
       this.error = null;
       try {
         const response = await communityService.postComment(this.selectedProgress.id, content);
-        // Cập nhật state nội bộ trước khi fetch lại dashboard
          if (this.selectedProgress.comments) {
             this.selectedProgress.comments.push(response.data);
         } else {
@@ -38,7 +45,7 @@ export const useCommunityStore = defineStore('community', {
       } catch(error) {
         console.error("Lỗi khi bình luận:", error);
         this.error = error.response?.data?.message || "Gửi bình luận thất bại.";
-        throw error;
+        throw error; // Ném lỗi để component xử lý (ví dụ: hiển thị thông báo)
       } finally {
         this.isLoading = false;
       }
@@ -49,62 +56,104 @@ export const useCommunityStore = defineStore('community', {
              this.error = "Không tìm thấy thông tin tiến độ để thả reaction.";
              return;
         }
-
         const progressStore = useProgressStore();
-        // Lấy shareableLink TỪ PROGRESS STORE
         const shareableLink = progressStore.currentPlanShareableLink;
-
         if (!shareableLink) {
             console.error("toggleReaction không tìm thấy shareableLink trong progressStore");
             this.error = "Lỗi: Không tìm thấy mã kế hoạch hiện tại.";
-            return; // Dừng lại nếu không có link
+            return;
         }
-
         const currentUserReaction = this.selectedProgress.reactions?.find(r => r.hasCurrentUserReacted);
         const currentReactionType = currentUserReaction?.type;
-
-        this.isLoading = true; // Có thể thêm state loading riêng cho reaction
+        this.isLoading = true;
         this.error = null;
-
         try {
             if (currentReactionType === reactionType) {
-                // Nếu click lại reaction cũ -> xóa
                 await communityService.removeReaction(this.selectedProgress.id);
             } else {
-                // Nếu click reaction mới (hoặc chưa có) -> thêm/cập nhật
                 await communityService.addOrUpdateReaction(this.selectedProgress.id, reactionType);
             }
-
-            // Tải lại dashboard để cập nhật state tổng thể
             await progressStore.fetchDashboard(shareableLink);
-
-            // Cập nhật lại selectedProgress trong modal với dữ liệu MỚI NHẤT từ dashboard vừa fetch
             const updatedDashboard = progressStore.dashboard;
             if (updatedDashboard?.membersProgress) {
                  const updatedMember = updatedDashboard.membersProgress.find(m => m.userFullName === this.selectedProgress.memberFullName);
                  if (updatedMember?.dailyStatus) {
                      const updatedProgressData = updatedMember.dailyStatus[this.selectedProgress.date];
                      if (updatedProgressData) {
-                         // Cập nhật lại state selectedProgress với dữ liệu mới
-                         this.selectProgress({
+                         this.selectProgress({ // Dùng selectProgress để cập nhật đúng cách
                              ...updatedProgressData,
                              memberFullName: updatedMember.userFullName,
                              date: this.selectedProgress.date,
                          });
                      } else {
                           console.warn("Không tìm thấy dữ liệu progress cập nhật sau khi fetch lại dashboard.");
-                          // Giữ nguyên modal hoặc đóng? Tùy logic mong muốn.
                      }
                  }
             }
-
         } catch (error) {
             console.error("Lỗi khi thả reaction:", error);
             this.error = error.response?.data?.message || "Thao tác reaction thất bại.";
-            // Không ném lỗi ra ngoài để tránh crash UI, chỉ hiển thị lỗi qua state `error`
         } finally {
              this.isLoading = false;
         }
-    }
+    },
+
+    // --- THÊM CÁC ACTIONS NÀY ---
+    startEditingComment(comment) {
+        this.editingCommentId = comment.id;
+        this.editingCommentContent = comment.content;
+        this.error = null; // Xóa lỗi cũ nếu có
+    },
+
+    cancelEditingComment() {
+        this.editingCommentId = null;
+        this.editingCommentContent = '';
+    },
+
+    async saveEditedComment() {
+        if (!this.editingCommentId || !this.editingCommentContent.trim()) {
+            this.error = "Nội dung bình luận không được để trống.";
+            return;
+        }
+        this.isLoading = true; // Có thể dùng loading riêng cho việc sửa
+        this.error = null;
+        try {
+            const response = await communityService.updateComment(this.editingCommentId, this.editingCommentContent);
+            // Cập nhật comment trong state
+            const index = this.selectedProgress.comments.findIndex(c => c.id === this.editingCommentId);
+            if (index !== -1) {
+                this.selectedProgress.comments[index] = response.data;
+            }
+            // Kết thúc chỉnh sửa
+            this.cancelEditingComment();
+        } catch (error) {
+            console.error("Lỗi khi cập nhật bình luận:", error);
+            this.error = error.response?.data?.message || "Cập nhật bình luận thất bại.";
+            // Không cancel editing để người dùng có thể thử lại
+            throw error; // Ném lỗi để component xử lý
+        } finally {
+            this.isLoading = false;
+        }
+    },
+
+    async deleteComment(commentId) {
+        if (!this.selectedProgress) return;
+        // Có thể thêm confirm dialog ở component trước khi gọi action này
+        this.isLoading = true; // Có thể dùng loading riêng cho việc xóa
+        this.error = null;
+        try {
+            await communityService.deleteComment(commentId);
+            // Xóa comment khỏi state
+            this.selectedProgress.comments = this.selectedProgress.comments.filter(c => c.id !== commentId);
+        } catch (error) {
+            console.error("Lỗi khi xóa bình luận:", error);
+            this.error = error.response?.data?.message || "Xóa bình luận thất bại.";
+            throw error; // Ném lỗi để component xử lý
+        } finally {
+            this.isLoading = false;
+        }
+    },
+    // --- KẾT THÚC THÊM ---
+
   },
 });
