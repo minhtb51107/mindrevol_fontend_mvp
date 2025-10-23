@@ -14,12 +14,15 @@
   "dependencies": {
     "@mdi/font": "^7.4.47",
     "@popperjs/core": "^2.11.8",
+    "@stomp/stompjs": "^7.2.1",
     "axios": "^1.12.2",
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",
     "pinia": "^3.0.3",
+    "sockjs-client": "^1.6.1",
     "vue": "^3.5.22",
     "vue-router": "^4.6.3",
+    "vuedraggable": "^4.1.0",
     "vuetify": "^3.7.13"
   },
   "devDependencies": {
