@@ -34,13 +34,14 @@
 
                 <v-expand-transition>
                   <div v-if="isTaskSelected(task.id)" class="task-interaction-area mt-2 ps-8">
-                    <v-textarea
+                    <MentionTextarea
+                      ref="mentionTextareaRefs"
                       v-model="taskInteractions[task.id].commentContent"
                       label="Bình luận cho công việc này..."
+                      :items="mentionableMembers"
                       rows="1" variant="outlined" density="compact" hide-details="auto" auto-grow
                       class="mb-2"
-                    ></v-textarea>
-
+                    />
                     <v-file-input
                       :model-value="getTaskFilesToUpload(task.id)"
                       @update:modelValue="files => handleTaskFilesSelected(task.id, files)"
@@ -112,6 +113,8 @@ import { ref, reactive, onMounted, computed, watch, nextTick } from 'vue';
 import { useProgressStore } from '@/stores/progress';
 import { usePlanStore } from '@/stores/plan';
 import progressService from '@/api/progressService';
+// *** THÊM IMPORT MENTIONTEXTAREA ***
+import MentionTextarea from '@/components/MentionTextarea.vue';
 import { VDialog, VCard, VCardTitle, VCardText, VCardActions, VForm, VTextField, VTextarea, VCheckbox, VBtn, VSpacer, VAlert, VCombobox, VChip, VFileInput, VIcon, VDivider, VExpandTransition } from 'vuetify/components';
 
 const props = defineProps({
@@ -124,6 +127,7 @@ const progressStore = useProgressStore();
 const planStore = usePlanStore();
 const dialogVisible = ref(true);
 const checkInForm = ref(null);
+const mentionTextareaRefs = ref([]); // Ref cho các MentionTextarea
 
 const form = reactive({
   date: '',
@@ -146,9 +150,30 @@ const isUploading = ref(false);
 const uploadingTaskId = ref(null);
 const uploadError = ref('');
 
+// *** THÊM COMPUTED ĐỂ CHUẨN BỊ DATA CHO MENTION ***
+const mentionableMembers = computed(() => {
+    // Cần import useAuthStore nếu chưa có ở đầu file script setup
+    // import { useAuthStore } from '@/stores/auth';
+    // const authStore = useAuthStore(); // Lấy authStore
+
+    if (!planStore.currentPlan?.members) return [];
+    const currentUserId = authStore.currentUser?.id; // Lấy ID của user hiện tại
+
+    return planStore.currentPlan.members
+        .filter(member => member.userId !== currentUserId) // Lọc bỏ user hiện tại
+        .map(member => ({
+            id: member.userId,
+            label: member.userFullName,
+            avatar: null, // Thêm avatar URL nếu có
+            initial: member.userFullName ? member.userFullName.charAt(0).toUpperCase() : '?',
+            email: member.userEmail,
+        }));
+});
+// *** KẾT THÚC THÊM ***
+
 const prefillForm = (data) => {
     console.log("Prefilling form with:", data);
-    if (!data || !data.date) { // Check if data or data.date exists
+    if (!data || !data.date) {
         form.date = getTodayDate();
         form.completed = false;
         form.notes = '';
@@ -160,12 +185,11 @@ const prefillForm = (data) => {
              if (!filesToUploadPerTask[task.id]) filesToUploadPerTask[task.id] = [];
              else filesToUploadPerTask[task.id] = [];
          });
-         // Reset validation after setting defaults
          nextTick(() => { checkInForm.value?.resetValidation(); });
         return;
     };
 
-    form.date = data.date; // Use date from data
+    form.date = data.date;
     form.completed = data.completed ?? false;
     form.notes = data.notes || '';
     form.evidenceLinks = Array.isArray(data.evidence) ? [...data.evidence] : [];
@@ -173,25 +197,37 @@ const prefillForm = (data) => {
     if (data.completedTaskIds) {
         selectedTaskIds.value = Array.isArray(data.completedTaskIds)
             ? [...data.completedTaskIds]
-            : [...new Set(data.completedTaskIds)];
+            : [...new Set(data.completedTaskIds)]; // Use Set constructor for Sets
     } else {
         selectedTaskIds.value = [];
     }
 
+    // Initialize taskInteractions for ALL tasks first
     tasks.value.forEach(task => {
         if (!taskInteractions[task.id]) {
             taskInteractions[task.id] = { commentContent: '', attachments: [] };
-        } else {
-            taskInteractions[task.id].commentContent = '';
-            // TODO: Prefill attachments if data.attachments exists and matches task structure
-            taskInteractions[task.id].attachments = [];
         }
         if (!filesToUploadPerTask[task.id]) {
-           filesToUploadPerTask[task.id] = [];
-        } else {
             filesToUploadPerTask[task.id] = [];
         }
+        // Then clear existing data before potentially prefilling (or keep empty)
+        taskInteractions[task.id].commentContent = '';
+        taskInteractions[task.id].attachments = []; // Reset attachments on prefill
+        filesToUploadPerTask[task.id] = [];
     });
+
+    // TODO: If `initialData` includes task-specific comments/attachments for THIS check-in, prefill them here.
+    // This requires `initialData` structure to align with `taskUpdates` payload.
+    // Example (assuming initialData.taskUpdates exists):
+    // if (Array.isArray(data.taskUpdates)) {
+    //     data.taskUpdates.forEach(update => {
+    //         if (taskInteractions[update.taskId]) {
+    //             taskInteractions[update.taskId].commentContent = update.commentContent || '';
+    //             taskInteractions[update.taskId].attachments = Array.isArray(update.attachments) ? [...update.attachments] : [];
+    //         }
+    //     });
+    // }
+
 
     isUploading.value = false;
     uploadingTaskId.value = null;
@@ -203,6 +239,7 @@ const prefillForm = (data) => {
     });
 };
 
+
 watch(tasks, (newTasks) => {
     if (newTasks && newTasks.length > 0) {
         newTasks.forEach(task => {
@@ -213,13 +250,15 @@ watch(tasks, (newTasks) => {
      if (props.initialData) {
          prefillForm(props.initialData);
      } else {
-         // Explicitly prefill with today's date if no initial data
-         prefillForm(null);
+         prefillForm(null); // Explicitly prefill with defaults if no initial data
      }
-}, { immediate: true, deep: true });
+}, { immediate: true });
+
 
 watch(selectedTaskIds, (newIds, oldIds) => {
+    // Prevent auto-checking/unchecking 'completed' during initial load/prefill
     const initialLoadOrPrefill = oldIds === undefined || (props.initialData && form.date === props.initialData.date);
+
     if (!initialLoadOrPrefill && tasks.value.length > 0) {
         const expectedCompleted = newIds.length === tasks.value.length;
         if (form.completed !== expectedCompleted) {
@@ -229,34 +268,37 @@ watch(selectedTaskIds, (newIds, oldIds) => {
 }, { deep: true });
 
 watch(() => form.completed, (isCompleted, wasCompleted) => {
+     // Check if the change wasn't triggered by selectedTaskIds watcher
      if (isCompleted !== wasCompleted && tasks.value.length > 0) {
-        if (isCompleted && selectedTaskIds.value.length !== tasks.value.length) {
+        const allTasksSelected = selectedTaskIds.value.length === tasks.value.length;
+        if (isCompleted && !allTasksSelected) {
             selectedTaskIds.value = tasks.value.map(task => task.id);
-        } else if (!isCompleted && selectedTaskIds.value.length === tasks.value.length) {
+        } else if (!isCompleted && allTasksSelected) {
+             // If unchecking 'completed' while all tasks were selected, unselect all tasks.
+             // If you want different behavior (e.g., keep tasks selected), adjust this logic.
              selectedTaskIds.value = [];
         }
     }
 });
 
+
 const rules = {
   required: value => !!value || 'Thông tin bắt buộc.',
   minValue: (min) => value => (value >= min) || `Giá trị phải lớn hơn hoặc bằng ${min}.`,
   dateNotInFuture: value => {
-      if (!value) return true; // Allow empty initially
+      if (!value) return true;
       const selectedDate = new Date(value); selectedDate.setHours(0, 0, 0, 0);
       const today = new Date(); today.setHours(0, 0, 0, 0);
       return selectedDate <= today || 'Không thể check-in cho ngày tương lai.';
   },
    dateWithinPlan: value => {
-       if (!value || !planStartDate.value || !planEndDate.value) return true; // Allow empty or if plan dates missing
+       if (!value || !planStartDate.value || !planEndDate.value) return true;
        const selectedDate = new Date(value); selectedDate.setHours(0,0,0,0);
        const startDate = new Date(planStartDate.value); startDate.setHours(0,0,0,0);
        const endDate = new Date(planEndDate.value); endDate.setHours(0,0,0,0);
        return (selectedDate >= startDate && selectedDate <= endDate) || 'Ngày check-in phải nằm trong thời gian kế hoạch.';
    },
-  taskDescriptionRequired: (value, index) => {
-      return true;
-  }
+  // Task description rule not needed here as it's optional during check-in
 };
 
 const getTodayDate = () => {
@@ -268,9 +310,10 @@ const getTodayDate = () => {
 };
 
 onMounted(() => {
-  prefillForm(props.initialData);
+  // prefillForm is now called by the 'tasks' watcher initially
 });
 
+// Watch initialData prop changes after mount
 watch(() => props.initialData, (newData) => {
     prefillForm(newData);
 }, { deep: true });
@@ -282,18 +325,14 @@ const getFileIcon = (contentType) => {
     if (!contentType) return 'mdi-file-outline';
     if (contentType.startsWith('image/')) return 'mdi-file-image-outline';
     if (contentType === 'application/pdf') return 'mdi-file-pdf-box';
-    if (contentType.startsWith('video/')) return 'mdi-file-video-outline';
-    if (contentType.startsWith('audio/')) return 'mdi-file-music-outline';
-    if (contentType.includes('zip') || contentType.includes('rar')) return 'mdi-folder-zip-outline';
+    // Add more types if needed
     return 'mdi-file-document-outline';
 };
 const formatFileSize = (bytes) => {
     if (!bytes || bytes === 0) return '0 Bytes';
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    if (bytes <= 0) return '0 Bytes';
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-     if (i < 0 || i >= sizes.length) return bytes + ' Bytes';
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 };
 const isTaskSelected = (taskId) => selectedTaskIds.value.includes(taskId);
@@ -301,56 +340,78 @@ const getTaskFilesToUpload = (taskId) => filesToUploadPerTask[taskId] || [];
 const clearUploadError = () => { uploadError.value = ''; uploadingTaskId.value = null; };
 
 const handleTaskFilesSelected = async (taskId, newFiles) => {
-     filesToUploadPerTask[taskId] = newFiles || [];
-     if (!newFiles || newFiles.length === 0) return;
+     filesToUploadPerTask[taskId] = newFiles || []; // Update the display model
+     if (!newFiles || newFiles.length === 0) return; // No files selected/cleared
+
      isUploading.value = true;
      uploadingTaskId.value = taskId;
      uploadError.value = '';
+
      const uploadPromises = newFiles.map(file =>
         progressService.uploadEvidenceFile(file)
-            .then(response => ({...response.data, taskId: taskId}))
+            .then(response => ({...response.data, taskId: taskId})) // Pass taskId along
             .catch(error => ({ error: true, fileName: file.name, message: error.response?.data?.message || 'Upload thất bại', taskId: taskId }))
     );
+
     try {
         const results = await Promise.all(uploadPromises);
+
+        // Filter results specific to the current task ID being uploaded
         const successfulUploads = results.filter(result => !result.error && result.taskId === taskId);
         const failedUploads = results.filter(result => result.error && result.taskId === taskId);
+
         if (taskInteractions[taskId]) {
+             // Add successfully uploaded files to the interaction state for this task
              successfulUploads.forEach(uploadInfo => {
-                 taskInteractions[taskId].attachments.push({
-                     storedFilename: uploadInfo.storedFilename,
-                     fileUrl: uploadInfo.fileUrl,
-                     originalFilename: uploadInfo.originalFilename,
-                     contentType: uploadInfo.contentType,
-                     size: uploadInfo.size // Use 'size' if API response uses 'size'
-                 });
+                 // Check for duplicates before adding
+                 if (!taskInteractions[taskId].attachments.some(att => att.storedFilename === uploadInfo.storedFilename)) {
+                     taskInteractions[taskId].attachments.push({
+                         storedFilename: uploadInfo.storedFilename,
+                         fileUrl: uploadInfo.fileUrl,
+                         originalFilename: uploadInfo.originalFilename,
+                         contentType: uploadInfo.contentType,
+                         size: uploadInfo.size // Make sure the field name matches (size vs fileSize)
+                     });
+                 }
              });
+        } else {
+             console.warn(`taskInteractions for task ${taskId} not found after upload.`);
         }
+
         if (failedUploads.length > 0) {
             uploadError.value = `Lỗi tải lên ${failedUploads[0].fileName}: ${failedUploads[0].message}`;
         }
+
+        // Clear the file input only for the specific task *after* processing results
         filesToUploadPerTask[taskId] = [];
+
     } catch (error) {
         console.error(`Lỗi xử lý upload files cho task ${taskId}:`, error);
         uploadError.value = "Đã có lỗi xảy ra trong quá trình upload.";
     } finally {
-        isUploading.value = false;
-        uploadingTaskId.value = null;
+        // Reset loading state only if this was the task being uploaded
+        if (uploadingTaskId.value === taskId) {
+            isUploading.value = false;
+            uploadingTaskId.value = null;
+        }
     }
 };
 
 const removeTaskUploadedFile = (taskId, fileIndex) => {
     if (taskInteractions[taskId]) {
         const removedFile = taskInteractions[taskId].attachments.splice(fileIndex, 1)[0];
-        console.log("Removed attachment:", removedFile);
-        // TODO: Gọi API xóa file vật lý
+        console.log("Removed attachment (from check-in state):", removedFile?.originalFilename);
+        // NOTE: This only removes it from the *current check-in data*.
+        // If the file was already saved in a previous check-in, it won't be deleted from the server here.
+        // Deleting previously saved files should happen in the ProgressDetailModal.
     }
 };
 
 const handleSubmit = async () => {
   const { valid } = await checkInForm.value.validate();
-  if (!valid || isUploading.value) {
+  if (!valid || isUploading.value) { // Prevent submit while uploading
       if(!valid) console.error("Form validation failed");
+      if(isUploading.value) errorMessage.value = "Vui lòng chờ upload file hoàn tất.";
       return;
   }
 
@@ -358,34 +419,34 @@ const handleSubmit = async () => {
   clearErrors();
 
   try {
+     // Prepare taskUpdates payload ONLY for selected tasks that have interactions
      const taskUpdatesPayload = selectedTaskIds.value
         .map(taskId => {
             const interaction = taskInteractions[taskId];
-            const updateData = { taskId };
-            if (interaction) {
-                if (interaction.commentContent && interaction.commentContent.trim()) {
-                    updateData.commentContent = interaction.commentContent.trim();
-                }
-                if (interaction.attachments && interaction.attachments.length > 0) {
-                    updateData.attachments = interaction.attachments.map(f => ({
+            // Only include update if there's comment OR attachments
+            if (interaction && ( (interaction.commentContent && interaction.commentContent.trim()) || (interaction.attachments && interaction.attachments.length > 0) )) {
+                return {
+                    taskId,
+                    commentContent: interaction.commentContent?.trim() || null, // Send null if empty/whitespace
+                    attachments: interaction.attachments?.map(f => ({
                         storedFilename: f.storedFilename,
                         fileUrl: f.fileUrl,
                         originalFilename: f.originalFilename,
                         contentType: f.contentType,
-                        fileSize: f.size // Ensure field name matches backend DTO (fileSize)
-                    }));
-                }
+                        fileSize: f.size // Ensure field matches backend DTO
+                    })) || [] // Send empty array if no attachments
+                };
             }
-             return (updateData.commentContent || updateData.attachments?.length > 0) ? updateData : null;
+            return null; // Exclude task if no comment or attachments added in this check-in
         })
-        .filter(update => update !== null);
+        .filter(update => update !== null); // Remove null entries
 
      const payload = {
        date: form.date,
        completed: form.completed,
-       notes: form.notes,
-       evidence: form.evidenceLinks.filter(link => link && link.trim()), // evidence links
-       completedTaskIds: selectedTaskIds.value,
+       notes: form.notes || null, // Send null if empty
+       evidence: form.evidenceLinks?.filter(link => link && link.trim()) || [], // Filter empty links
+       completedTaskIds: selectedTaskIds.value || [],
        taskUpdates: taskUpdatesPayload
      };
 
@@ -393,7 +454,7 @@ const handleSubmit = async () => {
 
     await progressStore.logDailyProgress(props.shareableLink, payload);
 
-    await planStore.fetchPlan(props.shareableLink);
+    // No need to fetchPlan here, ProgressDashboard will update via store/websocket
     close();
 
   } catch (error) {
@@ -412,5 +473,6 @@ watch(dialogVisible, (newValue) => { if (!newValue) { setTimeout(() => emit('clo
 .task-checkin-item { background-color: #f9f9f9; }
 .uploaded-files-list { margin-top: -8px; }
 :deep(.v-file-input .v-chip) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
-.task-checkin-item :deep(.v-label) { opacity: 1 !important; }
+.task-checkin-item :deep(.v-label) { opacity: 1 !important; } /* Make checkbox labels fully opaque */
+/* Add styles for MentionTextarea if needed */
 </style>

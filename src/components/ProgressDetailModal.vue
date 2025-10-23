@@ -80,11 +80,13 @@
                                          <v-list-item-subtitle class="text-body-2 text-wrap">{{ comment.content }}</v-list-item-subtitle>
                                      </div>
                                      <div v-else class="edit-comment-form">
-                                        <v-textarea
+                                        <MentionTextarea
+                                            ref="editTaskCommentMentionTextareaRef"
                                             v-model="taskStore.editingTaskCommentContent"
+                                            :items="mentionableMembers"
                                             rows="2" variant="outlined" density="compact" hide-details="auto" auto-grow autofocus
                                             class="mb-2"
-                                        ></v-textarea>
+                                        />
                                         <div class="d-flex justify-end">
                                             <v-btn size="small" variant="text" @click="taskStore.cancelEditingTaskComment()">Hủy</v-btn>
                                             <v-btn size="small" color="primary" variant="flat" @click="saveTaskCommentEdit" :loading="taskStore.isLoading">Lưu</v-btn>
@@ -106,8 +108,18 @@
                                 </v-list-item>
                             </v-list>
                             <v-form @submit.prevent="submitTaskComment">
-                                <v-textarea v-model="newTaskComment" placeholder="Viết bình luận..." rows="1" variant="outlined" density="compact" hide-details auto-grow append-inner-icon="mdi-send" @click:append-inner="submitTaskComment" :disabled="taskStore.isLoading" :loading="taskStore.isLoading && !taskStore.editingTaskCommentId" class="comment-input"></v-textarea>
-                            </v-form>
+                                <MentionTextarea
+                                  ref="addTaskCommentMentionTextareaRef"
+                                  v-model="newTaskComment"
+                                  placeholder="Viết bình luận..."
+                                  :items="mentionableMembers"
+                                  rows="1" variant="outlined" density="compact" hide-details auto-grow
+                                  append-inner-icon="mdi-send" @click:append-inner="submitTaskComment"
+                                  :disabled="taskStore.isLoading"
+                                  :loading="taskStore.isLoading && !taskStore.editingTaskCommentId"
+                                  class="comment-input"
+                                />
+                                </v-form>
                              <v-alert v-if="taskStore.error && taskStore.selectedTask?.id === task.id" type="error" density="compact" class="mt-2" closable @click:close="taskStore.error = null">{{ taskStore.error }}</v-alert>
                         </div>
                     </v-expansion-panel-text>
@@ -133,17 +145,23 @@
                  <v-list-item v-for="comment in progress.comments" :key="'daycomment-'+comment.id" class="px-0 mb-1 comment-item">
                     <template v-slot:prepend><v-avatar size="32" color="grey-lighten-2" class="me-3 mt-1"><v-icon icon="mdi-account" color="grey-darken-1"></v-icon></v-avatar></template>
                     <div v-if="communityStore.editingCommentId !== comment.id">
-                        <v-list-item-title class="text-body-2 font-weight-medium">{{ comment.authorFullName }}</v-list-item-title>
+                        <v-list-item-title class="text-body-2 font-weight-medium">{{ comment.authorFullName }} <span class="text-grey text-caption"> {{ formatTimeAgo(comment.createdAt) }} {{ comment.updatedAt ? '(đã sửa)' : '' }}</span> </v-list-item-title>
                         <v-list-item-subtitle class="text-body-2 text-wrap">{{ comment.content }}</v-list-item-subtitle>
                     </div>
-                    <div v-else class="edit-comment-form">
-                        <v-textarea v-model="communityStore.editingCommentContent" rows="2" variant="outlined" density="compact" hide-details auto-grow autofocus class="mb-2"></v-textarea>
+                     <div v-else class="edit-comment-form">
+                        <MentionTextarea
+                            ref="editCommentMentionTextareaRef"
+                            v-model="communityStore.editingCommentContent"
+                            :items="mentionableMembers"
+                            rows="2" variant="outlined" density="compact" hide-details auto-grow autofocus
+                            class="mb-2"
+                        />
                         <div class="d-flex justify-end">
                             <v-btn size="small" variant="text" @click="communityStore.cancelEditingComment()">Hủy</v-btn>
                             <v-btn size="small" color="primary" variant="flat" @click="saveEdit" :loading="communityStore.isLoading">Lưu</v-btn>
                         </div>
                     </div>
-                    <template v-slot:append v-if="communityStore.editingCommentId !== comment.id">
+                     <template v-slot:append v-if="communityStore.editingCommentId !== comment.id">
                         <v-menu location="bottom end" v-if="canEditOrDeleteComment(comment)">
                             <template v-slot:activator="{ props }"><v-btn icon="mdi-dots-vertical" variant="text" size="small" v-bind="props"></v-btn></template>
                             <v-list density="compact">
@@ -162,8 +180,18 @@
              </v-list>
             <v-alert v-if="communityStore.error" type="error" density="compact" class="mb-2" closable @click:close="communityStore.error = null">{{ communityStore.error }}</v-alert>
             <v-form @submit.prevent="submitComment">
-              <v-textarea v-model="newComment" placeholder="Viết bình luận chung..." rows="2" variant="outlined" density="compact" hide-details auto-grow append-inner-icon="mdi-send" @click:append-inner="submitComment" :disabled="!canInteract || communityStore.isLoading" :loading="communityStore.isLoading && !communityStore.editingCommentId" class="comment-input"></v-textarea>
-            </v-form>
+              <MentionTextarea
+                ref="addCommentMentionTextareaRef"
+                v-model="newComment"
+                placeholder="Viết bình luận chung..."
+                :items="mentionableMembers"
+                rows="2" variant="outlined" density="compact" hide-details auto-grow
+                append-inner-icon="mdi-send" @click:append-inner="submitComment"
+                :disabled="!canInteract || communityStore.isLoading"
+                :loading="communityStore.isLoading && !communityStore.editingCommentId"
+                class="comment-input"
+              />
+              </v-form>
           </div>
       </v-card-text>
 
@@ -172,13 +200,13 @@
         <p class="mt-3 text-medium-emphasis">Đang tải chi tiết...</p>
       </v-card-text>
 
-      <v-dialog v-model="deleteConfirmDialog" persistent max-width="400">
+       <v-dialog v-model="deleteConfirmDialog" persistent max-width="400">
          <v-card>
             <v-card-title class="text-h6">Xác nhận xóa</v-card-title>
             <v-card-text>Bạn có chắc chắn muốn xóa bình luận này không?</v-card-text>
             <v-card-actions>
                 <v-spacer></v-spacer>
-                <v-btn color="grey-darken-1" text @click="deleteConfirmDialog = false">Hủy</v-btn>
+                <v-btn color="grey-darken-1" text @click="deleteConfirmDialog = false" :disabled="communityStore.isLoading">Hủy</v-btn>
                 <v-btn color="error" text @click="executeDeleteComment" :loading="communityStore.isLoading">Xóa</v-btn>
             </v-card-actions>
         </v-card>
@@ -189,7 +217,7 @@
             <v-card-text>Bạn có chắc chắn muốn xóa bình luận công việc này không?</v-card-text>
             <v-card-actions>
                 <v-spacer></v-spacer>
-                <v-btn color="grey-darken-1" text @click="deleteTaskCommentConfirmDialog = false">Hủy</v-btn>
+                <v-btn color="grey-darken-1" text @click="deleteTaskCommentConfirmDialog = false" :disabled="taskStore.isLoading">Hủy</v-btn>
                 <v-btn color="error" text @click="executeDeleteTaskComment" :loading="taskStore.isLoading">Xóa</v-btn>
             </v-card-actions>
         </v-card>
@@ -200,7 +228,7 @@
             <v-card-text>Bạn có chắc chắn muốn xóa file đính kèm này không? Hành động này không thể hoàn tác.</v-card-text>
             <v-card-actions>
                 <v-spacer></v-spacer>
-                <v-btn color="grey-darken-1" text @click="deleteTaskAttachmentConfirmDialog = false">Hủy</v-btn>
+                <v-btn color="grey-darken-1" text @click="deleteTaskAttachmentConfirmDialog = false" :disabled="taskStore.isLoading">Hủy</v-btn>
                 <v-btn color="error" text @click="executeDeleteTaskAttachment" :loading="taskStore.isLoading">Xóa</v-btn>
             </v-card-actions>
         </v-card>
@@ -210,12 +238,16 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue'; // Thêm nextTick
 import { useCommunityStore } from '@/stores/community';
 import { usePlanStore } from '@/stores/plan';
 import { useAuthStore } from '@/stores/auth';
 import { useTaskStore } from '@/stores/taskStore';
 import progressService from '@/api/progressService';
+// *** THÊM IMPORT MENTIONTEXTAREA ***
+import MentionTextarea from '@/components/MentionTextarea.vue';
+// *** THÊM IMPORT formatters ***
+import { formatTimeAgo, formatFileSize } from '@/utils/formatters'; // Import hàm format
 import { VDialog, VCard, VCardTitle, VCardText, VCardActions, VBtn, VIcon, VSheet, VDivider, VChipGroup, VChip, VForm, VTextarea, VProgressCircular, VAlert, VList, VListItem, VListItemTitle, VListItemSubtitle, VAvatar, VMenu, VSpacer, VExpansionPanels, VExpansionPanel, VExpansionPanelTitle, VExpansionPanelText, VFileInput } from 'vuetify/components';
 
 const props = defineProps({
@@ -231,8 +263,8 @@ const authStore = useAuthStore();
 const taskStore = useTaskStore();
 
 const dialogVisible = ref(true);
-const newComment = ref('');
-const newTaskComment = ref('');
+const newComment = ref(''); // For general comments
+const newTaskComment = ref(''); // For task comments
 const taskFilesToUpload = ref([]);
 const deleteConfirmDialog = ref(false);
 const commentToDeleteId = ref(null);
@@ -242,25 +274,35 @@ const deleteTaskAttachmentConfirmDialog = ref(false);
 const taskAttachmentToDeleteId = ref(null);
 const expandedTaskPanel = ref(null);
 
+// Refs for MentionTextarea components
+const addCommentMentionTextareaRef = ref(null);
+const editCommentMentionTextareaRef = ref(null);
+const addTaskCommentMentionTextareaRef = ref(null);
+const editTaskCommentMentionTextareaRef = ref(null);
+
+
 const progress = computed(() => communityStore.selectedProgress);
 const tasks = computed(() => {
     const planTasks = planStore.currentPlanTasks || [];
+    // Map tasks and merge with selected task data if applicable
     return planTasks.map(planTask => {
+        // Ensure comments/attachments arrays exist
         const comments = Array.isArray(planTask.comments) ? planTask.comments : [];
         const attachments = Array.isArray(planTask.attachments) ? planTask.attachments : [];
-        // Ensure task data from planStore has comments/attachments arrays initialized
         const taskWithInitializedArrays = { ...planTask, comments, attachments };
+
+        // If this task is the selected one in taskStore, merge data
         if (taskStore.selectedTask && taskStore.selectedTask.id === planTask.id) {
-             // Merge data, ensuring arrays exist in selectedTask as well
              return {
-                ...taskWithInitializedArrays, // Start with initialized task from planStore
+                ...taskWithInitializedArrays,
                 ...taskStore.selectedTask, // Override with selectedTask data
-                comments: Array.isArray(taskStore.selectedTask.comments) ? taskStore.selectedTask.comments : comments, // Prefer selectedTask comments
-                attachments: Array.isArray(taskStore.selectedTask.attachments) ? taskStore.selectedTask.attachments : attachments // Prefer selectedTask attachments
+                // Ensure comments/attachments are arrays, preferring selectedTask's
+                comments: Array.isArray(taskStore.selectedTask.comments) ? taskStore.selectedTask.comments : comments,
+                attachments: Array.isArray(taskStore.selectedTask.attachments) ? taskStore.selectedTask.attachments : attachments
              };
         }
-        return taskWithInitializedArrays; // Return task from planStore with initialized arrays
-    }).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        return taskWithInitializedArrays; // Return task from planStore
+    }).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)); // Keep sorting
 });
 const currentUserEmail = computed(() => authStore.currentUser?.email);
 const currentUserRoleInPlan = computed(() => {
@@ -268,14 +310,40 @@ const currentUserRoleInPlan = computed(() => {
     const member = planStore.currentPlan.members?.find(m => m.userEmail === currentUserEmail.value);
     return member?.role;
 });
-const canInteract = computed(() => progress.value && progress.value.id);
+const canInteract = computed(() => progress.value && progress.value.id); // Based on whether progress data exists (meaning user checked in)
 const reactionTypes = [
   { type: 'THUMBS_UP', emoji: '👍' }, { type: 'HEART', emoji: '❤️' }, { type: 'CELEBRATE', emoji: '🎉' }, { type: 'ROCKET', emoji: '🚀' },
 ];
 const emit = defineEmits(['close']);
 
-const close = () => { dialogVisible.value = false; taskStore.clearSelectedTask(); };
+// *** CẬP NHẬT COMPUTED ĐỂ LỌC BỎ USER HIỆN TẠI ***
+const mentionableMembers = computed(() => {
+    if (!planStore.currentPlan?.members) return [];
+    const currentUserId = authStore.currentUser?.id; // Lấy ID của user hiện tại
 
+    return planStore.currentPlan.members
+        .filter(member => member.userId !== currentUserId) // Lọc bỏ user hiện tại
+        .map(member => ({
+            id: member.userId,
+            label: member.userFullName,
+            avatar: null, // Add avatar URL if available in `member`
+            initial: member.userFullName ? member.userFullName.charAt(0).toUpperCase() : '?',
+            email: member.userEmail,
+        }));
+});
+// *** KẾT THÚC CẬP NHẬT ***
+
+const close = () => {
+    dialogVisible.value = false;
+    // Delay clearing stores to allow fade-out transition
+    setTimeout(() => {
+        taskStore.clearSelectedTask();
+        communityStore.clearSelectedProgress();
+        emit('close'); // Emit close after clearing
+    }, 300);
+};
+
+// --- Data Fetching and Processing Helpers ---
 const getReactionCount = (type) => {
   if (!progress.value || !progress.value.reactions) return 0;
   const reactionSummary = progress.value.reactions.find(r => r.type === type);
@@ -289,15 +357,13 @@ const isReacted = (type) => {
 const isTaskCompleted = (taskId) => {
     const completedIds = progress.value?.completedTaskIds;
     if (!completedIds) return false;
-    // Handle both Set and Array from backend/store
-    const completedSet = completedIds instanceof Set ? completedIds : new Set(completedIds);
-    return completedSet.has(taskId);
+    // completedTaskIds should be a Set from progressStore update
+    return completedIds instanceof Set ? completedIds.has(taskId) : false;
 };
 const getCompletedTasksCount = (progressData) => {
     const completedIds = progressData?.completedTaskIds;
-    if (completedIds instanceof Set) { return completedIds.size; }
-    else if (Array.isArray(completedIds)) { return completedIds.length; }
-    return 0;
+    // Should be a Set
+    return completedIds instanceof Set ? completedIds.size : 0;
 };
 const getFileIcon = (contentType) => {
     if (!contentType) return 'mdi-file-outline';
@@ -308,156 +374,226 @@ const getFileIcon = (contentType) => {
     if (contentType.includes('zip') || contentType.includes('rar')) return 'mdi-folder-zip-outline';
     return 'mdi-file-document-outline';
 };
-const formatFileSize = (bytes) => {
-    if (!bytes || bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    if (bytes <= 0) return '0 Bytes';
-     try { // Add try-catch for potential Math.log errors with invalid input
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        if (i < 0 || i >= sizes.length) return bytes + ' Bytes';
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-    } catch (e) {
-        return 'N/A'; // Return N/A or handle error appropriately
-    }
-};
+// formatFileSize is now imported from utils
+
+// --- Permission Helpers ---
 const isCommentAuthor = (comment) => { return comment.authorEmail === currentUserEmail.value; };
 const isPlanOwner = computed(() => { return currentUserRoleInPlan.value === 'OWNER'; });
 const canEditOrDeleteComment = (comment) => { return isCommentAuthor(comment) || isPlanOwner.value; };
 const isTaskCommentAuthor = (comment) => { return comment.authorEmail === currentUserEmail.value; };
 const canEditOrDeleteTaskComment = (comment) => { return isTaskCommentAuthor(comment) || isPlanOwner.value; };
 
+// --- Action Handlers ---
 const handleToggleReaction = async (reactionType) => {
     if (!canInteract.value) return;
     try { await communityStore.toggleReaction(reactionType); }
-    catch (error) { console.error("Reaction failed:", error); }
+    catch (error) { console.error("Reaction failed:", error); /* Snackbar/alert handled by store/component */ }
 };
 const submitComment = async () => {
     if (!newComment.value.trim() || communityStore.isLoading || !canInteract.value) return;
-    try { await communityStore.addComment(newComment.value); newComment.value = ''; }
-    catch (error) { console.error("Submit comment failed:", error); }
+    try {
+        await communityStore.addComment(newComment.value);
+        newComment.value = ''; // Clear input on success
+        addCommentMentionTextareaRef.value?.focus(); // Re-focus after sending
+    }
+    catch (error) { console.error("Submit comment failed:", error); /* Error shown via store state */ }
 };
 const saveEdit = async () => {
     try { await communityStore.saveEditedComment(); }
-    catch(error) { console.error("Save edit failed:", error); }
+    catch(error) { console.error("Save edit failed:", error); /* Error shown via store state */ }
 };
 const confirmDeleteComment = (commentId) => { commentToDeleteId.value = commentId; deleteConfirmDialog.value = true; };
 const executeDeleteComment = async () => {
     if (commentToDeleteId.value) {
-        try { await communityStore.deleteComment(commentToDeleteId.value); deleteConfirmDialog.value = false; commentToDeleteId.value = null; }
-        catch (error) { console.error("Delete comment failed:", error); }
+        try {
+            await communityStore.deleteComment(commentToDeleteId.value);
+            // Success: Dialog closes automatically if not handled by finally
+            commentToDeleteId.value = null;
+        }
+        catch (error) { console.error("Delete comment failed:", error); /* Error shown via store state */ }
+         finally {
+             deleteConfirmDialog.value = false; // Ensure dialog closes
+         }
     }
 };
 const handlePanelToggle = (task) => {
+    // If the clicked panel is becoming active
     if (expandedTaskPanel.value === task.id) {
-        // Ensure comments/attachments are arrays before selecting
-        const taskData = {
-            ...task,
-            comments: Array.isArray(task.comments) ? task.comments : [],
-            attachments: Array.isArray(task.attachments) ? task.attachments : []
-        };
+        const taskData = { ...task, comments: Array.isArray(task.comments) ? task.comments : [], attachments: Array.isArray(task.attachments) ? task.attachments : [] };
         taskStore.selectTask(taskData);
         newTaskComment.value = '';
         taskFilesToUpload.value = [];
-    } else if (taskStore.selectedTask?.id === task.id) {
+    }
+    // If a panel is closing and it was the selected task
+    else if (taskStore.selectedTask?.id === task.id && expandedTaskPanel.value !== task.id) {
          taskStore.clearSelectedTask();
+    }
+    // If clicking a different panel while one is open (expandedTaskPanel changes BEFORE group:selected)
+    // Clear previous selection before selecting the new one
+    else if (taskStore.selectedTask && taskStore.selectedTask.id !== task.id) {
+         taskStore.clearSelectedTask();
+         // Select the new one after a tick to allow deselection logic to complete
+         nextTick(() => {
+             const taskData = { ...task, comments: Array.isArray(task.comments) ? task.comments : [], attachments: Array.isArray(task.attachments) ? task.attachments : [] };
+             taskStore.selectTask(taskData);
+             newTaskComment.value = '';
+             taskFilesToUpload.value = [];
+         });
     }
 };
 const submitTaskComment = async () => {
-    if (!newTaskComment.value.trim() || !taskStore.selectedTask) return;
-    try { await taskStore.addTaskComment(newTaskComment.value); newTaskComment.value = ''; }
-    catch (error) { console.error("Submit task comment failed:", error); }
+    if (!newTaskComment.value.trim() || !taskStore.selectedTask || taskStore.isLoading) return;
+    try {
+        await taskStore.addTaskComment(newTaskComment.value);
+        newTaskComment.value = ''; // Clear input on success
+        addTaskCommentMentionTextareaRef.value?.focus(); // Re-focus
+    }
+    catch (error) { console.error("Submit task comment failed:", error); /* Error shown via store state */ }
 };
 const saveTaskCommentEdit = async () => {
     if (!taskStore.editingTaskCommentContent.trim()) { taskStore.error = "Nội dung không được trống."; return; }
     try { await taskStore.saveEditedTaskComment(); }
-    catch (error) { console.error("Save task comment edit failed:", error); }
+    catch (error) { console.error("Save task comment edit failed:", error); /* Error shown via store state */}
 };
 const confirmDeleteTaskComment = (commentId) => { taskCommentToDeleteId.value = commentId; deleteTaskCommentConfirmDialog.value = true; };
 const executeDeleteTaskComment = async () => {
     if (taskCommentToDeleteId.value) {
-        try { await taskStore.deleteTaskComment(taskCommentToDeleteId.value); deleteTaskCommentConfirmDialog.value = false; taskCommentToDeleteId.value = null; }
-        catch (error) { console.error("Delete task comment failed:", error); }
+        try {
+            await taskStore.deleteTaskComment(taskCommentToDeleteId.value);
+            // Success: Dialog closes automatically
+            taskCommentToDeleteId.value = null;
+        }
+        catch (error) { console.error("Delete task comment failed:", error); /* Error shown via store state */ }
+         finally {
+            deleteTaskCommentConfirmDialog.value = false; // Ensure dialog closes
+         }
     }
 };
 const handleTaskFilesSelected = async (newFiles) => {
-     if (!newFiles || newFiles.length === 0 || !taskStore.selectedTask) return;
+     if (!newFiles || newFiles.length === 0 || !taskStore.selectedTask) {
+          taskFilesToUpload.value = []; // Ensure model is cleared
+          return;
+     }
      const currentTaskId = taskStore.selectedTask.id;
      taskStore.isUploadingAttachment = true; taskStore.uploadAttachmentError = null;
-     const uploadPromises = newFiles.map(file => progressService.uploadEvidenceFile(file).then(res => res.data).catch(err => ({ error: true, fileName: file.name, message: err.response?.data?.message || 'Upload thất bại' })));
+
+     const uploadPromises = newFiles.map(file =>
+        progressService.uploadEvidenceFile(file)
+            .then(res => res.data)
+            .catch(err => ({ error: true, fileName: file.name, message: err.response?.data?.message || 'Upload thất bại' }))
+     );
+
      try {
         const results = await Promise.all(uploadPromises);
         const successfulUploads = results.filter(result => !result.error);
         const failedUploads = results.filter(result => result.error);
+
+        // Process successful uploads ONLY if the task is still selected
         if (successfulUploads.length > 0 && taskStore.selectedTask?.id === currentTaskId) {
              for (const fileInfo of successfulUploads) {
-                try { await taskStore.addTaskAttachment(fileInfo); }
-                catch (attachError) { console.error(`Attach error ${fileInfo.originalFilename}:`, attachError); taskStore.uploadAttachmentError = `Không thể đính kèm ${fileInfo.originalFilename}.`; }
+                try {
+                    await taskStore.addTaskAttachment(fileInfo); // Updates both stores
+                }
+                catch (attachError) {
+                    console.error(`Error attaching file ${fileInfo.originalFilename}:`, attachError);
+                    if(taskStore.selectedTask?.id === currentTaskId) {
+                        taskStore.uploadAttachmentError = `Không thể đính kèm file ${fileInfo.originalFilename}.`;
+                    }
+                }
              }
         }
+
+        // Handle failed uploads ONLY if the task is still selected
         if (failedUploads.length > 0 && taskStore.selectedTask?.id === currentTaskId) {
             taskStore.uploadAttachmentError = `Lỗi tải lên ${failedUploads.length} file (vd: ${failedUploads[0].fileName} - ${failedUploads[0].message}).`;
         }
-        taskFilesToUpload.value = [];
+
+        taskFilesToUpload.value = []; // Clear input model AFTER processing
+
     } catch (error) {
         console.error("Task file upload processing error:", error);
-         if(taskStore.selectedTask?.id === currentTaskId) { taskStore.uploadAttachmentError = "Lỗi xử lý upload."; }
+         if(taskStore.selectedTask?.id === currentTaskId) {
+             taskStore.uploadAttachmentError = "Lỗi xử lý upload file.";
+         }
     } finally {
-        if(taskStore.selectedTask?.id === currentTaskId) { taskStore.isUploadingAttachment = false; }
+        if(taskStore.selectedTask?.id === currentTaskId) {
+             taskStore.isUploadingAttachment = false;
+        }
     }
 };
 const confirmDeleteTaskAttachment = (attachmentId) => { taskAttachmentToDeleteId.value = attachmentId; deleteTaskAttachmentConfirmDialog.value = true; };
 const executeDeleteTaskAttachment = async () => {
     if (taskAttachmentToDeleteId.value) {
-        try { await taskStore.deleteTaskAttachment(taskAttachmentToDeleteId.value); deleteTaskAttachmentConfirmDialog.value = false; taskAttachmentToDeleteId.value = null; }
-        catch (error) { console.error("Delete task attachment failed:", error); }
+        try {
+            await taskStore.deleteTaskAttachment(taskAttachmentToDeleteId.value);
+            // Success: Dialog closes automatically
+            taskAttachmentToDeleteId.value = null;
+        }
+        catch (error) { console.error("Delete task attachment failed:", error); /* Error shown via store state */ }
+         finally {
+            deleteTaskAttachmentConfirmDialog.value = false; // Ensure dialog closes
+         }
     }
 };
-const formatTimeAgo = (isoDateTime) => {
-    if (!isoDateTime) return '';
-    try {
-        const date = new Date(isoDateTime);
-        const seconds = Math.floor((new Date() - date) / 1000);
-        let interval = seconds / 31536000;
-        if (interval > 1) return Math.floor(interval) + " năm trước";
-        interval = seconds / 2592000;
-        if (interval > 1) return Math.floor(interval) + " tháng trước";
-        interval = seconds / 86400;
-        if (interval > 1) return Math.floor(interval) + " ngày trước";
-        interval = seconds / 3600;
-        if (interval > 1) return Math.floor(interval) + " giờ trước";
-        interval = seconds / 60;
-        if (interval > 1) return Math.floor(interval) + " phút trước";
-        return Math.floor(seconds) < 10 ? "Vừa xong" : Math.floor(seconds) + " giây trước";
-    } catch (e) { return ''; }
-};
+// formatTimeAgo is now imported
 
-watch(dialogVisible, (newValue) => { if (!newValue) { setTimeout(() => { communityStore.clearSelectedProgress(); taskStore.clearSelectedTask(); emit('close'); }, 300); }});
+// --- Watchers ---
+watch(dialogVisible, (newValue) => {
+    if (!newValue) { close(); } // Call close function which handles delay and cleanup
+});
+
 watch(() => communityStore.selectedProgress, (newVal) => {
-  dialogVisible.value = !!newVal;
+  dialogVisible.value = !!newVal; // Sync dialog visibility
+
   if (newVal) {
-     expandedTaskPanel.value = null; taskStore.clearSelectedTask();
-     if (Array.isArray(newVal.completedTaskIds)) { communityStore.selectedProgress.completedTaskIds = new Set(newVal.completedTaskIds); }
-     // Ensure main attachments and evidenceLinks are arrays
-     if (newVal && !Array.isArray(newVal.attachments)) { communityStore.selectedProgress.attachments = []; }
-      if (newVal && !Array.isArray(newVal.evidenceLinks)) { communityStore.selectedProgress.evidenceLinks = []; }
-     // Ensure comments on the main progress are an array
-      if (newVal && !Array.isArray(newVal.comments)) { communityStore.selectedProgress.comments = []; }
+     // Always reset panel and clear selected task when progress detail changes or modal opens
+     expandedTaskPanel.value = null;
+     taskStore.clearSelectedTask();
+
+     // Ensure data structures are correct (Set for completedTaskIds, Arrays for others)
+     // This is crucial after fetching or receiving WebSocket updates
+     const progressState = communityStore.selectedProgress; // Use alias for clarity
+     if (progressState.completedTaskIds && Array.isArray(progressState.completedTaskIds)) {
+         progressState.completedTaskIds = new Set(progressState.completedTaskIds);
+     } else if (!progressState.completedTaskIds || !(progressState.completedTaskIds instanceof Set)) {
+          progressState.completedTaskIds = new Set(); // Ensure it's always a Set
+     }
+
+     if (!Array.isArray(progressState.attachments)) { progressState.attachments = []; }
+     if (!Array.isArray(progressState.evidenceLinks)) { progressState.evidenceLinks = []; }
+     if (!Array.isArray(progressState.comments)) { progressState.comments = []; }
+     if (!Array.isArray(progressState.reactions)) { progressState.reactions = []; }
+
   }
-  if (!newVal && dialogVisible.value) { close(); }
-}, { deep: true });
+  // No else needed, closing handled by dialogVisible watcher
+}, { deep: true, immediate: true }); // immediate: true to run on initial load if progress is already set
 
 </script>
 
 <style scoped>
-.comments-list { max-height: 200px; overflow-y: auto; }
-.comments-list-task { max-height: 150px; overflow-y: auto; }
+.comments-list { max-height: 200px; overflow-y: auto; background-color: transparent; }
+.comments-list-task { max-height: 150px; overflow-y: auto; background-color: transparent; }
 .text-decoration-none { text-decoration: none; }
 .word-break { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.comment-input :deep(.v-field__append-inner) { cursor: pointer; padding-top: 8px; }
+/* Align send icon vertically */
+.comment-input :deep(.v-field__append-inner) {
+    cursor: pointer;
+    padding-top: 0; /* Remove default padding */
+    margin-top: auto; /* Push down */
+    margin-bottom: auto; /* Push up */
+    align-items: center; /* Center vertically if needed */
+    height: 100%; /* Take full height of append slot */
+    display: flex;
+}
 .text-wrap { white-space: normal; }
 .ga-2 { gap: 8px; }
 .edit-comment-form { width: 100%; }
+.comment-item { border-bottom: 1px solid #eee; }
+.comment-item:last-child { border-bottom: none; }
 .comment-item :deep(.v-list-item__append) { align-self: start; margin-top: 4px; }
 .task-panel :deep(.v-expansion-panel-text__wrapper) { padding: 8px 16px 16px; }
+/* Style for MentionTextarea dropdown if needed */
+:deep(.mention-dropdown) {
+    z-index: 1007; /* Ensure dropdown is above dialog content (Vuetify dialog z-index might be around 1006) */
+}
 </style>
