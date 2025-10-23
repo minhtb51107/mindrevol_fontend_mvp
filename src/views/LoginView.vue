@@ -1,71 +1,69 @@
 <template>
-  <v-card class="elevation-3 pa-5"> 
+  <v-card class="pa-5 pa-md-6">
     <v-card-title class="text-center text-h5 mb-6">Đăng nhập</v-card-title>
     <v-card-text>
       <v-alert
         v-if="errorMessage"
         type="error"
-        density="compact" 
+        density="compact"
         class="mb-4"
-        closable 
+        closable
         @click:close="errorMessage = ''"
+        rounded="lg"
       >
         {{ errorMessage }}
       </v-alert>
 
-      <v-form @submit.prevent="handleLogin">
+      <v-form @submit.prevent="handleLogin" ref="loginFormRef">
         <v-text-field
           v-model="form.email"
           label="Email"
           type="email"
-          variant="outlined"
-          density="compact"
           prepend-inner-icon="mdi-email-outline"
           placeholder="nhapdiachi@email.com"
-          :rules="[rules.required, rules.email]" 
-          class="mb-3"
+          :rules="[rules.required, rules.email]"
+          class="mb-4"
         ></v-text-field>
 
         <v-text-field
           v-model="form.password"
           label="Mật khẩu"
           :type="showPassword ? 'text' : 'password'"
-          variant="outlined"
-          density="compact"
           prepend-inner-icon="mdi-lock-outline"
           :append-inner-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
           @click:append-inner="showPassword = !showPassword"
           placeholder="••••••••"
           :rules="[rules.required]"
-          class="mb-3"
+          class="mb-4"
         ></v-text-field>
 
         <v-btn
           type="submit"
           color="primary"
           block
-          size="large" 
+          size="large"
           :loading="isLoading"
           :disabled="isLoading"
-          class="mb-4"
+          class="mb-5"
+          rounded="lg"
+          elevation="2"
         >
           Đăng nhập
         </v-btn>
       </v-form>
 
-      <v-divider class="my-4"> 
+      <v-divider class="my-5">
         <span class="text-caption text-grey px-2">HOẶC</span>
       </v-divider>
 
-       
-      <div class="d-flex justify-center mb-4">
+      <div class="d-flex justify-center mb-5">
         <GoogleLoginButton />
       </div>
 
       <div class="text-center">
-        <p class="text-body-2"> 
+        <p class="text-body-2 mb-1">
           Chưa có tài khoản?
-          <RouterLink to="/register" class="text-primary text-decoration-none"> Đăng ký ngay</RouterLink>
+          <RouterLink to="/register" class="text-primary text-decoration-none font-weight-medium"> Đăng ký ngay</RouterLink>
         </p>
         <RouterLink to="/forgot-password" class="text-body-2 text-primary text-decoration-none">Quên mật khẩu?</RouterLink>
       </div>
@@ -78,10 +76,10 @@ import { ref, reactive } from 'vue';
 import { RouterLink } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import GoogleLoginButton from '@/components/GoogleLoginButton.vue';
-// Import các component Vuetify đã dùng trong template
 import { VCard, VCardTitle, VCardText, VForm, VTextField, VBtn, VAlert, VDivider } from 'vuetify/components';
 
 const authStore = useAuthStore();
+const loginFormRef = ref(null);
 
 const form = reactive({
   email: '',
@@ -92,7 +90,6 @@ const isLoading = ref(false);
 const errorMessage = ref('');
 const showPassword = ref(false);
 
-// Basic validation rules (có thể tách ra file riêng)
 const rules = {
   required: value => !!value || 'Thông tin bắt buộc.',
   email: value => {
@@ -102,12 +99,14 @@ const rules = {
 };
 
 const handleLogin = async () => {
-  // Kiểm tra validation trước khi submit (Vuetify form tự xử lý nếu dùng đúng cách)
+  if (!loginFormRef.value) return;
+  const { valid } = await loginFormRef.value.validate();
+  if (!valid) return;
+
   isLoading.value = true;
   errorMessage.value = '';
   try {
     await authStore.login(form);
-    // Router điều hướng trong store
   } catch (error) {
     errorMessage.value = error.response?.data?.message || 'Email hoặc mật khẩu không chính xác.';
   } finally {
@@ -117,12 +116,14 @@ const handleLogin = async () => {
 </script>
 
 <style scoped>
-/* CSS tùy chỉnh nếu cần, ví dụ: */
-.v-card {
-  max-width: 500px; /* Giới hạn chiều rộng card */
-  margin: auto;
-}
 .text-decoration-none {
   text-decoration: none;
+}
+:deep(#google-btn > div) {
+  border-radius: 8px !important;
+  border: 1px solid var(--v-theme-border) !important;
+}
+:deep(#google-btn > div:hover) {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 </style>

@@ -1,5 +1,5 @@
 <template>
-  <v-sheet rounded="lg" class="pa-5 text-center" color="grey-lighten-3">
+  <v-sheet rounded="lg" class="pa-5 pa-md-6 mb-8 text-center" color="surface">
     <h1 class="text-h4 mb-2">Chào mừng, {{ userFullName }}!</h1>
     <p class="text-body-1 text-medium-emphasis mb-4">
       Sẵn sàng để bắt đầu một hành trình học tập mới cùng bạn bè?
@@ -11,13 +11,17 @@
       size="large"
       to="/plans/create"
       prepend-icon="mdi-plus-circle-outline"
+      rounded="lg"
+      elevation="2"
     >
       Tạo kế hoạch học ngay
     </v-btn>
   </v-sheet>
 
   <div class="mt-8">
-    <div class="d-flex flex-wrap justify-space-between align-center mb-4 gap-3"> <h3 class="text-h6 me-auto">Các kế hoạch của bạn</h3> <v-text-field
+    <div class="d-flex flex-wrap justify-space-between align-center mb-6 gap-3">
+      <h3 class="text-h6 me-auto">Các kế hoạch của bạn</h3>
+      <v-text-field
             :model-value="planStore.getSearchTerm"
             @update:model-value="handleSearchInput"
             label="Tìm theo tên kế hoạch..."
@@ -26,62 +30,65 @@
             prepend-inner-icon="mdi-magnify"
             clearable
             hide-details
+            rounded="lg"
             class="search-field"
             style="max-width: 300px;"
         ></v-text-field>
-        <div class="d-flex align-center"> <v-chip-group
+       <div class="d-flex align-center">
+         <v-chip-group
            v-model="selectedStatusFilter"
            mandatory
-           selected-class="text-primary"
+           selected-class="text-primary bg-primary-lighten-4"
            density="compact"
            class="me-1 filter-chips"
          >
-           <v-chip value="ALL" size="small">Tất cả</v-chip>
-           <v-chip value="ACTIVE" size="small">Đang diễn ra</v-chip>
-           <v-chip value="COMPLETED" size="small">Hoàn thành</v-chip>
-           <v-chip value="ARCHIVED" size="small">Lưu trữ</v-chip>
+           <v-chip value="ALL" size="small" rounded="lg">Tất cả</v-chip>
+           <v-chip value="ACTIVE" size="small" rounded="lg">Đang diễn ra</v-chip>
+           <v-chip value="COMPLETED" size="small" rounded="lg">Hoàn thành</v-chip>
+           <v-chip value="ARCHIVED" size="small" rounded="lg">Lưu trữ</v-chip>
          </v-chip-group>
          <v-btn icon="mdi-refresh" variant="text" size="small" @click="refreshUserPlans" :loading="planStore.isUserPlansLoading"></v-btn>
        </div>
     </div>
 
-    <div v-if="planStore.isUserPlansLoading" class="text-center py-5">
-        <v-progress-circular indeterminate color="primary"></v-progress-circular>
+    <div v-if="planStore.isUserPlansLoading" class="text-center py-10">
+        <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
+        <p class="mt-4 text-medium-emphasis">Đang tải kế hoạch...</p>
     </div>
-    <v-alert v-else-if="planStore.userPlansError" type="warning" variant="tonal" density="compact" class="mb-4">
+    <v-alert v-else-if="planStore.userPlansError" type="warning" variant="tonal" density="compact" class="mb-4" rounded="lg">
         {{ planStore.userPlansError }}
     </v-alert>
-    <v-alert v-else-if="!planStore.userPlans.length && !planStore.searchTerm" type="info" variant="tonal" density="compact"> Bạn chưa tham gia kế hoạch nào. Hãy tạo một kế hoạch mới!
+    <v-alert v-else-if="!planStore.userPlans.length && !planStore.searchTerm" type="info" variant="tonal" density="compact" rounded="lg">
+        <v-icon start>mdi-information-outline</v-icon> Bạn chưa tham gia kế hoạch nào. Hãy tạo một kế hoạch mới!
     </v-alert>
-    <v-alert v-else-if="!filteredPlans.length" type="info" variant="tonal" density="compact">
-      Không có kế hoạch nào khớp với tìm kiếm{{ selectedStatusFilter !== 'ALL' ? ` và bộ lọc "${getFilterText(selectedStatusFilter)}"` : '' }}.
+    <v-alert v-else-if="!filteredPlans.length" type="info" variant="tonal" density="compact" rounded="lg">
+      <v-icon start>mdi-magnify-close</v-icon> Không có kế hoạch nào khớp với tìm kiếm{{ selectedStatusFilter !== 'ALL' ? ` và bộ lọc "${getFilterText(selectedStatusFilter)}"` : '' }}.
     </v-alert>
 
-
-    <v-row v-else>
+    <v-row v-else dense>
        <v-col v-for="plan in filteredPlans" :key="plan.id" cols="12" md="6" lg="4">
-         <v-card :to="`/plan/${plan.shareableLink}`" link hover class="fill-height d-flex flex-column">
-           <v-card-item>
-             <v-card-title class="text-wrap">{{ plan.title }}</v-card-title>
-             <v-card-subtitle>{{ plan.description || 'Không có mô tả' }}</v-card-subtitle>
+         <v-card :to="`/plan/${plan.shareableLink}`" link hover class="fill-height d-flex flex-column plan-card">
+           <v-card-item class="pb-1">
+             <v-card-title class="text-wrap text-h6">{{ plan.title }}</v-card-title>
+             <v-card-subtitle class="text-wrap mt-1">{{ plan.description || 'Không có mô tả' }}</v-card-subtitle>
            </v-card-item>
-           <v-card-text class="flex-grow-1">
-              <v-chip :color="getStatusColor(plan.displayStatus)" size="small" label class="me-2 mb-2">
+           <v-card-text class="flex-grow-1 pt-3 pb-3">
+              <v-chip :color="getStatusColor(plan.displayStatus)" size="small" label class="me-2 mb-2 font-weight-medium" rounded="lg">
                  {{ getStatusText(plan.displayStatus) }}
                </v-chip>
-               <v-chip size="small" label class="me-2 mb-2" prepend-icon="mdi-calendar-clock-outline">
+               <v-chip size="small" label class="me-2 mb-2" prepend-icon="mdi-calendar-clock-outline" variant="tonal" color="grey-darken-1" rounded="lg">
                   {{ plan.durationInDays }} ngày
                 </v-chip>
-                <v-chip size="small" label class="mb-2" prepend-icon="mdi-account-multiple-outline">
+                <v-chip size="small" label class="mb-2" prepend-icon="mdi-account-multiple-outline" variant="tonal" color="grey-darken-1" rounded="lg">
                   {{ plan.memberCount }} thành viên
                 </v-chip>
            </v-card-text>
            <v-divider></v-divider>
-           <v-card-actions>
-                <v-chip v-if="plan.role === 'OWNER'" color="primary" variant="tonal" size="small" label prepend-icon="mdi-crown-outline">
+           <v-card-actions class="px-4 py-3">
+                 <v-chip v-if="plan.role === 'OWNER'" color="primary" variant="flat" size="small" label prepend-icon="mdi-crown-outline" rounded="lg">
                    Chủ kế hoạch
                  </v-chip>
-                 <v-chip v-else color="grey" variant="tonal" size="small" label prepend-icon="mdi-account-outline">
+                 <v-chip v-else color="grey" variant="tonal" size="small" label prepend-icon="mdi-account-outline" rounded="lg">
                    Thành viên
                  </v-chip>
                  <v-spacer></v-spacer>
@@ -96,62 +103,48 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'; // Thêm watch
+import { computed, onMounted, ref, watch } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { usePlanStore } from '@/stores/plan';
 import {
   VSheet, VDivider, VBtn, VAlert, VRow, VCol, VCard, VCardTitle, VCardSubtitle, VCardText, VCardItem, VCardActions, VChip, VIcon, VSpacer, VProgressCircular,
-  VChipGroup, VTextField // *** THÊM IMPORT VTextField ***
+  VChipGroup, VTextField
 } from 'vuetify/components';
 
 const authStore = useAuthStore();
 const planStore = usePlanStore();
 
-const selectedStatusFilter = ref('ACTIVE'); // Mặc định hiển thị plan đang hoạt động
-// Không cần searchTerm ở đây vì nó được quản lý trong store
+const selectedStatusFilter = ref('ACTIVE');
 
-const userFullName = computed(() => {
-  return authStore.currentUser?.fullname || 'bạn';
-});
+const userFullName = computed(() => authStore.userProfile?.fullname || authStore.currentUser?.fullname || 'bạn');
 
-// Computed property để lọc plan (giữ nguyên logic lọc status)
-// Logic lọc theo searchTerm sẽ nằm trong API call (backend)
 const filteredPlans = computed(() => {
   if (!planStore.userPlans) return [];
   if (selectedStatusFilter.value === 'ALL') {
-    return planStore.userPlans; // Trả về toàn bộ danh sách đã fetch (đã được lọc bởi searchTerm ở backend)
+    return planStore.userPlans;
   }
-  // Lọc thêm theo status trên frontend từ danh sách đã nhận được
   return planStore.userPlans.filter(plan => plan.displayStatus === selectedStatusFilter.value);
 });
 
 onMounted(() => {
-  planStore.initDebouncedFetch(); // Khởi tạo hàm debounce
-  // Fetch lần đầu khi component mount (không cần searchTerm)
+  planStore.initDebouncedFetch();
   if (!planStore.userPlans.length && !planStore.isUserPlansLoading) {
-       planStore.fetchUserPlans(''); // Truyền chuỗi rỗng
+       planStore.fetchUserPlans('');
    }
 });
 
-// *** HÀM XỬ LÝ INPUT TÌM KIẾM ***
 const handleSearchInput = (value) => {
-    // Gọi action triggerDebouncedFetch từ store
-    planStore.triggerDebouncedFetch(value || ''); // Gửi '' nếu value là null/undefined (khi clear)
+    planStore.triggerDebouncedFetch(value || '');
 };
 
-// *** WATCHER ĐỂ FETCH LẠI KHI FILTER THAY ĐỔI ***
 watch(selectedStatusFilter, (newStatus) => {
-    // Không cần debounce khi thay đổi filter, fetch ngay lập tức
-    // Nhưng vẫn cần truyền searchTerm hiện tại vào fetch
     planStore.fetchUserPlans(planStore.searchTerm);
 });
 
 const refreshUserPlans = () => {
-    // Khi refresh, giữ nguyên searchTerm và filter hiện tại
     planStore.fetchUserPlans(planStore.searchTerm);
 }
 
-// ... (các hàm getStatusText, getFilterText, getStatusColor, formatDate, formatDateRange giữ nguyên) ...
 const getStatusText = (status) => {
     switch (status) {
         case 'ACTIVE': return 'Đang diễn ra';
@@ -205,31 +198,39 @@ const formatDateRange = (start, end) => {
 <style scoped>
 .text-wrap {
     white-space: normal;
+    word-break: break-word;
 }
-/* Responsive layout for controls */
 .gap-3 {
-    gap: 12px; /* Add gap between elements when wrapped */
+    gap: 12px;
 }
-/* Ensure search field doesn't take full width on small screens */
 .search-field {
-    flex-grow: 1; /* Allow it to grow */
-    min-width: 200px; /* Minimum width */
+    flex-grow: 1;
+    min-width: 200px;
 }
-/* Ensure chip group scrolls on small screens */
 .filter-chips {
     flex-wrap: nowrap;
     overflow-x: auto;
-    max-width: calc(100% - 40px); /* Adjust based on refresh button size */
+    max-width: calc(100% - 40px);
 }
 
 @media (max-width: 600px) {
   .search-field {
-    max-width: 100%; /* Allow full width on small screens */
-    order: -1; /* Move search to top on wrap */
-    margin-bottom: 8px; /* Add space below when wrapped */
+    max-width: 100%;
+    order: -1;
+    margin-bottom: 8px;
   }
   .filter-chips {
        max-width: 100%;
   }
+}
+
+.plan-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0px 6px 16px rgba(0, 0, 0, 0.08), 0px 2px 6px rgba(0, 0, 0, 0.05) !important;
+  transition: transform 0.25s ease-out, box-shadow 0.25s ease-out;
+}
+
+.bg-primary-lighten-4 {
+    background-color: rgba(var(--v-theme-primary), 0.1) !important;
 }
 </style>

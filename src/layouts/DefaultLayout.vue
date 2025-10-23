@@ -1,18 +1,29 @@
 <template>
-  <v-app>
-    <v-app-bar app color="white" elevation="1">
-      <v-container class="d-flex align-center py-0">
-        <v-app-bar-title>
-          <RouterLink to="/" class="text-decoration-none text-grey-darken-3 d-flex align-center">
-            <v-icon icon="mdi-robot-happy-outline" class="me-2"></v-icon>
-            <span style="font-weight: bold;">MindRevol</span>
+  <v-app :style="{ background: theme.current.value.colors.background }">
+    <v-app-bar app color="surface" elevation="0" border="b" height="64">
+      <v-container class="d-flex align-center py-0" fluid>
+        <v-app-bar-title class="me-4">
+          <RouterLink to="/" class="text-decoration-none d-flex align-center text-on-surface">
+            <v-icon icon="mdi-robot-happy-outline" class="me-2" color="primary"></v-icon>
+            <span class="font-weight-bold text-h6">MindRevol</span>
           </RouterLink>
         </v-app-bar-title>
 
+        <v-btn variant="text" to="/" exact class="me-1 text-on-surface">
+          <v-icon start>mdi-view-dashboard-outline</v-icon> Dashboard
+        </v-btn>
+
         <v-spacer></v-spacer>
 
-        <v-btn text to="/" exact class="me-1">Dashboard</v-btn>
-        <div v-if="authStore.isAuthenticated">
+        <v-btn
+          icon
+          @click="toggleTheme"
+          class="me-2"
+        >
+          <v-icon>{{ isDarkMode ? 'mdi-weather-night' : 'mdi-weather-sunny' }}</v-icon>
+        </v-btn>
+
+        <div v-if="authStore.isAuthenticated" class="d-flex align-center">
           <v-menu
             v-model="notificationMenu"
             :close-on-content-click="false"
@@ -20,16 +31,16 @@
             transition="slide-y-transition"
             min-width="350px"
             max-width="400px"
+            content-class="elevation-1 rounded-lg"
           >
             <template v-slot:activator="{ props }">
-               <v-btn icon v-bind="props" class="me-2">
-                 <v-badge :content="notificationStore.unreadCount" color="error" :model-value="notificationStore.hasUnread" dot>
+               <v-btn icon v-bind="props" class="me-1">
+                 <v-badge :content="notificationStore.unreadCount" color="error" :model-value="notificationStore.hasUnread" dot offset-x="1" offset-y="1">
                     <v-icon icon="mdi-bell-outline"></v-icon>
                   </v-badge>
                </v-btn>
             </template>
-
-            <v-card>
+            <v-card rounded="lg">
                <v-list-subheader class="d-flex justify-space-between align-center">
                    <span>Thông báo</span>
                    <v-btn
@@ -39,8 +50,7 @@
                    </v-btn>
                 </v-list-subheader>
                <v-divider></v-divider>
-
-               <v-list lines="two" density="compact" class="notification-list py-0">
+               <v-list lines="two" density="compact" class="notification-list py-0" nav>
                  <div v-if="notificationStore.isLoading && !notificationStore.notifications.length" class="text-center py-5">
                      <v-progress-circular indeterminate color="primary" size="32"></v-progress-circular>
                  </div>
@@ -50,18 +60,17 @@
                  <div v-else-if="!notificationStore.notifications.length" class="text-center text-caption text-medium-emphasis py-5 px-3">
                      Bạn chưa có thông báo nào.
                  </div>
-
                  <template v-else>
                    <div v-for="(notification, index) in notificationStore.notifications" :key="notification.id">
                      <v-list-item
                        @click="handleNotificationClick(notification)" link :class="{ 'unread-notification': !notification.read }" class="py-3">
                        <template v-slot:prepend>
-                          <v-icon :icon="notificationIcon(notification)" :color="notification.read ? 'grey' : 'primary'" class="mt-1"></v-icon>
+                          <v-icon :icon="notificationIcon(notification)" :color="notification.read ? 'grey' : 'primary'" size="small" class="mt-1 me-3"></v-icon>
                        </template>
-                       <v-list-item-title class="text-body-2 text-wrap">{{ notification.message }}</v-list-item-title>
-                       <v-list-item-subtitle class="text-caption">
+                       <v-list-item-title class="text-body-2 text-wrap mb-1">{{ notification.message }}</v-list-item-title>
+                       <div class="text-caption text-medium-emphasis">
                           {{ formatTimeAgo(notification.createdAt) }}
-                       </v-list-item-subtitle>
+                       </div>
                        <template v-slot:append v-if="!notification.read">
                          <v-icon icon="mdi-circle-medium" color="primary" size="x-small"></v-icon>
                        </template>
@@ -69,8 +78,8 @@
                      <v-divider v-if="index < notificationStore.notifications.length - 1"></v-divider>
                    </div>
 
-                   <v-list-item v-if="canLoadMore" class="text-center">
-                      <v-btn variant="text" color="primary" @click="loadMoreNotifications" :loading="notificationStore.isLoading">
+                   <v-list-item v-if="canLoadMore" class="text-center mt-2">
+                      <v-btn variant="text" color="primary" @click="loadMoreNotifications" :loading="notificationStore.isLoading" size="small">
                         Xem thêm
                       </v-btn>
                    </v-list-item>
@@ -79,33 +88,33 @@
             </v-card>
           </v-menu>
 
-          <v-menu offset-y>
+          <v-menu offset-y location="bottom end" transition="slide-y-transition" content-class="elevation-1 rounded-lg">
             <template v-slot:activator="{ props }">
               <v-btn icon v-bind="props">
-                <v-avatar :image="authStore.userAvatarUrl" color="primary" size="small">
+                <v-avatar :image="authStore.userAvatarUrl" color="primary" size="36">
                    <template v-slot:error>
-                     <span class="white--text text-subtitle-2">{{ authStore.userInitial }}</span>
+                     <span class="white--text text-subtitle-1">{{ authStore.userInitial }}</span>
                    </template>
-                  <span v-if="!authStore.userAvatarUrl" class="white--text text-subtitle-2">{{ authStore.userInitial }}</span>
+                  <span v-if="!authStore.userAvatarUrl" class="white--text text-subtitle-1">{{ authStore.userInitial }}</span>
                 </v-avatar>
               </v-btn>
             </template>
-            <v-list density="compact">
+            <v-list density="compact" nav>
               <v-list-subheader>Chào, {{ authStore.userFullName }}</v-list-subheader>
-              <v-list-item link to="/profile">
+              <v-list-item @click="openProfileModal" link rounded="lg">
                 <template v-slot:prepend>
                   <v-icon icon="mdi-account-circle-outline"></v-icon>
                 </template>
-                <v-list-item-title>Trang cá nhân</v-list-item-title>
+                <v-list-item-title>Thông tin cá nhân</v-list-item-title>
               </v-list-item>
-              <v-list-item link to="/change-password">
+              <v-list-item @click="openChangePasswordModal" link rounded="lg">
                  <template v-slot:prepend>
                   <v-icon icon="mdi-lock-reset"></v-icon>
                 </template>
                 <v-list-item-title>Đổi mật khẩu</v-list-item-title>
               </v-list-item>
-              <v-divider></v-divider>
-              <v-list-item @click="handleLogout" link>
+              <v-divider class="my-1"></v-divider>
+              <v-list-item @click="handleLogout" link rounded="lg" base-color="error">
                 <template v-slot:prepend>
                   <v-icon icon="mdi-logout"></v-icon>
                 </template>
@@ -116,39 +125,73 @@
         </div>
 
         <div v-else>
-           <v-btn text to="/login" class="me-1">Đăng nhập</v-btn>
-           <v-btn color="primary" variant="flat" to="/register">Đăng ký</v-btn>
+           <v-btn variant="text" to="/login" class="me-1">Đăng nhập</v-btn>
+           <v-btn color="primary" variant="flat" to="/register" rounded="lg">Đăng ký</v-btn>
         </div>
 
       </v-container>
     </v-app-bar>
 
-    <v-main class="bg-grey-lighten-4">
-      <v-container>
+    <v-main>
+      <v-container fluid>
         <RouterView />
       </v-container>
     </v-main>
+
+    <ProfileModal v-model="isProfileModalOpen" />
+    <ChangePasswordModal v-model="isChangePasswordModalOpen" />
 
   </v-app>
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onUnmounted, watch } from 'vue'; // watch đã có sẵn
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue';
 import { RouterView, RouterLink } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notificationStore';
-import websocketService from '@/api/websocketService'; // *** THÊM IMPORT websocketService ***
+import websocketService from '@/api/websocketService';
+import { useTheme } from 'vuetify';
+import ProfileModal from '@/components/ProfileModal.vue';
+import ChangePasswordModal from '@/components/ChangePasswordModal.vue';
+import { formatTimeAgo } from '@/utils/formatters';
+
 import {
   VApp, VAppBar, VAppBarTitle, VContainer, VSpacer, VBtn, VMenu, VList, VListItem, VListItemTitle, VListItemSubtitle, VDivider, VAvatar, VIcon, VMain, VListSubheader, VBadge, VCard, VProgressCircular, VAlert
 } from 'vuetify/components';
 
 const authStore = useAuthStore();
 const notificationStore = useNotificationStore();
+const theme = useTheme();
 
 const notificationMenu = ref(false);
 let refreshInterval = null;
 
+const isProfileModalOpen = ref(false);
+const isChangePasswordModalOpen = ref(false);
+
+const isDarkMode = computed(() => theme.global.current.value.dark);
+
+const toggleTheme = () => {
+  theme.global.name.value = theme.global.current.value.dark ? 'myCustomLightTheme' : 'myCustomDarkTheme';
+  localStorage.setItem('theme', theme.global.name.value);
+};
+
+const loadTheme = () => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+        theme.global.name.value = savedTheme;
+    }
+};
+
 const canLoadMore = computed(() => notificationStore.currentPage < notificationStore.totalPages);
+
+const openProfileModal = () => {
+  isProfileModalOpen.value = true;
+};
+
+const openChangePasswordModal = () => {
+  isChangePasswordModalOpen.value = true;
+};
 
 const handleLogout = async () => {
   await authStore.logout();
@@ -156,7 +199,6 @@ const handleLogout = async () => {
 
 const handleNotificationClick = (notification) => {
     notificationStore.markNotificationRead(notification);
-    notificationMenu.value = false;
 };
 
 const loadMoreNotifications = () => {
@@ -164,7 +206,6 @@ const loadMoreNotifications = () => {
 };
 
 const notificationIcon = (notification) => {
-  // ... (giữ nguyên logic)
   const message = notification.message?.toLowerCase() || '';
   if (message.includes('bình luận')) return 'mdi-comment-text-outline';
   if (message.includes('cảm xúc') || message.includes('reaction')) return 'mdi-heart-outline';
@@ -177,41 +218,11 @@ const notificationIcon = (notification) => {
   return 'mdi-bell-outline';
 };
 
-const formatTimeAgo = (isoDateTime) => {
-    // ... (giữ nguyên logic)
-    if (!isoDateTime) return '';
-    try {
-        const date = new Date(isoDateTime);
-        const seconds = Math.floor((new Date() - date) / 1000);
-
-        if (seconds < 5) return "Vừa xong";
-        if (seconds < 60) return Math.floor(seconds) + " giây trước";
-
-        let interval = seconds / 31536000;
-        if (interval > 1) return Math.floor(interval) + " năm trước";
-        interval = seconds / 2592000;
-        if (interval > 1) return Math.floor(interval) + " tháng trước";
-        interval = seconds / 86400;
-        if (interval > 1) return Math.floor(interval) + " ngày trước";
-        interval = seconds / 3600;
-        if (interval > 1) return Math.floor(interval) + " giờ trước";
-        interval = seconds / 60;
-        if (interval > 1) return Math.floor(interval) + " phút trước";
-
-        return "Ít phút trước";
-
-    } catch (e) {
-        console.error("Error formatting time ago:", e);
-        return '';
-    }
-};
-
 const markAllRead = () => {
    notificationStore.markAllNotificationsRead();
 };
 
 const setupNotificationWatcher = () => {
-    // ... (giữ nguyên logic)
      if (authStore.isAuthenticated) {
         console.log("Setting up notification watcher: Authenticated");
         if (!notificationStore.isLoading) {
@@ -240,23 +251,20 @@ const setupNotificationWatcher = () => {
 };
 
 onMounted(() => {
+  loadTheme();
   console.log("DefaultLayout mounted. Calling loadInitialData...");
   authStore.loadInitialData().then(() => {
       console.log("Initial data loaded. Setting up notification watcher.");
       setupNotificationWatcher();
-      // *** THÊM: Kết nối WebSocket nếu đã đăng nhập ***
       if (authStore.isAuthenticated) {
         websocketService.connect();
       }
-      // *** KẾT THÚC THÊM ***
   }).catch(err => {
       console.error("Error during initial data load:", err);
-      setupNotificationWatcher(); // Vẫn setup notification
-      // *** THÊM: Vẫn thử kết nối WebSocket nếu có token (dù profile lỗi) ***
+      setupNotificationWatcher();
       if (authStore.isAuthenticated) {
          websocketService.connect();
       }
-      // *** KẾT THÚC THÊM ***
   });
 });
 
@@ -266,19 +274,14 @@ onUnmounted(() => {
         clearInterval(refreshInterval);
         refreshInterval = null;
     }
-    // *** THÊM: Ngắt kết nối WebSocket ***
     websocketService.disconnect();
-    // *** KẾT THÚC THÊM ***
 });
 
-// *** THÊM WATCHER CHO isAuthenticatd ĐỂ KẾT NỐI/NGẮT KẾT NỐI WEBSOCKET ***
 watch(() => authStore.isAuthenticated, (isAuth, wasAuth) => {
     console.log(`Layout Authentication status changed: ${wasAuth} -> ${isAuth}`);
-    // Quản lý notification watcher (giữ nguyên)
     if (isAuth !== wasAuth) {
        setupNotificationWatcher();
     }
-    // Quản lý WebSocket connection
     if (isAuth && !websocketService.isConnected()) {
         console.log("User authenticated, connecting WebSocket...");
         websocketService.connect();
@@ -287,34 +290,36 @@ watch(() => authStore.isAuthenticated, (isAuth, wasAuth) => {
         websocketService.disconnect();
     }
 });
-// *** KẾT THÚC THÊM WATCHER ***
 
 </script>
 
 <style scoped>
 .text-decoration-none {
   text-decoration: none;
+  color: inherit;
 }
-.v-btn {
-  text-transform: none;
-}
+
 .v-app-bar-title {
   flex: none;
-  margin-right: 16px;
 }
+
 .notification-list {
     max-height: 400px;
     overflow-y: auto;
 }
 .unread-notification {
     background-color: rgba(var(--v-theme-primary), 0.05);
-    font-weight: 500;
+}
+.unread-notification:hover {
+    background-color: rgba(var(--v-theme-primary), 0.08);
 }
 .text-wrap {
     white-space: normal;
 }
-/* Ensure badge aligns nicely */
+.v-list-item--link:hover {
+    background-color: rgba(var(--v-theme-on-surface), var(--v-hover-opacity));
+}
+
 .v-badge :deep(.v-badge__badge) {
-    /* Adjust position if needed */
 }
 </style>

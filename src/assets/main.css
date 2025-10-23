@@ -1,35 +1,19 @@
+/* File: src/assets/main.css */
 @import './base.css';
 
-#app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  font-weight: normal;
-}
+/* Có thể bỏ phần #app và body nếu không cần thiết nữa khi dùng Vuetify layout */
+/*
+#app { ... }
+body { ... }
+*/
 
-a,
-.green {
+/* --- Có thể thêm các utility classes nếu cần --- */
+/* Ví dụ: một lớp shadow mềm hơn mặc định của Vuetify elevation=1 */
+/* .soft-shadow {
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.05), 0px 1px 3px rgba(0, 0, 0, 0.08) !important;
+} */
+
+/* Đảm bảo link không bị gạch chân mặc định nếu cần */
+a {
   text-decoration: none;
-  color: hsla(160, 100%, 37%, 1);
-  transition: 0.4s;
-  padding: 3px;
-}
-
-@media (hover: hover) {
-  a:hover {
-    background-color: hsla(160, 100%, 37%, 0.2);
-  }
-}
-
-@media (min-width: 1024px) {
-  body {
-    display: flex;
-    place-items: center;
-  }
-
-  #app {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding: 0 2rem;
-  }
 }

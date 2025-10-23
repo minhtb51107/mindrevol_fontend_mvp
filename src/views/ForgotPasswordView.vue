@@ -1,5 +1,5 @@
 <template>
-  <v-card class="elevation-3 pa-5">
+  <v-card class="pa-5 pa-md-6">
     <div v-if="!isSuccess">
       <v-card-title class="text-center text-h5 mb-3">Quên Mật khẩu</v-card-title>
       <v-card-subtitle class="text-center text-medium-emphasis mb-6">
@@ -13,6 +13,7 @@
           class="mb-4"
           closable
           @click:close="errorMessage = ''"
+          rounded="lg"
         >
           {{ errorMessage }}
         </v-alert>
@@ -20,14 +21,12 @@
         <v-form @submit.prevent="requestReset" ref="forgotPasswordForm">
           <v-text-field
             v-model="email"
-            label="Email"
+            label="Email *"
             type="email"
-            variant="outlined"
-            density="compact"
             prepend-inner-icon="mdi-email-outline"
             :rules="[rules.required, rules.email]"
             placeholder="email@example.com"
-            class="mb-3"
+            class="mb-4"
           ></v-text-field>
 
           <v-btn
@@ -37,13 +36,15 @@
             size="large"
             :loading="isLoading"
             :disabled="isLoading"
-            class="mt-4"
+            class="mt-4 mb-5"
+            rounded="lg"
+            elevation="2"
           >
             Gửi liên kết
           </v-btn>
         </v-form>
         <div class="text-center mt-4">
-          <RouterLink to="/login" class="text-primary text-body-2 text-decoration-none">Quay lại đăng nhập</RouterLink>
+          <RouterLink to="/login" class="text-primary text-body-2 text-decoration-none font-weight-medium">Quay lại đăng nhập</RouterLink>
         </div>
       </v-card-text>
     </div>
@@ -53,7 +54,7 @@
       <p class="text-body-2 text-medium-emphasis mb-4">
         Nếu email <strong class="text-black">{{ email }}</strong> tồn tại, bạn sẽ nhận được liên kết đặt lại mật khẩu trong vài phút.
       </p>
-      <v-btn color="primary" to="/login" variant="flat">Về trang đăng nhập</v-btn>
+      <v-btn color="primary" to="/login" variant="flat" rounded="lg">Về trang đăng nhập</v-btn>
     </div>
   </v-card>
 </template>
@@ -80,6 +81,7 @@ const rules = {
 };
 
 const requestReset = async () => {
+  if (!forgotPasswordForm.value) return;
   const { valid } = await forgotPasswordForm.value.validate();
   if (!valid) return;
 
@@ -89,6 +91,8 @@ const requestReset = async () => {
     await authStore.handleForgotPassword(email.value);
     isSuccess.value = true;
   } catch (error) {
+    errorMessage.value = error.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại.';
+    // Vẫn hiển thị success để tránh lộ email tồn tại
     isSuccess.value = true;
   } finally {
     isLoading.value = false;
@@ -97,11 +101,5 @@ const requestReset = async () => {
 </script>
 
 <style scoped>
-.v-card {
-  max-width: 500px;
-  margin: auto;
-}
-.text-decoration-none {
-  text-decoration: none;
-}
+.text-decoration-none { text-decoration: none; }
 </style>
