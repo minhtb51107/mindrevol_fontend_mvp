@@ -1,19 +1,209 @@
 /* File: src/assets/main.css */
-@import './base.css';
+@import './base.css'; /* Giữ lại import base.css */
 
-/* Có thể bỏ phần #app và body nếu không cần thiết nữa khi dùng Vuetify layout */
-/*
-#app { ... }
-body { ... }
-*/
-
-/* --- Có thể thêm các utility classes nếu cần --- */
-/* Ví dụ: một lớp shadow mềm hơn mặc định của Vuetify elevation=1 */
-/* .soft-shadow {
-  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.05), 0px 1px 3px rgba(0, 0, 0, 0.08) !important;
-} */
-
-/* Đảm bảo link không bị gạch chân mặc định nếu cần */
+/* --- Tinh chỉnh chung --- */
 a {
-  text-decoration: none;
+  text-decoration: none; /* Bỏ gạch chân link mặc định */
+  transition: color 0.2s ease-in-out; /* Hiệu ứng chuyển màu nhẹ cho link */
+}
+
+a:hover {
+  color: rgb(var(--v-theme-primary-darken-1)); /* Link đậm màu hơn khi hover */
+}
+
+/* --- Tinh chỉnh Vuetify Components --- */
+
+/* App Bar */
+.v-app-bar {
+  border-bottom: 1px solid rgba(var(--v-theme-border), var(--v-border-opacity)) !important;
+}
+
+/* Card */
+.v-card--variant-flat.v-card--border {
+   /* Điều chỉnh màu viền nhẹ nhàng hơn nếu cần */
+   /* border-color: rgba(var(--v-theme-border), 0.6) !important; */
+}
+
+/* Button */
+.v-btn--variant-flat {
+   transition: background-color 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+.v-btn--variant-flat:hover {
+   background-color: rgba(var(--v-theme-primary), 0.08) !important; /* Hiệu ứng hover nhẹ cho nút phẳng */
+}
+.v-btn--variant-flat[color="primary"]:hover {
+    background-color: rgba(var(--v-theme-primary), 0.9) !important; /* Giảm độ sáng nhẹ khi hover nút primary */
+}
+
+/* Text Field / Textarea / Select */
+.v-field--variant-outlined .v-field__outline__notch::before,
+.v-field--variant-outlined .v-field__outline__notch::after {
+    /* Có thể làm viền notch mảnh hơn nếu muốn */
+    /* border-width: 1px !important; */
+}
+
+/* Table trong ProgressDashboard */
+.progress-table th, .progress-table td {
+  border-color: rgba(var(--v-theme-border), var(--v-border-opacity)) !important;
+}
+
+/* Chip */
+.v-chip {
+    font-weight: 500; /* Chữ trong chip đậm hơn một chút */
+}
+
+/* Dialog */
+.v-dialog .v-card-title {
+    font-weight: 600; /* Tiêu đề dialog đậm hơn */
+}
+.v-dialog .v-card-actions {
+    border-top: 1px solid rgba(var(--v-theme-border), var(--v-border-opacity));
+}
+
+/* List Item */
+/* *** SỬA Ở ĐÂY: Tăng opacity cho hover/active *** */
+.v-list-item--link:hover, .v-list-item--active {
+    background-color: rgba(var(--v-theme-primary), 0.1) !important; /* Tăng từ 0.06 -> 0.1 */
+}
+.v-list-item--active > .v-list-item__overlay {
+    opacity: 0 !important; /* Bỏ lớp overlay mặc định của Vuetify khi active */
+}
+
+
+/* --- Các lớp Utility tùy chỉnh (nếu cần) --- */
+
+/* Ví dụ: Thêm shadow mềm mại hơn */
+.soft-shadow {
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.05), 0px 1px 3px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Ví dụ: Căn chỉnh khoảng cách */
+.gap-1 { gap: 4px; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.gap-4 { gap: 16px; }
+
+/* Bỏ margin bottom mặc định của v-alert density=compact */
+.v-alert--density-compact {
+    margin-bottom: 16px; /* Hoặc giá trị khác bạn muốn */
+}
+
+/* Sửa lỗi chữ bị mờ trong một số trường hợp với font Inter */
+body {
+    -webkit-font-smoothing: auto;
+    -moz-osx-font-smoothing: auto;
+}
+
+/* *** SỬA Ở ĐÂY: CSS CHO CHIP FILTER (HOMEVIEW) *** */
+.v-chip-group .v-chip {
+    /* Bỏ style background-color cũ vì đã dùng variant="tonal" */
+    /* background-color: rgba(var(--v-theme-on-surface), 0.05); */
+    border: none;
+    transition: background-color 0.2s ease-out, color 0.2s ease-out, border-color 0.2s ease-out;
+}
+/* Style cho chip được chọn (ghi đè selected-class nếu cần) */
+.v-chip-group .v-chip--selected.bg-primary-lighten-4 {
+    background-color: rgba(var(--v-theme-primary), 0.15) !important; /* Làm đậm hơn nữa */
+    color: rgb(var(--v-theme-primary-darken-1)) !important; /* Chữ đậm hơn */
+    font-weight: 500;
+}
+
+/* Glassmorphism Effects */
+.glass-effect--light {
+  background-color: rgba(var(--v-theme-surface), 0.6) !important; /* Mờ hơn chút */
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2) !important;
+}
+
+.glass-effect {
+  background-color: rgba(var(--v-theme-surface-variant), 0.3) !important;
+  backdrop-filter: blur(8px) saturate(100%);
+  -webkit-backdrop-filter: blur(8px) saturate(100%);
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+.glass-effect--darker {
+  background-color: rgba(var(--v-theme-on-surface), 0.08) !important;
+  backdrop-filter: blur(10px) saturate(110%);
+  -webkit-backdrop-filter: blur(10px) saturate(110%);
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Neon Glow Effects */
+:root {
+  --neon-yellow: 254, 228, 64; /* FEE440 */
+  --neon-pink: 255, 143, 171; /* FF8FAB */
+  --neon-cyan: 0, 255, 255;   /* 00FFFF */
+  --neon-purple: 192, 132, 252; /* C084FC */
+  --neon-orange: 251, 140, 0;  /* FB8C00 */
+  --neon-green: 76, 175, 80; /* Vuetify Success */
+}
+
+/* Base Neon Glow (Apply to buttons, important elements) */
+.neon-glow--yellow {
+  box-shadow: 0 0 12px 3px rgba(var(--neon-yellow), 0.4), 0 0 4px 1px rgba(var(--neon-yellow), 0.3);
+  transition: box-shadow 0.25s ease-in-out;
+}
+.neon-glow--yellow:hover {
+  box-shadow: 0 0 20px 5px rgba(var(--neon-yellow), 0.5), 0 0 8px 2px rgba(var(--neon-yellow), 0.4);
+}
+
+.neon-glow--purple {
+  box-shadow: 0 0 12px 3px rgba(var(--neon-purple), 0.4), 0 0 4px 1px rgba(var(--neon-purple), 0.3);
+  transition: box-shadow 0.25s ease-in-out;
+}
+.neon-glow--purple:hover {
+   box-shadow: 0 0 20px 5px rgba(var(--neon-purple), 0.5), 0 0 8px 2px rgba(var(--neon-purple), 0.4);
+}
+
+.neon-glow--cyan {
+  box-shadow: 0 0 12px 3px rgba(var(--neon-cyan), 0.4), 0 0 4px 1px rgba(var(--neon-cyan), 0.3);
+  transition: box-shadow 0.25s ease-in-out;
+}
+.neon-glow--cyan:hover {
+   box-shadow: 0 0 20px 5px rgba(var(--neon-cyan), 0.5), 0 0 8px 2px rgba(var(--neon-cyan), 0.4);
+}
+
+/* Smaller Glow (e.g., for buttons inside dialogs) */
+.neon-glow--yellow-sm {
+  box-shadow: 0 0 6px 2px rgba(var(--neon-yellow), 0.4), 0 0 2px 1px rgba(var(--neon-yellow), 0.3);
+}
+.neon-glow--purple-sm {
+   box-shadow: 0 0 6px 2px rgba(var(--neon-purple), 0.4), 0 0 2px 1px rgba(var(--neon-purple), 0.3);
+}
+
+/* Neon Border Glow (Apply to info cards, sections) */
+.neon-border--cyan {
+  border: 1px solid rgba(var(--neon-cyan), 0.5) !important;
+  box-shadow: 0 0 8px 1px rgba(var(--neon-cyan), 0.2);
+}
+.neon-border--purple {
+  border: 1px solid rgba(var(--neon-purple), 0.5) !important;
+  box-shadow: 0 0 8px 1px rgba(var(--neon-purple), 0.2);
+}
+
+/* Neon Text Glow */
+.neon-text--yellow {
+  color: rgb(var(--neon-yellow));
+  text-shadow: 0 0 5px rgba(var(--neon-yellow), 0.7), 0 0 10px rgba(var(--neon-yellow), 0.5);
+}
+
+/* Pulsing effect for Status Chip */
+.pulse-animation {
+  animation: pulse 1.5s infinite ease-in-out;
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 3px 1px rgba(var(--neon-color), 0.3); }
+  50% { box-shadow: 0 0 8px 3px rgba(var(--neon-color), 0.6); }
+}
+
+/* General Styling */
+.text-ellipsis {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

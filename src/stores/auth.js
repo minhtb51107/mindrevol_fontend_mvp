@@ -6,6 +6,8 @@ import router from '@/router';
 import apiClient from '@/api/axios';
 import { usePlanStore } from './plan';
 import { useNotificationStore } from './notificationStore';
+import { useProgressStore } from './progress';
+import { useFeedStore } from '@/stores/feedStore';
 
 export const useAuthStore = defineStore('auth', {
     state: () => ({
@@ -172,6 +174,7 @@ export const useAuthStore = defineStore('auth', {
         async logout() {
           const planStore = usePlanStore();
           const notificationStore = useNotificationStore();
+          const feedStore = useFeedStore(); // *** LẤY feedStore ***
 
             // Clear local state and storage FIRST
             const refreshTokenToInvalidate = this.refreshToken; // Store token before clearing state
@@ -186,9 +189,14 @@ export const useAuthStore = defineStore('auth', {
             localStorage.removeItem('refreshToken');
             localStorage.removeItem('user');
 
+            this.accessToken = null;
+
             // Clear other stores
             planStore.clearUserPlans();
             notificationStore.clearNotifications();
+            progressStore.clearDashboard(); // *** CÓ THỂ GỘP clearUserStats VÀO ĐÂY ***
+            progressStore.clearUserStats(); // *** GỌI HÀM CLEAR STATS ***
+            feedStore.clearFeed(); // *** GỌI CLEAR FEED ***
 
              // Redirect BEFORE calling backend logout (improves UX)
             // Use replace to avoid back button issues
@@ -273,6 +281,6 @@ export const useAuthStore = defineStore('auth', {
             } else {
                  console.log("Not authenticated, skipping initial data load.");
             }
-        }
+        },
     }
 });

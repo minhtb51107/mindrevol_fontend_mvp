@@ -20,4 +20,24 @@ export default {
   updateMyProfile(profileData) {
     return apiClient.put('/users/profile', profileData);
   },
+
+  /**
+   * Lấy thông tin thống kê (check-in, streak) của người dùng hiện tại.
+   * GET /api/v1/users/me/stats
+   * @returns Promise<AxiosResponse<UserStatsResponse>>
+   */
+  getMyStats() {
+    return apiClient.get('/users/me/stats');
+  },
+
+  // --- HÀM MỚI ĐỂ LẤY CHART DATA ---
+  /**
+   * Lấy dữ liệu biểu đồ tiến độ 7 ngày gần nhất.
+   * GET /api/v1/users/me/progress-chart
+   * @returns Promise<AxiosResponse<Array<{ date: string, completionRate: number }>>>
+   */
+  getMyProgressChartData() {
+    return apiClient.get('/users/me/progress-chart');
+  },
+  // --- KẾT THÚC HÀM MỚI ---
 };
