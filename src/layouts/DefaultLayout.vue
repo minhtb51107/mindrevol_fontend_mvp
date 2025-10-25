@@ -101,13 +101,13 @@
             </template>
             <v-list density="compact" nav>
               <v-list-subheader>Chào, {{ authStore.userFullName }}</v-list-subheader>
-              <v-list-item @click="openProfileModal" link rounded="lg">
+              <v-list-item @click="openProfileModal" link rounded="lg" class="mb-1 menu-item-custom">
                 <template v-slot:prepend>
                   <v-icon icon="mdi-account-circle-outline"></v-icon>
                 </template>
                 <v-list-item-title>Thông tin cá nhân</v-list-item-title>
               </v-list-item>
-              <v-list-item @click="openChangePasswordModal" link rounded="lg">
+              <v-list-item @click="openChangePasswordModal" link rounded="lg" class="menu-item-custom">
                  <template v-slot:prepend>
                   <v-icon icon="mdi-lock-reset"></v-icon>
                 </template>

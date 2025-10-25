@@ -60,6 +60,7 @@ a:hover {
     border-top: 1px solid rgba(var(--v-theme-border), var(--v-border-opacity));
 }
 
+
 /* List Item */
 /* *** SỬA Ở ĐÂY: Tăng opacity cho hover/active *** */
 .v-list-item--link:hover, .v-list-item--active {
@@ -95,9 +96,14 @@ body {
 }
 
 /* *** SỬA Ở ĐÂY: CSS CHO CHIP FILTER (HOMEVIEW) *** */
+
+:root:not(.v-theme-dark) .v-chip-group .v-chip.v-chip--variant-tonal:not(.v-chip--selected) {
+    background-color: rgba(var(--v-theme-on-surface), 0.06); /* xám rất nhạt */
+    color: rgba(var(--v-theme-on-surface), 0.7); /* chữ xám */
+}
+
+
 .v-chip-group .v-chip {
-    /* Bỏ style background-color cũ vì đã dùng variant="tonal" */
-    /* background-color: rgba(var(--v-theme-on-surface), 0.05); */
     border: none;
     transition: background-color 0.2s ease-out, color 0.2s ease-out, border-color 0.2s ease-out;
 }
@@ -108,102 +114,21 @@ body {
     font-weight: 500;
 }
 
-/* Glassmorphism Effects */
-.glass-effect--light {
-  background-color: rgba(var(--v-theme-surface), 0.6) !important; /* Mờ hơn chút */
-  backdrop-filter: blur(12px) saturate(140%);
-  -webkit-backdrop-filter: blur(12px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2) !important;
+/* ... (Các style neon/glass của bạn) ... */
+
+/* (Giữ lại các style neon/glass ở đây) */
+
+/* *** THÊM ĐOẠN NÀY VÀO CUỐI FILE (HOẶC THAY THẾ ĐOẠN TƯƠNG TỰ) *** */
+/* Ép màu cho icon và chữ trong menu cá nhân khi ở theme sáng */
+
+/* Rule này cho ICON (đã hoạt động) */
+:root:not(.v-theme-dark) .v-list-item--link .v-list-item__prepend .v-icon {
+  color: rgb(var(--v-theme-on-surface)) !important; 
+  opacity: var(--v-medium-emphasis-opacity) !important;
 }
 
-.glass-effect {
-  background-color: rgba(var(--v-theme-surface-variant), 0.3) !important;
-  backdrop-filter: blur(8px) saturate(100%);
-  -webkit-backdrop-filter: blur(8px) saturate(100%);
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
-}
-
-.glass-effect--darker {
-  background-color: rgba(var(--v-theme-on-surface), 0.08) !important;
-  backdrop-filter: blur(10px) saturate(110%);
-  -webkit-backdrop-filter: blur(10px) saturate(110%);
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
-}
-
-/* Neon Glow Effects */
-:root {
-  --neon-yellow: 254, 228, 64; /* FEE440 */
-  --neon-pink: 255, 143, 171; /* FF8FAB */
-  --neon-cyan: 0, 255, 255;   /* 00FFFF */
-  --neon-purple: 192, 132, 252; /* C084FC */
-  --neon-orange: 251, 140, 0;  /* FB8C00 */
-  --neon-green: 76, 175, 80; /* Vuetify Success */
-}
-
-/* Base Neon Glow (Apply to buttons, important elements) */
-.neon-glow--yellow {
-  box-shadow: 0 0 12px 3px rgba(var(--neon-yellow), 0.4), 0 0 4px 1px rgba(var(--neon-yellow), 0.3);
-  transition: box-shadow 0.25s ease-in-out;
-}
-.neon-glow--yellow:hover {
-  box-shadow: 0 0 20px 5px rgba(var(--neon-yellow), 0.5), 0 0 8px 2px rgba(var(--neon-yellow), 0.4);
-}
-
-.neon-glow--purple {
-  box-shadow: 0 0 12px 3px rgba(var(--neon-purple), 0.4), 0 0 4px 1px rgba(var(--neon-purple), 0.3);
-  transition: box-shadow 0.25s ease-in-out;
-}
-.neon-glow--purple:hover {
-   box-shadow: 0 0 20px 5px rgba(var(--neon-purple), 0.5), 0 0 8px 2px rgba(var(--neon-purple), 0.4);
-}
-
-.neon-glow--cyan {
-  box-shadow: 0 0 12px 3px rgba(var(--neon-cyan), 0.4), 0 0 4px 1px rgba(var(--neon-cyan), 0.3);
-  transition: box-shadow 0.25s ease-in-out;
-}
-.neon-glow--cyan:hover {
-   box-shadow: 0 0 20px 5px rgba(var(--neon-cyan), 0.5), 0 0 8px 2px rgba(var(--neon-cyan), 0.4);
-}
-
-/* Smaller Glow (e.g., for buttons inside dialogs) */
-.neon-glow--yellow-sm {
-  box-shadow: 0 0 6px 2px rgba(var(--neon-yellow), 0.4), 0 0 2px 1px rgba(var(--neon-yellow), 0.3);
-}
-.neon-glow--purple-sm {
-   box-shadow: 0 0 6px 2px rgba(var(--neon-purple), 0.4), 0 0 2px 1px rgba(var(--neon-purple), 0.3);
-}
-
-/* Neon Border Glow (Apply to info cards, sections) */
-.neon-border--cyan {
-  border: 1px solid rgba(var(--neon-cyan), 0.5) !important;
-  box-shadow: 0 0 8px 1px rgba(var(--neon-cyan), 0.2);
-}
-.neon-border--purple {
-  border: 1px solid rgba(var(--neon-purple), 0.5) !important;
-  box-shadow: 0 0 8px 1px rgba(var(--neon-purple), 0.2);
-}
-
-/* Neon Text Glow */
-.neon-text--yellow {
-  color: rgb(var(--neon-yellow));
-  text-shadow: 0 0 5px rgba(var(--neon-yellow), 0.7), 0 0 10px rgba(var(--neon-yellow), 0.5);
-}
-
-/* Pulsing effect for Status Chip */
-.pulse-animation {
-  animation: pulse 1.5s infinite ease-in-out;
-}
-@keyframes pulse {
-  0%, 100% { box-shadow: 0 0 3px 1px rgba(var(--neon-color), 0.3); }
-  50% { box-shadow: 0 0 8px 3px rgba(var(--neon-color), 0.6); }
-}
-
-/* General Styling */
-.text-ellipsis {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* *** SỬA Ở ĐÂY: Rule này cho CHỮ (đã sửa selector) *** */
+:root:not(.v-theme-dark) .v-list-item--link .v-list-item-title {
+  color: rgb(var(--v-theme-on-surface)) !important;
+  opacity: var(--v-high-emphasis-opacity) !important;
 }

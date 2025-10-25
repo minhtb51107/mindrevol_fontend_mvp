@@ -94,7 +94,7 @@
                   <v-chip-group
                     v-model="selectedStatusFilter"
                     mandatory
-                    selected-class="text-primary bg-primary-lighten-4"
+                    selected-class="bg-primary-lighten-4"
                     density="compact"
                     class="me-1 filter-chips"
                     variant="tonal" 
@@ -392,7 +392,7 @@ const goToFirstActivePlan = () => {
 }
 
 /* Style cho chip filter (sử dụng variant="tonal") */
-/* .v-chip-group .v-chip { ... } */ /* Không cần style nền nữa */
+/* .v-chip-group .v-chip { ... } */ /* Sửa trong main.css */
 
 /* Style cho chip được chọn (ghi đè selected-class nếu cần) */
 .v-chip-group .v-chip--selected.bg-primary-lighten-4 {
