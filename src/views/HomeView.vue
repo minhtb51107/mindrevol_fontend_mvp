@@ -2,7 +2,7 @@
   <v-container fluid class="home-view-container pa-4 pa-md-6">
     <v-row class="mb-6 mb-md-8">
       <v-col cols="12">
-        <h1 class="text-h4 font-weight-bold mb-1">Chào buổi sáng, {{ userFullName }}!</h1>
+        <h1 class="text-h4 font-weight-bold mb-1">Chào, {{ userFullName }}!</h1>
         <p class="text-body-1 text-medium-emphasis">Đây là tổng quan nhanh về hành trình của bạn hôm nay.</p>
       </v-col>
 

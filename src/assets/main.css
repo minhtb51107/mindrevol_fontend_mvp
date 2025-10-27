@@ -1,4 +1,8 @@
 /* File: src/assets/main.css */
+
+/* --- *** THÊM MỚI: IMPORT GOOGLE FONTS *** --- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
+
 @import './base.css'; /* Giữ lại import base.css */
 
 /* --- Tinh chỉnh chung --- */
@@ -15,6 +19,7 @@ a:hover {
 
 /* App Bar */
 .v-app-bar {
+  /* *** SỬA Ở ĐÂY: Dùng border của theme neo *** */
   border-bottom: 1px solid rgba(var(--v-theme-border), var(--v-border-opacity)) !important;
 }
 
@@ -91,8 +96,13 @@ a:hover {
 
 /* Sửa lỗi chữ bị mờ trong một số trường hợp với font Inter */
 body {
+    /* *** SỬA Ở ĐÂY: Đặt font mặc định *** */
+    font-family: 'Inter', 'Poppins', sans-serif;
     -webkit-font-smoothing: auto;
     -moz-osx-font-smoothing: auto;
+    
+    /* *** THÊM MỚI: Đảm bảo body dùng màu nền của theme *** */
+    background-color: rgb(var(--v-theme-background));
 }
 
 /* *** SỬA Ở ĐÂY: CSS CHO CHIP FILTER (HOMEVIEW) *** */
@@ -131,4 +141,88 @@ body {
 :root:not(.v-theme-dark) .v-list-item--link .v-list-item-title {
   color: rgb(var(--v-theme-on-surface)) !important;
   opacity: var(--v-high-emphasis-opacity) !important;
+}
+
+
+/* --- *** THÊM MỚI: CÁC LỚP TIỆN ÍCH NEO FUTURISTIC *** ---
+*/
+
+/* 1. Hiệu ứng Glassmorphism (Dùng cho Sidebar, Modal, Card đặc biệt) */
+.glass-effect {
+  /* Nền mờ, màu hơi sáng */
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  /* Lọc mờ nền phía sau */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  /* Viền sáng tinh tế */
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* 2. Shadow mềm (Dark Mode) - Dùng cho Card nổi (Neumorphism mềm) */
+.dark-soft-shadow {
+  /* Shadow chính, lan tỏa, màu đen */
+  box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* 3. Hiệu ứng Neon Glow (Dùng cho Button, Card khi active/hover) */
+/* Ví dụ: Dùng với màu Primary */
+.neon-glow-primary {
+  box-shadow: 0 0 8px rgba(var(--v-theme-primary), 0.5), 
+              0 0 16px rgba(var(--v-theme-primary), 0.3) !important;
+}
+.neon-glow-secondary {
+  box-shadow: 0 0 8px rgba(var(--v-theme-secondary), 0.5), 
+              0 0 16px rgba(var(--v-theme-secondary), 0.3) !important;
+}
+.neon-glow-yellow {
+  box-shadow: 0 0 8px rgba(var(--v-theme-neon-yellow), 0.5), 
+              0 0 16px rgba(var(--v-theme-neon-yellow), 0.3) !important;
+}
+.neon-glow-pink {
+  box-shadow: 0 0 8px rgba(var(--v-theme-neon-pink), 0.5), 
+              0 0 16px rgba(var(--v-theme-neon-pink), 0.3) !important;
+}
+.neon-glow-green {
+  box-shadow: 0 0 8px rgba(var(--v-theme-neon-green), 0.5), 
+              0 0 16px rgba(var(--v-theme-neon-green), 0.3) !important;
+}
+
+
+/* 4. Hiệu ứng Neon Text (Dùng cho Tiêu đề, số liệu) */
+.neon-text-primary {
+  color: rgb(var(--v-theme-primary)) !important;
+  text-shadow: 0 0 4px rgba(var(--v-theme-primary), 0.7) !important;
+}
+.neon-text-secondary {
+  color: rgb(var(--v-theme-secondary)) !important;
+  text-shadow: 0 0 4px rgba(var(--v-theme-secondary), 0.7) !important;
+}
+.neon-text-yellow {
+  color: rgb(var(--v-theme-neon-yellow)) !important;
+  text-shadow: 0 0 4px rgba(var(--v-theme-neon-yellow), 0.7) !important;
+}
+.neon-text-pink {
+  color: rgb(var(--v-theme-neon-pink)) !important;
+  text-shadow: 0 0 4px rgba(var(--v-theme-neon-pink), 0.7) !important;
+}
+.neon-text-green {
+  color: rgb(var(--v-theme-neon-green)) !important;
+  text-shadow: 0 0 4px rgba(var(--v-theme-neon-green), 0.7) !important;
+}
+
+/* 5. Tinh chỉnh Scrollbar cho theme tối (rất nên có) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  background-color: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: rgba(var(--v-theme-border), 0.5);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(var(--v-theme-border), 0.8);
+}
+::-webkit-scrollbar-track {
+  background-color: transparent;
 }

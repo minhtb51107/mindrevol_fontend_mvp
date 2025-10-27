@@ -11,83 +11,82 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 
-// --- Định nghĩa Theme tùy chỉnh ---
-
+// --- Theme Sáng Tùy Chỉnh (Giữ nguyên) ---
 const myCustomLightTheme = {
   dark: false,
   colors: {
-    background: '#F8F9FA', // Màu nền chính (hơi xám nhẹ)
-    surface: '#FFFFFF',    // Màu nền cho Card, Sheet, v.v.
-    primary: '#FF6F00',    // Màu cam chủ đạo (có thể đổi)
-    'primary-darken-1': '#E65100', // Màu cam đậm hơn
-    secondary: '#424242',  // Màu xám đậm cho text phụ, icon
-    'secondary-darken-1': '#212121', // Xám đen hơn
+    background: '#F8F9FA',
+    surface: '#FFFFFF',
+    primary: '#FF6F00',
+    'primary-darken-1': '#E65100',
+    secondary: '#424242',
+    'secondary-darken-1': '#212121',
     error: '#B00020',
-    info: '#1976D2',      // Màu xanh dương đậm hơn một chút
-    success: '#388E3C',    // Màu xanh lá cây đậm hơn một chút
-    warning: '#FBC02D',    // Màu vàng đậm hơn
-    'on-background': '#212121', // Màu chữ trên nền background
-    'on-surface': '#212121',    // Màu chữ trên nền surface
-    'on-primary': '#FFFFFF',    // Màu chữ trên nền primary
-    'medium-emphasis': 'rgba(0, 0, 0, 0.6)', // Màu chữ nhấn vừa
-    'disabled': 'rgba(0, 0, 0, 0.38)',       // Màu cho trạng thái disabled
-    'border': '#E0E0E0',                    // Màu đường viền
-    'app-bar': '#FFFFFF',                   // Màu riêng cho App Bar (nếu muốn)
-    'primary-lighten-4': 'rgba(255, 111, 0, 0.1)', // Màu cho chip filter được chọn
+    info: '#1976D2',
+    success: '#388E3C',
+    warning: '#FBC02D',
+    'on-background': '#212121',
+    'on-surface': '#212121',
+    'on-primary': '#FFFFFF',
+    'medium-emphasis': 'rgba(0, 0, 0, 0.6)',
+    'disabled': 'rgba(0, 0, 0, 0.38)',
+    'border': '#E0E0E0',
+    'app-bar': '#FFFFFF',
+    'primary-lighten-4': 'rgba(255, 111, 0, 0.1)',
   },
   variables: {
     'border-color': '#E0E0E0',
-    'border-opacity': 0.8, // Giảm nhẹ opacity đường viền
+    'border-opacity': 0.8,
     'high-emphasis-opacity': 0.87,
     'medium-emphasis-opacity': 0.60,
     'disabled-opacity': 0.38,
     'idle-opacity': 0.04,
-    'hover-opacity': 0.06, // Giảm nhẹ hover opacity
-    'focus-opacity': 0.10, // Giảm nhẹ focus opacity
-    'selected-opacity': 0.08, // Giảm nhẹ selected opacity
-    'activated-opacity': 0.10, // Giảm nhẹ activated opacity
-    'pressed-opacity': 0.12, // Giảm nhẹ pressed opacity
+    'hover-opacity': 0.06,
+    'focus-opacity': 0.10,
+    'selected-opacity': 0.08,
+    'activated-opacity': 0.10,
+    'pressed-opacity': 0.12,
     'dragged-opacity': 0.08,
     'theme-kbd': '#212529',
     'theme-on-kbd': '#FFFFFF',
     'theme-code': '#F5F5F5',
     'theme-on-code': '#000000',
-    // --- Thay đổi độ bo tròn ---
-    'rounded-borders': 'lg', // lg = 8px (có thể dùng 'xl' = 12px nếu muốn bo nhiều hơn)
-    'code-font-family': '"Fira Code", monospace', // Font chữ cho code (tùy chọn)
+    'rounded-borders': 'lg',
+    'code-font-family': '"Fira Code", monospace',
   }
 }
 
+// --- Theme Tối Tùy Chỉnh Cũ (Giữ lại để tham khảo) ---
 const myCustomDarkTheme = {
   dark: true,
   colors: {
-    background: '#121212', // Nền đen sâu hơn
-    surface: '#1E1E1E',    // Nền Card, Sheet tối
-    primary: '#FFA726',    // Màu cam sáng hơn cho theme tối
-    'primary-darken-1': '#FF8F00', // Cam đậm hơn trên nền tối
-    secondary: '#B0BEC5',  // Xám xanh nhạt cho text phụ
+    background: '#121212',
+    surface: '#1E1E1E',
+    primary: '#FFA726',
+    'primary-darken-1': '#FF8F00',
+    secondary: '#B0BEC5',
     'secondary-darken-1': '#78909C',
     error: '#CF6679',
-    info: '#64B5F6',      // Xanh dương sáng hơn
-    success: '#81C784',    // Xanh lá cây sáng hơn
-    warning: '#FFB74D',    // Vàng sáng hơn
-    'on-background': '#E0E0E0', // Chữ sáng trên nền tối
+    info: '#64B5F6',
+    success: '#81C784',
+    warning: '#FFB74D',
+    'on-background': '#E0E0E0',
     'on-surface': '#E0E0E0',
-    'on-primary': '#000000',    // Chữ đen trên nền primary (cam sáng)
-    'medium-emphasis': 'rgba(255, 255, 255, 0.7)', // Tăng độ sáng chữ nhấn vừa
+    'on-primary': '#000000',
+    'medium-emphasis': 'rgba(255, 255, 255, 0.7)',
     'disabled': 'rgba(255, 255, 255, 0.38)',
-    'border': '#424242',       // Đường viền tối hơn
-    'app-bar': '#1E1E1E',      // Màu App Bar tối
-    'primary-lighten-4': 'rgba(255, 167, 38, 0.1)', // Màu chip filter tối
+    'border': '#424242',
+    'app-bar': '#1E1E1E',
+    'primary-lighten-4': 'rgba(255, 167, 38, 0.1)',
   },
   variables: {
     'border-color': '#424242',
     'border-opacity': 0.8,
     'high-emphasis-opacity': 0.87,
-    'medium-emphasis-opacity': 0.70, // Tăng nhẹ opacity
+    'medium-emphasis-opacity': 0.70,
     'disabled-opacity': 0.38,
-    'idle-opacity': 0.05, // Tăng nhẹ idle
-    'hover-opacity': 0.08, // Tăng nhẹ hover
+    'idle-opacity': 0.05,
+    'hover-opacity': 0.08,
     'focus-opacity': 0.12,
     'selected-opacity': 0.10,
     'activated-opacity': 0.12,
@@ -97,11 +96,78 @@ const myCustomDarkTheme = {
     'theme-on-kbd': '#FFFFFF',
     'theme-code': '#343434',
     'theme-on-code': '#CCCCCC',
-    // --- Độ bo tròn tương tự theme sáng ---
     'rounded-borders': 'lg',
     'code-font-family': '"Fira Code", monospace',
   }
 }
+
+// --- *** THÊM MỚI: THEME NEO FUTURISTIC *** ---
+const neoFuturisticDark = {
+  dark: true,
+  colors: {
+    // Màu nền chủ đạo (Đen xám đậm)
+    background: '#1A1B25',
+    // Màu nền cho Card, nổi khối nhẹ
+    surface: '#1F202B', 
+    
+    // Màu nhấn Neon Pastel (chọn 1 màu làm primary/secondary)
+    primary: '#A076F9',    // Tím Lavender
+    secondary: '#70F8F8',  // Xanh Cyan
+
+    // Bổ sung các màu neon khác để dùng tùy chỉnh
+    'neon-yellow': '#F7DC6F',
+    'neon-pink': '#F47BBD',
+    'neon-purple': '#A076F9', // Giống primary
+    'neon-cyan': '#70F8F8',   // Giống secondary
+    'neon-green': '#63F28F',
+    
+    // Màu chữ & trạng thái
+    'on-background': '#E0E0E0',
+    'on-surface': '#FFFFFF',  // Chữ trên card nổi bật hơn
+    'on-primary': '#FFFFFF',
+    'on-secondary': '#1A1B25',
+    'medium-emphasis': 'rgba(255, 255, 255, 0.7)',
+    'disabled': 'rgba(255, 255, 255, 0.38)',
+    
+    // Màu viền
+    'border': '#3A3C4A', // Viền tối, tinh tế
+
+    // Các màu mặc định khác
+    error: '#CF6679',
+    info: '#64B5F6',
+    success: '#63F28F', // Dùng màu neon green
+    warning: '#F7DC6F', // Dùng màu neon yellow
+    
+    // Màu riêng (nếu cần)
+    'app-bar': 'rgba(26, 27, 37, 0.8)', // App bar có thể hơi trong
+  },
+  variables: {
+    // --- Thay đổi độ bo tròn ---
+    // 'rounded-borders': 'xl', // xl = 16px
+    'border-color': '#3A3C4A',
+    'border-opacity': 0.8,
+    
+    // Opacity
+    'high-emphasis-opacity': 1.0,   // Chữ rõ hơn
+    'medium-emphasis-opacity': 0.70,
+    'disabled-opacity': 0.38,
+    'idle-opacity': 0.05,
+    'hover-opacity': 0.08,
+    'focus-opacity': 0.12,
+    'selected-opacity': 0.10,
+    'activated-opacity': 0.12,
+    'pressed-opacity': 0.16,
+    'dragged-opacity': 0.08,
+    
+    // Khác
+    'theme-kbd': '#212529',
+    'theme-on-kbd': '#FFFFFF',
+    'theme-code': '#343434',
+    'theme-on-code': '#CCCCCC',
+    'code-font-family': '"Fira Code", monospace',
+  }
+}
+
 
 // --- Khởi tạo Vuetify ---
 
@@ -109,84 +175,115 @@ const vuetify = createVuetify({
   components,
   directives,
   icons: {
-    defaultSet: 'mdi', // Sử dụng Material Design Icons
+    defaultSet: 'mdi',
   },
   theme: {
-    defaultTheme: 'myCustomLightTheme', // Theme mặc định là sáng
+    // *** SỬA Ở ĐÂY: Đặt theme mới làm mặc định ***
+    defaultTheme: 'neoFuturisticDark', 
     themes: {
-      myCustomLightTheme, // Đăng ký theme sáng tùy chỉnh
-      myCustomDarkTheme,  // Đăng ký theme tối tùy chỉnh
+      myCustomLightTheme, 
+      myCustomDarkTheme,  
+      neoFuturisticDark, // *** Đăng ký theme mới
     },
   },
   // --- Định nghĩa các giá trị mặc định cho components ---
   defaults: {
     global: {
-      ripple: true, // Bật hiệu ứng ripple mặc định
+      ripple: true,
     },
+    // *** SỬA Ở ĐÂY: Bo góc lớn hơn cho Card ***
     VCard: {
-      elevation: 1,       // Giảm độ đổ bóng mặc định của Card
-      rounded: 'lg',      // Sử dụng độ bo tròn đã định nghĩa ('lg')
-      variant: 'flat',    // Thử nghiệm Card phẳng hơn
-      border: true,       // Thêm viền nhẹ cho Card
+      elevation: 4,       // Tăng shadow để có hiệu ứng "nổi" mềm
+      rounded: 'xl',      // 'xl' = 16px (lớn hơn 'lg' = 8px)
+      variant: 'elevated',  // Dùng elevated thay vì flat/border
     },
     VSheet: {
        elevation: 0,
-       rounded: 'lg',
-       border: true, // Thêm viền cho Sheet (ví dụ: phần chào mừng)
-       color: 'surface' // Đảm bảo Sheet dùng màu surface
+       rounded: 'xl', // 'xl' = 16px
+       // border: true, // Bỏ border mặc định, dùng shadow hoặc glass
+       color: 'surface' 
     },
+    // *** SỬA Ở ĐÂY: Bo góc lớn hơn cho Button ***
     VBtn: {
-      // rounded: 'lg', // Áp dụng bo tròn cho nút
-      elevation: 0, // Nút phẳng hơn theo mặc định
-      style: 'text-transform: none; letter-spacing: normal; font-weight: 500;', // Chữ thường, không cách chữ, đậm vừa
+      rounded: 'xl', // 'xl' = 16px
+      elevation: 0, 
+      style: 'text-transform: none; letter-spacing: normal; font-weight: 600;', // Chữ đậm hơn
     },
+    // *** SỬA Ở ĐÂY: Bo góc lớn hơn cho Input ***
     VTextField: {
-      variant: 'outlined', // Kiểu viền ngoài
-      density: 'compact',  // Mật độ gọn gàng
-      rounded: 'lg',       // Bo tròn
-      color: 'primary',    // Màu viền khi focus
+      variant: 'outlined',
+      density: 'compact',
+      rounded: 'xl', // 'xl' = 16px
+      color: 'primary',
     },
     VTextarea: {
         variant: 'outlined',
         density: 'compact',
-        rounded: 'lg',
+        rounded: 'xl', // 'xl' = 16px
         color: 'primary',
     },
     VSelect: {
         variant: 'outlined',
         density: 'compact',
-        rounded: 'lg',
+        rounded: 'xl', // 'xl' = 16px
         color: 'primary',
     },
     VCheckbox: {
         density: 'compact',
         color: 'primary',
     },
+    // *** SỬA Ở ĐÂY: Bo góc lớn hơn cho Chip ***
     VChip: {
-        rounded: 'lg', // Bo tròn Chip
-        // variant: 'tonal', // Chip có màu nền nhẹ (tùy chọn)
-        size: 'small',    // Chip nhỏ hơn một chút
+        rounded: 'xl', // 'xl' = 16px
+        size: 'small',
     },
     VAlert: {
-        rounded: 'lg',
+        rounded: 'xl', // 'xl' = 16px
         density: 'compact',
-        variant: 'tonal', // Alert có nền nhẹ
+        variant: 'tonal',
     },
     VList: {
-        bgColor: 'transparent', // Nền list trong suốt theo mặc định
+        bgColor: 'transparent',
     },
     VListItem: {
-        rounded: 'md', // Bo nhẹ các item trong list
+        rounded: 'lg', // 'lg' = 8px (vừa phải cho list item)
     },
     VDialog: {
-        // scrollable: true, // Dialog có thể cuộn nếu nội dung dài (tùy chọn)
+        rounded: 'xl', // 'xl' = 16px
+    },
+    VMenu: {
+        rounded: 'xl', // 'xl' = 16px
     }
   },
-  // --- (Tùy chọn) Định nghĩa Typography nếu muốn override font ---
-  // typography: {
-  //   fontFamily: '"Roboto", "Inter", sans-serif', // Thêm font dự phòng
-  //   // ... (có thể override các style h1, h2, body1... ở đây)
-  // }
+  // --- (Tùy chọn) Định nghĩa Typography (Font) ---
+  typography: {
+    fontFamily: '"Inter", "Poppins", "Roboto", sans-serif', // Dùng font Inter/Poppins
+    h1: {
+      fontFamily: '"Poppins", sans-serif',
+      fontWeight: 700,
+    },
+    h2: {
+      fontFamily: '"Poppins", sans-serif',
+      fontWeight: 700,
+    },
+    h3: {
+      fontFamily: '"Poppins", sans-serif',
+      fontWeight: 600,
+    },
+    h4: {
+      fontFamily: '"Poppins", sans-serif',
+      fontWeight: 600,
+    },
+    h5: {
+      fontFamily: '"Poppins", sans-serif',
+      fontWeight: 600,
+    },
+    h6: {
+      fontFamily: '"Poppins", sans-serif',
+      fontWeight: 600,
+    },
+    // Các style khác dùng 'Inter'
+  }
 })
 
 // --- Khởi tạo App Vue ---

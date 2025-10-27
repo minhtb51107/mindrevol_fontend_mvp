@@ -1,106 +1,241 @@
 // File: src/stores/progress.js
 import { defineStore } from 'pinia';
 import progressService from '@/api/progressService';
-import userService from '@/api/userService';
+import userService from '@/api/userService'; // Vẫn giữ nếu cần cho stats/chart (dù đã deprecated)
 import { useAuthStore } from './auth';
+import dayjs from 'dayjs'; // Import dayjs
+
+// Helper debounce (có thể đưa ra utils)
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func.apply(this, args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
 
 export const useProgressStore = defineStore('progress', {
   state: () => ({
-    dashboard: null,
-    currentPlanShareableLink: null,
-    isLoading: false,
-    error: null,
+    // --- STATE CŨ (marked as deprecated or removed) ---
+    // dashboard: null, // Không dùng nữa
+    // isLoading: false, // Không dùng nữa
+    // error: null, // Không dùng nữa
+    currentPlanShareableLink: null, // Vẫn cần để biết đang xem plan nào
+
+    // Stats & Chart (logic cũ dựa trên DailyProgress, cần viết lại nếu muốn dùng)
     userStats: {
-      checkedInTodayComplete: false,
-      currentStreak: 0,
-      totalTasksToday: 0,
-      completedTasksToday: 0,
+        checkedInTodayComplete: false,
+        currentStreak: 0,
+        totalTasksToday: 0,
+        completedTasksToday: 0,
     },
     isLoadingStats: false,
     errorStats: null,
-    // --- STATE MỚI CHO CHART ---
-    chartData: [], // Dữ liệu gốc từ API [{ date: '...', completionRate: ... }]
+    chartData: [],
     isChartLoading: false,
     errorChart: null,
-    // --- KẾT THÚC STATE CHART ---
+
+    // --- STATE MỚI CHO TIMELINE DASHBOARD ---
+    currentTimeline: null, // Dữ liệu TimelineResponse từ API GET /timeline (List<MemberTimeline>)
+    isLoadingTimeline: false,
+    timelineError: null,
+    selectedDate: dayjs().format('YYYY-MM-DD'), // Ngày đang được chọn, mặc định là hôm nay
   }),
+
+  getters: {
+     // Getter để lấy timeline theo cấu trúc swimlane (API đã trả về đúng cấu trúc này)
+     timelineSwimlanes: (state) => state.currentTimeline,
+     // Getter lấy ngày đang chọn
+     getSelectedDate: (state) => state.selectedDate,
+  },
+
   actions: {
-    // ... (fetchDashboard, logDailyProgress, clearDashboard, updateDashboardFromWebSocket giữ nguyên) ...
-     async fetchDashboard(shareableLink) {
-        if (!shareableLink) { this.error = "Không thể tải dữ liệu tiến độ (thiếu mã kế hoạch)."; return; }
-        if (!this.dashboard || this.currentPlanShareableLink !== shareableLink || this.error) { this.isLoading = true; }
-        this.currentPlanShareableLink = shareableLink; this.error = null;
-        try {
-            const response = await progressService.getDashboard(shareableLink);
-            if (response.data && Array.isArray(response.data.membersProgress)) {
-                 response.data.membersProgress.forEach(member => {
-                    if (member && member.dailyStatus) {
-                        Object.keys(member.dailyStatus).forEach(date => {
-                            const progress = member.dailyStatus[date];
-                            if (progress) {
-                                progress.completedTaskIds = new Set(Array.isArray(progress.completedTaskIds) ? progress.completedTaskIds : []);
-                                if (!Array.isArray(progress.attachments)) progress.attachments = []; if (!Array.isArray(progress.comments)) progress.comments = []; if (!Array.isArray(progress.reactions)) progress.reactions = [];
-                            } else { member.dailyStatus[date] = { id: null, completed: false, notes: null, attachments: [], comments: [], reactions: [], completedTaskIds: new Set() }; }
-                        });
-                    } else if (member) { member.dailyStatus = {}; }
-                });
+    // --- ACTION MỚI: Cập nhật ngày đang xem ---
+    setSelectedDate(date) {
+        const newDate = dayjs(date).format('YYYY-MM-DD');
+        if (newDate !== this.selectedDate) {
+            console.log(`ProgressStore: Selected date changed to ${newDate}`);
+            this.selectedDate = newDate;
+            // Tự động fetch timeline cho ngày mới nếu đang xem plan
+            if (this.currentPlanShareableLink) {
+              this.fetchTimeline(this.currentPlanShareableLink, newDate);
             }
-            this.dashboard = response.data;
-        } catch (error) { console.error('Lỗi khi tải dashboard:', error); this.error = 'Không thể tải dữ liệu tiến độ.'; this.dashboard = null; }
-        finally { this.isLoading = false; }
-    },
-    async logDailyProgress(shareableLink, progressData) {
-       if (!shareableLink) { throw new Error("Không tìm thấy mã kế hoạch."); }
-       try { const response = await progressService.logProgress(shareableLink, progressData); await this.fetchUserStats(); await this.fetchChartData(); /* Fetch lại chart data sau check-in */ }
-       catch (error) { console.error('Lỗi khi ghi nhận tiến độ:', error); throw error; }
-     },
-    clearDashboard() { this.dashboard = null; this.currentPlanShareableLink = null; this.isLoading = false; this.error = null; },
-    updateDashboardFromWebSocket(updateData) {
-        const { date, memberEmail, progressSummary } = updateData; if (this.dashboard && this.dashboard.membersProgress) { const memberIndex = this.dashboard.membersProgress.findIndex(m => m.userEmail === memberEmail); if (memberIndex !== -1 && this.dashboard.membersProgress[memberIndex]?.dailyStatus) { const completedTaskIdsSet = new Set(Array.isArray(progressSummary.completedTaskIds) ? progressSummary.completedTaskIds : []); const newProgressForDate = { ...progressSummary, completedTaskIds: completedTaskIdsSet, attachments: Array.isArray(progressSummary.attachments) ? progressSummary.attachments : [], comments: Array.isArray(progressSummary.comments) ? progressSummary.comments : [], reactions: Array.isArray(progressSummary.reactions) ? progressSummary.reactions : [] }; const updatedDailyStatus = { ...this.dashboard.membersProgress[memberIndex].dailyStatus, [date]: newProgressForDate }; this.dashboard.membersProgress[memberIndex].dailyStatus = updatedDailyStatus; const memberStatuses = Object.values(updatedDailyStatus); this.dashboard.membersProgress[memberIndex].completedDays = memberStatuses.filter(s => s && s.id && s.completed).length; const planDuration = Object.keys(updatedDailyStatus).length || 1; this.dashboard.membersProgress[memberIndex].completionPercentage = planDuration > 0 ? (this.dashboard.membersProgress[memberIndex].completedDays / planDuration) * 100 : 0; } }
+        }
     },
 
-    // Action fetch stats (không đổi)
+    // --- ACTION MỚI: Fetch dữ liệu Timeline cho ngày đã chọn ---
+    async fetchTimeline(shareableLink, date = this.selectedDate) {
+        if (!shareableLink) {
+            this.timelineError = "Không thể tải timeline (thiếu mã kế hoạch).";
+            this.currentTimeline = null;
+            return;
+        }
+        console.log(`ProgressStore: Fetching timeline for ${shareableLink} on ${date}...`);
+        this.isLoadingTimeline = true;
+        this.timelineError = null;
+        this.currentPlanShareableLink = shareableLink; // Cập nhật link plan đang xem
+
+        try {
+            const response = await progressService.getDailyTimeline(shareableLink, date);
+            // API trả về List<MemberTimeline>, gán trực tiếp hoặc đảm bảo là array rỗng nếu không có data
+            this.currentTimeline = response.data || [];
+             console.log("ProgressStore: Timeline data fetched:", this.currentTimeline);
+        } catch (error) {
+            console.error('Lỗi khi tải dữ liệu timeline:', error);
+            this.timelineError = error.response?.data?.message || 'Không thể tải dữ liệu timeline.';
+            this.currentTimeline = null; // Reset về null khi lỗi
+        } finally {
+            this.isLoadingTimeline = false;
+        }
+    },
+
+    // --- ACTION MỚI: Gửi Check-in ---
+    async submitCheckIn(shareableLink, checkInData) {
+        if (!shareableLink) {
+            throw new Error("Không tìm thấy mã kế hoạch để check-in.");
+        }
+        console.log("ProgressStore: Submitting check-in...", checkInData);
+        // Có thể thêm isLoadingCheckIn nếu muốn component hiển thị loading khi submit
+        // this.isLoadingCheckIn = true;
+        try {
+            // Gọi API mới để tạo CheckInEvent
+            const response = await progressService.createCheckIn(shareableLink, checkInData);
+            console.log("ProgressStore: Check-in successful:", response.data);
+
+            // Xử lý sau khi check-in thành công:
+            // 1. Không cần fetch lại timeline ngay lập tức, vì WebSocket sẽ làm điều đó (xem handleWebSocketUpdate).
+            // 2. Fetch lại stats (dù logic stats cũ đã hỏng, nhưng giữ lại luồng gọi)
+            await this.fetchUserStats();
+            // await this.fetchChartData(); // Chart cũng hỏng logic
+
+            return response.data; // Trả về checkInEvent vừa tạo nếu component cần
+        } catch (error) {
+            console.error('Lỗi khi thực hiện check-in:', error);
+            // Ném lỗi ra để component bắt và hiển thị thông báo
+            throw error.response?.data?.message || error.message || 'Có lỗi xảy ra khi check-in.';
+        } finally {
+            // this.isLoadingCheckIn = false;
+        }
+    },
+
+    // --- CẬP NHẬT: Xử lý WebSocket cho Timeline ---
+    handleWebSocketUpdate(updateData) {
+        // Chỉ xử lý message type 'NEW_CHECK_IN'
+        if (updateData.type === 'NEW_CHECK_IN' && updateData.checkInEvent) {
+             console.log("ProgressStore: WebSocket received NEW_CHECK_IN", updateData.checkInEvent);
+            const checkInTimestamp = updateData.checkInEvent.checkInTimestamp;
+            // Lấy ngày của sự kiện check-in (YYYY-MM-DD)
+            const checkInDate = dayjs(checkInTimestamp).format('YYYY-MM-DD');
+
+            // Kiểm tra xem sự kiện check-in này có thuộc về ngày đang được chọn không
+            if (this.currentPlanShareableLink && checkInDate === this.selectedDate) {
+                 console.log(`ProgressStore: New check-in matches selected date (${this.selectedDate}). Refetching timeline using debounce...`);
+                 // Dùng debounce để tránh fetch liên tục nếu nhiều event đến gần nhau
+                 this.debouncedRefetchTimeline();
+            } else {
+                 console.log(`ProgressStore: New check-in date (${checkInDate}) does not match selected date (${this.selectedDate}). Ignoring immediate refetch.`);
+                 // (Optional) Có thể hiển thị một chỉ báo nhỏ trên DateSelector
+                 // cho biết có hoạt động mới ở ngày 'checkInDate'
+            }
+        }
+        // Thêm xử lý cho các loại WebSocket khác nếu cần (ví dụ: comment, reaction trên CheckInEvent)
+        // else if (updateData.type === 'NEW_CHECKIN_COMMENT') { ... }
+        else {
+             console.log("ProgressStore: Received unhandled WebSocket update type or invalid data:", updateData.type);
+        }
+    },
+
+    // Hàm debounce để tránh gọi fetchTimeline liên tục từ WebSocket
+    debouncedRefetchTimeline() {
+        if (!this._refetchTimelineDebounce) {
+            // Sử dụng helper debounce đã định nghĩa ở đầu file
+            this._refetchTimelineDebounce = debounce(() => {
+                if (this.currentPlanShareableLink) {
+                    console.log(`ProgressStore: Debounced fetchTimeline executing for ${this.selectedDate}`);
+                    this.fetchTimeline(this.currentPlanShareableLink, this.selectedDate);
+                }
+            }, 600); // Tăng debounce time lên một chút (600ms)
+        }
+        this._refetchTimelineDebounce();
+    },
+
+    // --- Action để xóa dữ liệu progress của plan hiện tại (khi rời trang) ---
+    clearPlanProgressData() {
+        console.log("ProgressStore: Clearing current plan progress data (timeline)...");
+        this.currentPlanShareableLink = null; // Xóa link plan đang xem
+        this.currentTimeline = null;
+        this.isLoadingTimeline = false;
+        this.timelineError = null;
+        // Không reset selectedDate ở đây, để khi quay lại vẫn giữ ngày user đã chọn
+    },
+
+    // --- ACTIONS Stats/Chart (giữ nguyên nhưng đánh dấu là logic cũ/hỏng) ---
     async fetchUserStats() {
-      const authStore = useAuthStore(); if (this.isLoadingStats || !authStore.isAuthenticated) return; this.isLoadingStats = true; this.errorStats = null; console.log("Fetching user stats..."); try { const response = await userService.getMyStats(); this.userStats = response.data; console.log("User stats fetched:", this.userStats); } catch (error) { console.error('Lỗi khi tải user stats:', error); this.errorStats = 'Không thể tải thông tin thống kê.'; } finally { this.isLoadingStats = false; }
+      console.warn("ProgressStore: fetchUserStats() uses deprecated logic based on DailyProgress. Backend API might not work correctly.");
+      const authStore = useAuthStore();
+      if (this.isLoadingStats || !authStore.isAuthenticated) return;
+      this.isLoadingStats = true;
+      this.errorStats = null;
+      try {
+        // Gọi API cũ, có thể backend chưa cập nhật API này để hoạt động với CheckInEvent
+        const response = await userService.getMyStats();
+        this.userStats = {
+            checkedInTodayComplete: response.data?.checkedInTodayComplete ?? false,
+            currentStreak: response.data?.currentStreak ?? 0,
+            totalTasksToday: response.data?.totalTasksToday ?? 0,
+            completedTasksToday: response.data?.completedTasksToday ?? 0,
+        };
+      } catch (error) {
+          console.error('Lỗi khi tải user stats (logic cũ):', error);
+          this.errorStats = error.response?.data?.message || 'Không thể tải thông tin thống kê (logic cũ).';
+          this.userStats = { checkedInTodayComplete: false, currentStreak: 0, totalTasksToday: 0, completedTasksToday: 0 };
+       } finally {
+           this.isLoadingStats = false;
+       }
     },
-
-    // --- ACTION MỚI ĐỂ FETCH CHART DATA ---
     async fetchChartData() {
+       console.warn("ProgressStore: fetchChartData() uses deprecated logic based on DailyProgress. Backend API might not work correctly.");
       const authStore = useAuthStore();
       if (this.isChartLoading || !authStore.isAuthenticated) return;
-
       this.isChartLoading = true;
       this.errorChart = null;
-      console.log("Fetching progress chart data...");
-
       try {
+        // Gọi API cũ, có thể backend chưa cập nhật API này
         const response = await userService.getMyProgressChartData();
-        // Sắp xếp dữ liệu theo ngày tăng dần nếu API chưa đảm bảo
-        this.chartData = response.data.sort((a, b) => new Date(a.date) - new Date(b.date));
-        console.log("Chart data fetched:", this.chartData);
+        if (response.data && Array.isArray(response.data)) {
+          this.chartData = response.data.sort((a, b) => new Date(a.date) - new Date(b.date));
+        } else {
+            console.warn("Chart data response is not an array (logic cũ):", response.data);
+            this.chartData = [];
+        }
       } catch (error) {
-        console.error('Lỗi khi tải dữ liệu biểu đồ:', error);
-        this.errorChart = 'Không thể tải dữ liệu biểu đồ.';
-        this.chartData = []; // Reset về mảng rỗng nếu lỗi
+          console.error('Lỗi khi tải dữ liệu biểu đồ (logic cũ):', error);
+          this.errorChart = error.response?.data?.message || 'Không thể tải dữ liệu biểu đồ (logic cũ).';
+          this.chartData = [];
       } finally {
-        this.isChartLoading = false;
+          this.isChartLoading = false;
       }
     },
-    // --- KẾT THÚC ACTION CHART ---
 
-    clearUserStats() { // Cập nhật để clear cả chart data
-        this.userStats = {
-             checkedInTodayComplete: false,
-             currentStreak: 0,
-             totalTasksToday: 0,
-             completedTasksToday: 0
-        };
+    // --- CẬP NHẬT: clearUserSessionData (khi logout) ---
+    clearUserSessionData() {
+        console.log("ProgressStore: Clearing user session data (stats, chart, timeline, selected date)...");
+        // Clear stats
+        this.userStats = { checkedInTodayComplete: false, currentStreak: 0, totalTasksToday: 0, completedTasksToday: 0 };
         this.isLoadingStats = false;
         this.errorStats = null;
-        // Clear chart data khi logout
+        // Clear chart
         this.chartData = [];
         this.isChartLoading = false;
         this.errorChart = null;
+        // Clear cả timeline và link plan
+        this.clearPlanProgressData();
+        // Reset cả selectedDate về hôm nay
+        this.selectedDate = dayjs().format('YYYY-MM-DD');
     }
   },
 });
