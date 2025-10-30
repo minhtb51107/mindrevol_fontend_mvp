@@ -1,8 +1,8 @@
 <template>
-  <v-card class="daily-task-list fill-height" elevation="1">
+  <v-card class="daily-task-list glass-effect">
     <v-card-title class="d-flex align-center justify-space-between">
-      <span>Công việc cần làm</span>
-       <v-chip size="small" variant="outlined">{{ selectedDateFormatted }}</v-chip>
+      <span class="text-h6">Công việc trong ngày</span>
+       <v-chip size="small" variant="text" color="secondary">{{ selectedDateFormatted }}</v-chip>
     </v-card-title>
     <v-divider></v-divider>
 
@@ -22,7 +22,7 @@
         {{ planStore.dailyTasksError }}
       </v-alert>
 
-      <v-list lines="two" density="compact" class="pa-0 task-list-scroll">
+      <div v-else class="task-list-scroll pa-2">
         <draggable
           :list="draggableTaskList"
           item-key="id"
@@ -34,73 +34,94 @@
            v-auto-animate="{ duration: 300 }"
         >
           <template #item="{ element: task, index }">
-            <v-list-item
-              :key="task.id"
-              class="task-list-item"
+            <v-card 
+              :key="task.id" 
+              class="task-card mb-2" 
               :class="{ 'draggable-item': isOwner }"
+              variant="outlined"
+              :color="getTaskCardColor(index)"
             >
-              <template v-slot:prepend v-if="isOwner">
-                <v-icon class="drag-handle" size="small" title="Kéo để sắp xếp">mdi-drag-vertical</v-icon>
-              </template>
-              <v-list-item-title class="text-wrap">
-                  {{ task.description }}
-                </v-list-item-title>
-               <v-list-item-subtitle v-if="task.deadlineTime" class="d-flex align-center mt-1">
-                 <v-icon size="x-small" color="grey" class="mr-1">mdi-clock-outline</v-icon>
-                 Deadline: {{ task.deadlineTime }}
-               </v-list-item-subtitle>
-
-              <template v-slot:append v-if="isOwner">
-                 <v-tooltip location="top" text="Sửa công việc">
-                    <template v-slot:activator="{ props }">
-                         <v-btn
-                           v-bind="props"
-                           icon="mdi-pencil-outline"
-                           size="x-small"
-                           variant="text"
-                           color="grey"
-                           @click="emit('open-edit-task', task)"
-                           class="ml-1"
-                           :disabled="planStore.isTaskLoading"
-                         ></v-btn>
-                     </template>
-                  </v-tooltip>
-                   <v-tooltip location="top" text="Xóa công việc">
-                      <template v-slot:activator="{ props }">
-                         <v-btn
-                           v-bind="props"
-                           icon="mdi-delete-outline"
-                           size="x-small"
-                           variant="text"
-                           color="grey"
-                           @click="emit('confirm-delete-task', task)"
-                           :disabled="planStore.isTaskLoading"
-                         ></v-btn>
-                      </template>
-                  </v-tooltip>
-              </template>
-            </v-list-item>
+              <v-card-text class="pa-3">
+                 <div class="d-flex align-start">
+                    <v-icon 
+                      v-if="isOwner" 
+                      class="drag-handle mr-2" 
+                      size="small" 
+                      title="Kéo để sắp xếp"
+                    >
+                      mdi-drag-vertical
+                    </v-icon>
+                    <v-icon v-else class="mr-2" size="small" color="medium-emphasis">mdi-circle-small</v-icon>
+                    
+                    <span class="task-description text-on-surface">{{ task.description }}</span>
+                 </div>
+                 
+                 <v-row dense align="center" class="mt-2">
+                   <v-col cols="auto">
+                      <v-chip 
+                        v-if="task.deadlineTime" 
+                        size="x-small" 
+                        color="medium-emphasis" 
+                        variant="tonal" 
+                        prepend-icon="mdi-clock-outline"
+                      >
+                        Deadline: {{ task.deadlineTime }}
+                      </v-chip>
+                   </v-col>
+                   <v-spacer></v-spacer>
+                   <v-col cols="auto" v-if="isOwner">
+                       <v-tooltip location="top" text="Sửa công việc">
+                          <template v-slot:activator="{ props }">
+                              <v-btn
+                                v-bind="props"
+                                icon="mdi-pencil-outline"
+                                size="x-small"
+                                variant="text"
+                                color="medium-emphasis"
+                                @click="emit('open-edit-task', task)"
+                                class="ml-1"
+                                :disabled="planStore.isTaskLoading"
+                              ></v-btn>
+                          </template>
+                        </v-tooltip>
+                        <v-tooltip location="top" text="Xóa công việc">
+                            <template v-slot:activator="{ props }">
+                              <v-btn
+                                v-bind="props"
+                                icon="mdi-delete-outline"
+                                size="x-small"
+                                variant="text"
+                                color="medium-emphasis"
+                                @click="emit('confirm-delete-task', task)"
+                                :disabled="planStore.isTaskLoading"
+                              ></v-btn>
+                            </template>
+                        </v-tooltip>
+                   </v-col>
+                 </v-row>
+              </v-card-text>
+            </v-card>
           </template>
 
           <template #header v-if="!planStore.isLoadingDailyTasks && !tasks.length">
-               <v-list-item class="text-center text-caption text-medium-emphasis py-4">
+               <v-card-text class="text-center text-caption text-medium-emphasis py-4">
                   Chưa có công việc nào cho ngày này.
-               </v-list-item>
-            </template>
+               </v-card-text>
+          </template>
         </draggable>
-      </v-list>
+      </div>
     </div>
 
     <v-divider></v-divider>
-    <v-card-actions v-if="isOwner">
-      <v-spacer></v-spacer>
-      <v-btn
+    <v-card-actions v-if="isOwner" class="pa-2">
+       <v-btn
         color="primary"
         variant="text"
         @click="emit('open-add-task')"
         prepend-icon="mdi-plus"
         :disabled="planStore.isTaskLoading"
         block
+        class="add-task-btn"
       >
         Thêm công việc
       </v-btn>
@@ -114,52 +135,42 @@ import { computed, ref } from 'vue';
 import { usePlanStore } from '@/stores/plan';
 import { useProgressStore } from '@/stores/progress';
 import draggable from 'vuedraggable';
-import { vAutoAnimate } from '@formkit/auto-animate/vue' // Import auto-animate
+import { vAutoAnimate } from '@formkit/auto-animate/vue' 
 import dayjs from 'dayjs';
 
-// --- Store ---
 const planStore = usePlanStore();
 const progressStore = useProgressStore();
 
-// --- Emits ---
 const emit = defineEmits(['open-add-task', 'open-edit-task', 'confirm-delete-task']);
 
-// --- Computed Properties ---
 const tasks = computed(() => planStore.getCurrentDailyTasksSorted);
 const isOwner = computed(() => planStore.isCurrentUserOwner);
 const selectedDate = computed(() => progressStore.getSelectedDate);
 const selectedDateFormatted = computed(() => dayjs(selectedDate.value).format('DD/MM/YYYY'));
 
+const cardColors = ['#F7DC6F', '#F47BBD', '#70F8F8', '#A076F9', '#F7DC6F']; 
 
-// --- Draggable List ---
-// `vuedraggable` cần một computed property có cả getter và setter
-// Setter sẽ gọi action reorder trong store
+const getTaskCardColor = (index) => {
+  return cardColors[index % cardColors.length];
+};
+
 const draggableTaskList = computed({
   get() {
-    return tasks.value; // Lấy danh sách đã sắp xếp từ store
+    return tasks.value; 
   },
   set(newOrderedTasks) {
-    // Hàm này được gọi ngay sau khi kéo thả xong trên UI
     console.log("Draggable: List updated locally", newOrderedTasks.map(t => t.id));
-    // Gọi action trong store để cập nhật thứ tự và gọi API
-    // Truyền vào ngày hiện tại và danh sách task đã sắp xếp mới
      planStore.reorderTasksInCurrentPlan(selectedDate.value, newOrderedTasks)
       .then(() => {
-          // Xử lý thành công (ví dụ: snackbar) đã được thực hiện trong PlanDetailView
           console.log("Draggable: Reorder action completed.");
       })
       .catch((error) => {
-          // Xử lý lỗi (snackbar) đã được thực hiện trong PlanDetailView
-          // `planStore.reorderTasksInCurrentPlan` sẽ tự rollback state nếu lỗi API
           console.error("Draggable: Reorder action failed:", error);
       });
   }
 });
 
-// --- Methods ---
 const onDragEnd = (event) => {
-  // `vuedraggable` đã tự động cập nhật `draggableTaskList` thông qua setter
-  // Logic gọi API đã nằm trong setter của `draggableTaskList`
   console.log('Drag ended event:', event);
 };
 
@@ -169,44 +180,55 @@ const onDragEnd = (event) => {
 .daily-task-list {
   display: flex;
   flex-direction: column;
+  height: 100%; /* Đảm bảo component cha chiếm 100% chiều cao */
 }
 .task-list-container {
    flex-grow: 1; /* Cho phép vùng chứa list chiếm hết chiều cao còn lại */
-   overflow: hidden; /* Ẩn thanh cuộn của container */
-   display: flex; /* Để áp dụng flex cho nội dung bên trong */
+   overflow: hidden; 
+   display: flex; 
    flex-direction: column;
+   min-height: 200px; 
 }
 .task-list-scroll {
-  flex-grow: 1; /* Cho v-list tự động co dãn */
-  overflow-y: auto; /* Thêm thanh cuộn dọc cho v-list */
+  flex-grow: 1; 
+  overflow-y: auto; 
+  /* *** THAY ĐỔI Ở ĐÂY *** */
+  /* max-height: 450px; Xóa bỏ max-height cố định */
 }
-.task-list-item {
-  border-bottom: 1px solid #eee;
-  background-color: white; /* Nền trắng để nổi bật khi kéo */
-  transition: background-color 0.2s ease-in-out;
+.task-card {
+  background-color: rgba(var(--v-theme-surface), 0.7);
+  transition: background-color 0.2s ease-out, box-shadow 0.2s ease-out;
+  border-width: 1px;
 }
-.task-list-item:last-child {
-  border-bottom: none;
+.task-card.draggable-item:hover {
+    background-color: rgba(var(--v-theme-surface), 1); 
+    box-shadow: 0 0 8px rgba(var(--v-theme-primary), 0.3);
 }
-.task-list-item.draggable-item:hover {
-    background-color: #f9f9f9; /* Hiệu ứng hover nhẹ */
+.task-description {
+  white-space: normal; 
+  line-height: 1.4;
+  flex-grow: 1;
 }
 .drag-handle {
   cursor: move;
-  color: #bdbdbd;
-  /* margin-right: 8px; */
-  align-self: center;
+  color: rgba(var(--v-theme-on-surface), 0.4);
+  align-self: flex-start;
+  margin-top: 2px;
 }
 .drag-handle:hover {
-  color: #757575;
+  color: rgba(var(--v-theme-on-surface), 0.8);
 }
-/* Style cho phần tử đang được kéo (ghost) */
 .ghost-item {
   opacity: 0.5;
-  background: #e3f2fd; /* Màu xanh nhạt */
-  border: 1px dashed #90caf9;
+  background: rgba(var(--v-theme-primary), 0.2);
+  border: 1px dashed rgba(var(--v-theme-primary), 0.5);
 }
-.text-wrap {
-  white-space: normal;
+.add-task-btn {
+  border: 1px dashed rgba(var(--v-theme-primary), 0.5);
+  background-color: transparent !important;
+  color: var(--v-theme-primary) !important;
+}
+.add-task-btn:hover {
+  background-color: rgba(var(--v-theme-primary), 0.1) !important;
 }
 </style>

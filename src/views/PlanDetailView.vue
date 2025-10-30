@@ -11,15 +11,15 @@
     </v-alert>
 
     <div v-else-if="planStore.currentPlan && !planStore.isCurrentUserMember">
-      <v-card class="text-center pa-6 elevation-2 mx-auto" max-width="600">
+      <v-card class="text-center pa-6 mx-auto glass-effect" max-width="600">
         <v-card-item>
             <v-icon icon="mdi-account-group-outline" size="48" color="primary" class="mb-4"></v-icon>
-            <v-card-title class="text-h5 mb-2">Bạn được mời tham gia!</v-card-title>
+            <v-card-title class="text-h5 mb-2 neon-text-primary">Bạn được mời tham gia!</v-card-title>
         </v-card-item>
         <v-card-text>
             <h2 class="text-h4 mb-3">{{ planStore.currentPlan.title }}</h2>
             <p class="text-medium-emphasis mb-5">{{ planStore.currentPlan.description }}</p>
-            <v-list lines="one" density="compact" class="text-left mx-auto" max-width="400">
+            <v-list lines="one" density="compact" class="text-left mx-auto bg-transparent" max-width="400">
                 <v-list-item prepend-icon="mdi-account-outline">
                     <v-list-item-title>Người tạo:</v-list-item-title>
                     <v-list-item-subtitle>{{ planStore.currentPlan.creatorFullName || 'Không rõ' }}</v-list-item-subtitle>
@@ -62,41 +62,61 @@
     </div>
 
     <div v-else-if="planStore.currentPlan">
-      <v-row class="mb-4">
-           <v-col cols="12" md="3"></v-col> <v-col cols="12" md="9">
-               <DateSelector />
-               </v-col>
-       </v-row>
+      <v-row class="main-layout-row">
+        <v-col cols="12" md="8" class="main-content-col">
+          
+          <v-row class="main-content-row1">
+            <v-col cols="12">
+              <TimelineDashboard />
+            </v-col>
+          </v-row>
+          
+          <v-row class="main-content-row2">
+            <v-col cols="12" md="7" class="d-flex flex-column">
+              <DailyTaskList
+                class="fill-height"
+                @open-add-task="openAddTaskDialog"
+                @open-edit-task="openEditTaskDialog"
+                @confirm-delete-task="confirmDeleteTask"
+              />
+            </v-col>
+            
+            <v-col cols="12" md="5" class="d-flex flex-column">
+              <PlanInfoPanel
+                class="fill-height"
+                :link-copied="linkCopied"
+                :link-copy-text="linkCopyText"
+                :is-loading-action="planStore.isLoading" 
+                :is-archiving="isArchiving" 
+                :removing-member-id="memberToDelete?.userId" 
+                :error="planStore.error" 
+                @copy-invite-link="copyInviteLink"
+                @archive-plan="confirmArchiveAction"
+                @open-transfer-dialog="openTransferOwnershipDialog"
+                @remove-member="confirmRemoveMember"
+              />
+            </v-col>
+          </v-row>
 
-      <v-row>
-        <v-col cols="12" md="3">
-          <PlanInfoPanel
-            class="fill-height"
-            :link-copied="linkCopied"
-            :link-copy-text="linkCopyText"
-            :is-loading-action="planStore.isLoading" 
-            :is-archiving="isArchiving" 
-            :removing-member-id="memberToDelete?.userId" 
-            :error="planStore.error" 
-            @copy-invite-link="copyInviteLink"
-            @archive-plan="confirmArchiveAction"
-            @open-transfer-dialog="openTransferOwnershipDialog"
-            @remove-member="confirmRemoveMember"
-          />
-          </v-col>
+        </v-col>
 
-        <v-col cols="12" md="6">
-          <TimelineDashboard class="fill-height" />
-          </v-col>
-
-        <v-col cols="12" md="3">
-          <DailyTaskList
-            class="fill-height"
-            @open-add-task="openAddTaskDialog"
-            @open-edit-task="openEditTaskDialog"
-            @confirm-delete-task="confirmDeleteTask"
-          />
-          </v-col>
+        <v-col cols="12" md="4" class="placeholder-col">
+           <v-card class="fill-height glass-effect sticky-placeholder">
+              <v-card-item>
+                <v-card-title class="d-flex align-center">
+                  <v-icon color="secondary" class="mr-2" size="small">mdi-chart-bar</v-icon>
+                  <span class="text-h6">Insights</span>
+                </v-card-title>
+                <v-card-subtitle>Thống kê dự án</v-card-subtitle>
+              </v-card-item>
+              <v-card-text class="text-center text-medium-emphasis d-flex align-center justify-center fill-height pa-4">
+                  <div>
+                    <v-icon size="64" class="my-4">mdi-chart-gantt</v-icon>
+                    <p>Biểu đồ và thống kê chi tiết sẽ sớm xuất hiện ở đây.</p>
+                  </div>
+              </v-card-text>
+            </v-card>
+        </v-col>
       </v-row>
     </div>
 
@@ -108,7 +128,7 @@
     </v-snackbar>
 
     <v-dialog v-model="taskDialog" persistent max-width="500px">
-      <v-card>
+      <v-card class="glass-effect">
         <v-card-title>{{ editingTask ? 'Chỉnh sửa công việc' : 'Thêm công việc mới' }}</v-card-title>
         <v-card-text>
           <v-alert v-if="taskDialogError" type="error" density="compact" class="mb-3" closable @click:close="taskDialogError = ''">
@@ -148,50 +168,50 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn color="grey-darken-1" variant="text" @click="closeTaskDialog" :disabled="planStore.isTaskLoading">Hủy</v-btn>
+          <v-btn color="medium-emphasis" variant="text" @click="closeTaskDialog" :disabled="planStore.isTaskLoading">Hủy</v-btn>
           <v-btn color="primary" variant="flat" @click="saveTask" :loading="planStore.isTaskLoading">Lưu</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <v-dialog v-model="deleteTaskConfirmDialog" persistent max-width="400px">
-      <v-card>
+      <v-card class="glass-effect">
         <v-card-title class="text-h6">Xác nhận xóa</v-card-title>
         <v-card-text>Bạn có chắc chắn muốn xóa công việc "<span class="font-weight-medium">{{ taskToDelete?.description }}</span>" của ngày {{ taskToDelete?.taskDate }}? Hành động này không thể hoàn tác.</v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn color="grey-darken-1" text @click="deleteTaskConfirmDialog = false" :disabled="planStore.isTaskLoading">Hủy</v-btn>
+          <v-btn color="medium-emphasis" text @click="deleteTaskConfirmDialog = false" :disabled="planStore.isTaskLoading">Hủy</v-btn>
           <v-btn color="error" text @click="executeDeleteTask" :loading="planStore.isTaskLoading">Xóa</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <v-dialog v-model="deleteMemberConfirmDialog" persistent max-width="450px">
-      <v-card>
+      <v-card class="glass-effect">
         <v-card-title class="text-h6">Xác nhận loại bỏ thành viên</v-card-title>
         <v-card-text> Bạn có chắc chắn muốn loại bỏ <span class="font-weight-medium">{{ memberToDelete?.userFullName }} ({{ memberToDelete?.userEmail }})</span> khỏi kế hoạch này không? </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn color="grey-darken-1" text @click="deleteMemberConfirmDialog = false" :disabled="planStore.isLoading">Hủy</v-btn>
+          <v-btn color="medium-emphasis" text @click="deleteMemberConfirmDialog = false" :disabled="planStore.isLoading">Hủy</v-btn>
           <v-btn color="error" text @click="executeRemoveMember" :loading="planStore.isLoading">Loại bỏ</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <v-dialog v-model="archiveConfirmDialog" persistent max-width="450px">
-       <v-card>
+       <v-card class="glass-effect">
          <v-card-title class="text-h6"> Xác nhận {{ isArchiving ? 'lưu trữ' : 'khôi phục' }} </v-card-title>
          <v-card-text> Bạn có chắc chắn muốn {{ isArchiving ? 'lưu trữ' : 'khôi phục' }} kế hoạch "<span class="font-weight-medium">{{ planStore.currentPlan?.title }}</span>"? <span v-if="isArchiving"> Kế hoạch sẽ bị ẩn khỏi danh sách chính và dashboard.</span> <span v-else> Kế hoạch sẽ trở lại trạng thái hoạt động.</span> </v-card-text>
          <v-card-actions>
            <v-spacer></v-spacer>
-           <v-btn color="grey-darken-1" text @click="archiveConfirmDialog = false" :disabled="planStore.isLoading">Hủy</v-btn>
-           <v-btn :color="isArchiving ? 'orange' : 'blue'" text @click="executeArchiveAction" :loading="planStore.isLoading"> {{ isArchiving ? 'Lưu trữ' : 'Khôi phục' }} </v-btn>
+           <v-btn color="medium-emphasis" text @click="archiveConfirmDialog = false" :disabled="planStore.isLoading">Hủy</v-btn>
+           <v-btn :color="isArchiving ? 'warning' : 'secondary'" text @click="executeArchiveAction" :loading="planStore.isLoading"> {{ isArchiving ? 'Lưu trữ' : 'Khôi phục' }} </v-btn>
          </v-card-actions>
        </v-card>
      </v-dialog>
 
     <v-dialog v-model="transferOwnershipDialog" persistent max-width="500px">
-      <v-card>
+      <v-card class="glass-effect">
         <v-card-title class="text-h6">Chuyển quyền sở hữu kế hoạch</v-card-title>
         <v-card-text>
           <p class="mb-4">Chọn thành viên bạn muốn chuyển quyền sở hữu kế hoạch này. Bạn sẽ trở thành thành viên bình thường sau khi chuyển.</p>
@@ -214,8 +234,8 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn color="grey-darken-1" text @click="closeTransferOwnershipDialog" :disabled="planStore.isLoading">Hủy</v-btn>
-          <v-btn color="deep-purple" text @click="confirmTransferOwnership" :loading="planStore.isLoading" :disabled="!selectedNewOwnerId">Xác nhận chuyển</v-btn>
+          <v-btn color="medium-emphasis" text @click="closeTransferOwnershipDialog" :disabled="planStore.isLoading">Hủy</v-btn>
+          <v-btn color="primary" text @click="confirmTransferOwnership" :loading="planStore.isLoading" :disabled="!selectedNewOwnerId">Xác nhận chuyển</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -228,7 +248,7 @@
           color="success"
           app
           appear
-          class="mb-4 mr-4"
+          class="mb-4 mr-4 neon-glow-green"
           @click="openCheckInModal"
       >
         Check-in
@@ -247,20 +267,17 @@ import { usePlanStore } from '@/stores/plan';
 import { useAuthStore } from '@/stores/auth';
 import { useProgressStore } from '@/stores/progress';
 import websocketService from '@/api/websocketService';
-import dayjs from 'dayjs'; // Import dayjs
+import dayjs from 'dayjs'; 
 
-// Import các components con
-import DateSelector from '@/components/DateSelector.vue';
 import PlanInfoPanel from '@/components/PlanInfoPanel.vue';
 import TimelineDashboard from '@/components/TimelineDashboard.vue';
 import DailyTaskList from '@/components/DailyTaskList.vue';
-import CheckInModal from '@/components/CheckInModal.vue'; // Import CheckInModal
+import CheckInModal from '@/components/CheckInModal.vue'; 
 
-// Import Vuetify components đầy đủ
 import {
-  VContainer, VRow, VCol, VCard, VCardTitle, VCardSubtitle, VCardText, VCardItem, VList, VListItem, VListItemTitle, VListItemSubtitle, VListSubheader, VDivider, VBtn, VAlert, VProgressCircular, VIcon, VChip, VSnackbar,
+  VContainer, VRow, VCol, VCard, VCardTitle, VCardSubtitle, VCardText, VCardItem, VList, VListItem, VListItemTitle, VListItemSubtitle, VDivider, VBtn, VAlert, VProgressCircular, VIcon, VChip, VSnackbar,
   VCardActions, VSpacer, VDialog, VForm, VTextarea, VTextField,
-  VSelect, VFab // Thêm VFab
+  VSelect, VFab
 } from 'vuetify/components';
 
 const route = useRoute();
@@ -269,7 +286,6 @@ const planStore = usePlanStore();
 const authStore = useAuthStore();
 const progressStore = useProgressStore();
 
-// --- Component States ---
 const isJoining = ref(false);
 const joinError = ref('');
 const linkCopyText = ref('Copy link mời');
@@ -278,7 +294,6 @@ const snackbar = ref(false);
 const snackbarText = ref('');
 const snackbarColor = ref('success');
 
-// Task Dialog States
 const taskDialog = ref(false);
 const editingTask = ref(null);
 const taskFormRef = ref(null);
@@ -287,32 +302,21 @@ const taskDialogError = ref('');
 const deleteTaskConfirmDialog = ref(false);
 const taskToDelete = ref(null);
 
-// Member Dialog States
 const deleteMemberConfirmDialog = ref(false);
 const memberToDelete = ref(null);
 
-// Archive Dialog States
 const archiveConfirmDialog = ref(false);
-const isArchiving = ref(null); // null ban đầu, true khi archiving, false khi unarchiving
+const isArchiving = ref(null); 
 
-// Transfer Ownership Dialog States
 const transferOwnershipDialog = ref(false);
 const selectedNewOwnerId = ref(null);
 const transferOwnershipError = ref('');
 
-// CheckIn Modal State
 const isCheckInModalOpen = ref(false);
 
-
-// WebSocket topic refs
 const progressTopic = ref('');
 const taskTopic = ref('');
 const planDetailsTopic = ref('');
-
-// ===================================================================
-// SỬA LỖI: Di chuyển TẤT CẢ các hàm được gọi bởi 'watch'
-// lên TRƯỚC khi 'watch' được khai báo.
-// ===================================================================
 
 const unsubscribeWebSocketTopics = () => {
     if (progressTopic.value) websocketService.unsubscribe(progressTopic.value);
@@ -324,7 +328,6 @@ const unsubscribeWebSocketTopics = () => {
     console.log(`WS: Unsubscribed from plan topics.`);
 };
 
-// --- Data Fetching Logic (ĐÃ DI CHUYỂN LÊN TRÊN) ---
 const fetchPlanAndInitialData = async (shareableLink) => {
     if (!shareableLink) {
         planStore.error = "URL không hợp lệ.";
@@ -332,7 +335,6 @@ const fetchPlanAndInitialData = async (shareableLink) => {
     }
     await planStore.fetchPlan(shareableLink);
     if (planStore.currentPlan && planStore.isCurrentUserMember) {
-        // Fetch data cho ngày hiện tại (mặc định từ progressStore)
         await fetchDataForSelectedDate(shareableLink, progressStore.selectedDate);
         setupWebSocket(shareableLink);
     } else if (planStore.currentPlan && !planStore.isCurrentUserMember) {
@@ -343,53 +345,45 @@ const fetchPlanAndInitialData = async (shareableLink) => {
 const fetchDataForSelectedDate = async (shareableLink, date) => {
     if (!shareableLink || !date) return;
     console.log(`PlanDetailView: Fetching timeline and tasks for ${date}...`);
-    // Reset lỗi trước khi fetch
     progressStore.timelineError = null;
     planStore.dailyTasksError = null;
-    await Promise.allSettled([ // Dùng allSettled để không dừng nếu 1 cái lỗi
+    await Promise.allSettled([ 
         progressStore.fetchTimeline(shareableLink, date),
         planStore.fetchDailyTasks(shareableLink, date)
     ]);
      console.log(`PlanDetailView: Finished fetching data for ${date}.`);
 };
-// ===================================================================
 
-// Validation Rules
 const rules = {
   required: value => !!value || 'Thông tin bắt buộc.',
   date: value => !value || dayjs(value, 'YYYY-MM-DD', true).isValid() || 'Định dạng ngày YYYY-MM-DD.',
 };
 
-// --- Computed Properties ---
 const selectedDate = computed(() => progressStore.getSelectedDate);
-const otherMembers = computed(() => { /* ... giữ nguyên ... */ }); // Giữ computed này
-// computed displayStatusText, statusColor đã chuyển vào PlanInfoPanel
+const otherMembers = computed(() => {
+    if (!planStore.currentPlan?.members || !authStore.currentUser?.id) return [];
+    return planStore.currentPlan.members.filter(member => member.role !== 'OWNER' && member.userId !== authStore.currentUser.id);
+}); 
 
-
-// --- Watchers ---
-// ✅ Bây giờ các hàm này đã được định nghĩa ở trên, gọi immediate là an toàn
 watch(() => route.params.shareableLink, (newLink, oldLink) => {
   if (newLink && newLink !== oldLink) {
     console.log(`PlanDetailView: Route changed to ${newLink}. Refetching data...`);
     unsubscribeWebSocketTopics(); 
-    fetchPlanAndInitialData(newLink); // ✅ An toàn
+    fetchPlanAndInitialData(newLink); 
   }
 }, { immediate: true });
 
 watch(selectedDate, (newDate, oldDate) => {
     if (newDate && newDate !== oldDate && planStore.currentPlan?.shareableLink) {
         console.log(`PlanDetailView: Selected date changed to ${newDate}. Fetching data for this date...`);
-        fetchDataForSelectedDate(planStore.currentPlan.shareableLink, newDate); // ✅ An toàn
+        fetchDataForSelectedDate(planStore.currentPlan.shareableLink, newDate); 
     }
 });
 
-
-// --- Lifecycle Hooks ---
 onMounted(() => {
     if (!websocketService.isConnected()) {
         websocketService.connect();
     }
-    // Logic fetch đã chuyển vào watch route param
 });
 
 onUnmounted(() => {
@@ -399,10 +393,7 @@ onUnmounted(() => {
     unsubscribeWebSocketTopics();
 });
 
-// ⛔ ĐÃ XÓA CÁC HÀM FETCH Ở ĐÂY VÌ ĐÃ CHUYỂN LÊN TRÊN ⛔
-
-// --- WebSocket Setup & Handlers ---
-const setupWebSocket = (shareableLink) => { /* ... giữ nguyên như trước ... */
+const setupWebSocket = (shareableLink) => { 
     if (!shareableLink || !planStore.isCurrentUserMember) return;
 
     const subscribeAndLog = (topicRef, topicPath, handler) => {
@@ -424,17 +415,17 @@ const setupWebSocket = (shareableLink) => { /* ... giữ nguyên như trước .
 };
 
 
-const handleProgressUpdate = (message) => { /* ... giữ nguyên gọi progressStore.handleWebSocketUpdate ... */
+const handleProgressUpdate = (message) => { 
     console.log("WS Received progress update:", message);
     progressStore.handleWebSocketUpdate(message);
 };
 
-const handleTaskUpdate = (message) => { /* ... giữ nguyên gọi planStore.handleTaskWebSocketUpdate ... */
+const handleTaskUpdate = (message) => { 
     console.log("WS Received task update:", message);
     planStore.handleTaskWebSocketUpdate(message, progressStore.selectedDate);
 };
 
-const handlePlanDetailsUpdate = (message) => { /* ... giữ nguyên như trước ... */
+const handlePlanDetailsUpdate = (message) => { 
     console.log("WS Received plan details update:", message);
     if (!planStore.currentPlan) return;
     const { type, member, userId, status, displayStatus, title, description, durationInDays, dailyGoal, startDate, endDate, oldOwnerUserId, newOwnerUserId } = message;
@@ -474,7 +465,6 @@ const handlePlanDetailsUpdate = (message) => { /* ... giữ nguyên như trướ
             if (startDate !== undefined) planStore.currentPlan.startDate = startDate;
             if (endDate !== undefined) planStore.currentPlan.endDate = endDate;
             console.log("RT: Plan Info Updated.");
-            // Cần cập nhật lại DateSelector range sau
             break;
         case 'OWNERSHIP_TRANSFERRED':
             if (planStore.currentPlan.members && oldOwnerUserId && newOwnerUserId) {
@@ -495,8 +485,6 @@ const handlePlanDetailsUpdate = (message) => { /* ... giữ nguyên như trướ
     }
 };
 
-
-// --- Action Handlers ---
 const handleJoinPlan = async () => {
     const link = route.params.shareableLink;
     if (!link) { joinError.value="Mã mời không hợp lệ."; return; }
@@ -504,7 +492,6 @@ const handleJoinPlan = async () => {
     joinError.value='';
     try {
         await planStore.joinCurrentPlan(link);
-        // Sau khi join thành công, fetch data ban đầu và setup WS
         await fetchPlanAndInitialData(link);
     } catch (e) {
         joinError.value = planStore.error || 'Lỗi tham gia.';
@@ -516,7 +503,6 @@ const handleJoinPlan = async () => {
 
 const copyInviteLink = () => {
     if(linkCopied.value || !planStore.currentPlan?.shareableLink) return;
-    // Tạo link đầy đủ
     const inviteUrl = `${window.location.origin}/plan/${planStore.currentPlan.shareableLink}`;
     navigator.clipboard.writeText(inviteUrl).then(() => {
         linkCopyText.value='Đã copy!';
@@ -535,12 +521,11 @@ const showSnackbar = (text, color = 'success') => {
     snackbar.value = true;
 };
 
-// --- Task Dialog Logic ---
 const openAddTaskDialog = () => {
     editingTask.value = null;
     taskForm.description = '';
     taskForm.deadlineTime = null;
-    taskForm.taskDate = progressStore.selectedDate; // Lấy ngày đang chọn
+    taskForm.taskDate = progressStore.selectedDate; 
     taskDialogError.value = '';
     taskDialog.value = true;
     nextTick(() => taskFormRef.value?.resetValidation());
@@ -550,7 +535,7 @@ const openEditTaskDialog = (task) => {
     editingTask.value = { ...task };
     taskForm.description = task.description;
     taskForm.deadlineTime = task.deadlineTime || null;
-    taskForm.taskDate = null; // Để trống khi sửa, chỉ nhập nếu muốn chuyển ngày
+    taskForm.taskDate = null; 
     taskDialogError.value = '';
     taskDialog.value = true;
     nextTick(() => taskFormRef.value?.resetValidation());
@@ -558,8 +543,7 @@ const openEditTaskDialog = (task) => {
 
 const closeTaskDialog = () => {
     taskDialog.value = false;
-    editingTask.value = null; // Reset task đang sửa
-    // Không reset taskForm ở đây để giữ lại giá trị nếu user chỉ đóng tạm
+    editingTask.value = null; 
 };
 
 const saveTask = async () => {
@@ -589,7 +573,7 @@ const saveTask = async () => {
     const data = {
         description: taskForm.description,
         deadlineTime: time,
-        taskDate: taskForm.taskDate || undefined // Gửi undefined nếu không nhập ngày mới khi sửa
+        taskDate: taskForm.taskDate || undefined 
     };
 
     taskDialogError.value = '';
@@ -619,7 +603,7 @@ const executeDeleteTask = async () => {
     const id = taskToDelete.value.id;
     const date = taskToDelete.value.taskDate;
     deleteTaskConfirmDialog.value = false;
-    const taskBeingDeleted = { ...taskToDelete.value }; // Copy data before resetting
+    const taskBeingDeleted = { ...taskToDelete.value }; 
     taskToDelete.value = null;
     try {
         await planStore.deleteTaskFromCurrentPlan(id, date);
@@ -627,11 +611,10 @@ const executeDeleteTask = async () => {
     } catch (e) {
         showSnackbar(planStore.taskError || `Lỗi khi xóa "${desc}".`, 'error');
         console.error("Delete task error:", e);
-        taskToDelete.value = taskBeingDeleted; // Phục hồi lại để user có thể thử lại nếu muốn
+        taskToDelete.value = taskBeingDeleted; 
     }
 };
 
-// --- Member Dialog Logic ---
 const confirmRemoveMember = (member) => {
     memberToDelete.value = member;
     deleteMemberConfirmDialog.value = true;
@@ -642,26 +625,25 @@ const executeRemoveMember = async () => {
     const id = memberToDelete.value.userId;
     deleteMemberConfirmDialog.value = false;
     const memberBeingRemoved = { ...memberToDelete.value };
-    memberToDelete.value = null; // Clear selection
+    memberToDelete.value = null; 
     try {
         await planStore.removeMemberFromCurrentPlan(id);
         showSnackbar(`Yêu cầu loại bỏ ${name} đã được gửi.`, 'success');
     } catch (e) {
         console.error("Remove member error:", e);
         showSnackbar(planStore.error || `Lỗi khi loại bỏ ${name}.`, 'error');
-        memberToDelete.value = memberBeingRemoved; // Restore for retry if needed
+        memberToDelete.value = memberBeingRemoved; 
     }
 };
 
-// --- Archive Dialog Logic ---
 const confirmArchiveAction = (archive) => {
-    isArchiving.value = archive; // Set trạng thái là đang archive hay unarchive
+    isArchiving.value = archive; 
     archiveConfirmDialog.value = true;
 };
 const executeArchiveAction = async () => {
     archiveConfirmDialog.value = false;
-    const currentlyArchiving = isArchiving.value; // Lưu lại trạng thái action
-    isArchiving.value = null; // Reset trạng thái loading UI riêng
+    const currentlyArchiving = isArchiving.value; 
+    isArchiving.value = null; 
     try {
         let msg = '';
         if (currentlyArchiving) {
@@ -676,11 +658,10 @@ const executeArchiveAction = async () => {
     } catch (e) {
         showSnackbar(planStore.error || `Lỗi khi ${currentlyArchiving ? 'lưu trữ' : 'khôi phục'}.`, 'error');
         console.error("Archive/Unarchive error:", e);
-        isArchiving.value = currentlyArchiving; // Restore state if failed
+        isArchiving.value = currentlyArchiving; 
     }
 };
 
-// --- Transfer Ownership Logic ---
 const openTransferOwnershipDialog = () => {
     selectedNewOwnerId.value = null;
     transferOwnershipError.value = '';
@@ -699,19 +680,14 @@ const confirmTransferOwnership = async () => {
         await planStore.transferPlanOwnership(selectedNewOwnerId.value);
         showSnackbar('Yêu cầu chuyển quyền sở hữu đã được gửi.', 'success');
         closeTransferOwnershipDialog();
-        // UI cập nhật qua WebSocket
     } catch (error) {
        transferOwnershipError.value = planStore.error || 'Có lỗi xảy ra, vui lòng thử lại.';
        console.error("Transfer ownership error:", error);
     }
 };
 
-// --- CheckIn Modal Logic ---
 const openCheckInModal = () => {
-    // Kiểm tra xem có task nào trong ngày hôm nay không
-    // Cần lấy task của ngày hiện tại (today) thay vì ngày đang chọn (selectedDate)
     const todayStr = dayjs().format('YYYY-MM-DD');
-    // Nếu ngày đang chọn là hôm nay, dùng task đã load sẵn
      if (selectedDate.value === todayStr && !planStore.isLoadingDailyTasks) {
           if (!planStore.currentDailyTasks || planStore.currentDailyTasks.length === 0) {
               showSnackbar("Không có công việc nào được định nghĩa cho hôm nay để check-in.", "info");
@@ -719,7 +695,6 @@ const openCheckInModal = () => {
           }
          isCheckInModalOpen.value = true;
      } else if (planStore.currentPlan?.shareableLink) {
-         // Nếu đang xem ngày khác, cần fetch task của hôm nay trước khi mở modal
          console.log("Fetching today's tasks before opening CheckInModal...");
          planStore.fetchDailyTasks(planStore.currentPlan.shareableLink, todayStr)
              .then(() => {
@@ -736,30 +711,63 @@ const openCheckInModal = () => {
 
 };
 
-// --- Test function to change date ---
-// const changeDateForTesting = (daysToAdd) => {
-//     const newDate = dayjs(progressStore.selectedDate).add(daysToAdd, 'day').format('YYYY-MM-DD');
-//     progressStore.setSelectedDate(newDate);
-// };
-
 </script>
 
 <style scoped>
 .fill-height {
   height: 100%;
-  /* Thêm display flex để các card con có thể tự co dãn */
-   display: flex;
-   flex-direction: column;
-}
-/* Style cho container chính để tránh thanh cuộn toàn trang */
-.v-container {
-    /* Có thể giới hạn chiều cao max nếu cần */
-    /* max-height: calc(100vh - 64px); /* Giả sử header cao 64px */
-    /* overflow-y: hidden; */ /* Ngăn cuộn toàn trang */
-}
-/* Đảm bảo các cột có chiều cao tối thiểu */
-.v-col {
-    min-height: 150px; /* Hoặc giá trị phù hợp */
+  display: flex;
+  flex-direction: column;
 }
 
+.main-layout-row {
+  /* 100vh - 64px (app-bar) - 24px (v-container padding-top) */
+  /* Sử dụng min-height để linh hoạt hơn, nhưng max-height để ép */
+  max-height: calc(100vh - 88px);
+  height: calc(100vh - 88px);
+}
+
+.main-layout-row > .v-col {
+  height: 100%;
+  padding-top: 0; /* Xóa padding top của v-col */
+  padding-bottom: 0; /* Xóa padding bottom của v-col */
+}
+
+.main-content-col {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.main-content-row1 {
+  flex-grow: 0; /* Hàng 1 (Timeline) không co dãn, giữ chiều cao nội dung */
+  flex-shrink: 0;
+  margin-bottom: 16px !important; /* Thay thế mb-4 */
+}
+
+.main-content-row2 {
+  flex-grow: 1; /* Hàng 2 (Task+Info) co dãn để lấp đầy phần còn lại */
+  min-height: 0; /* Cần thiết cho flex-grow hoạt động đúng */
+}
+.main-content-row2 > .v-col {
+   height: 100%; /* Ép 2 cột con (Task, Info) cao 100% Hàng 2 */
+}
+
+.placeholder-col {
+  height: 100%;
+}
+
+.sticky-placeholder {
+  height: 100%;
+  position: sticky;
+  top: 80px; /* 64px (app-bar) + 16px (v-container padding) - LƯU Ý: v-container đang là fluid */
+  /* Dùng top 80px nếu v-container có padding top 16px, nếu không thì 64px */
+  /* Hãy thử 80px trước (giả sử v-container fluid vẫn có padding) */
+  /* CẬP NHẬT: top: 64px vì padding của v-col đã bị xóa */
+  top: 64px; 
+}
+
+.bg-transparent {
+    background-color: transparent !important;
+}
 </style>

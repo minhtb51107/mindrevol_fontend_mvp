@@ -1,10 +1,10 @@
 <template>
-  <v-card class="timeline-dashboard fill-height" elevation="1">
-    <v-card-title class="d-flex align-center justify-space-between">
-      <span>Timeline Hoạt động</span>
-      <v-chip size="small" variant="outlined">{{ selectedDateFormatted }}</v-chip>
+  <v-card class="timeline-dashboard glass-effect">
+    <v-card-title class="d-flex align-center justify-space-between pa-0 pt-2 pr-2">
+      <span class="pl-4 text-h6">Timeline Hoạt động</span>
+      <DateSelector />
     </v-card-title>
-    <v-divider></v-divider>
+    <v-divider class="mt-2"></v-divider>
 
     <v-card-text class="pa-0 timeline-container">
       <div v-if="progressStore.isLoadingTimeline" class="d-flex justify-center align-center fill-height pa-5">
@@ -27,9 +27,9 @@
 
       <div v-else class="swimlane-wrapper pa-2">
         <div v-for="memberTimeline in timelineData" :key="memberTimeline.member.userId" class="swimlane mb-3">
-          <div class="member-header d-flex align-center pa-1 mb-1 bg-grey-lighten-4 rounded">
-             <v-icon size="small" class="mr-1">mdi-account-circle-outline</v-icon>
-            <span class="text-caption font-weight-medium text-grey-darken-3">{{ memberTimeline.member.userFullName }}</span>
+          <div class="member-header d-flex align-center pa-2 mb-1 rounded">
+             <v-icon size="small" class="mr-2" color="secondary">mdi-account-circle-outline</v-icon>
+            <span class="font-weight-medium text-on-surface">{{ memberTimeline.member.userFullName }}</span>
           </div>
 
           <v-row dense class="time-groups">
@@ -40,29 +40,28 @@
                        <div
                         v-for="checkIn in getCheckInsForGroup(memberTimeline.checkIns, group)"
                         :key="checkIn.id"
-                        class="checkin-card-summary pa-1 mb-1 rounded elevation-1 bg-blue-grey-lighten-5"
+                        class="checkin-card-summary pa-2 mb-1 rounded"
                         @click="openCheckInDetail(checkIn)"
-                        style="cursor: pointer;"
                       >
                          <div class="d-flex align-center justify-space-between text-caption">
-                            <span class="font-weight-medium">{{ formatTime(checkIn.checkInTimestamp) }}</span>
+                            <span class="font-weight-medium text-on-surface">{{ formatTime(checkIn.checkInTimestamp) }}</span>
                             <div class="d-flex align-center">
                                <v-tooltip v-if="checkIn.notes" location="top" text="Có ghi chú">
                                   <template v-slot:activator="{ props }">
-                                    <v-icon v-bind="props" size="x-small" class="ml-1">mdi-note-text-outline</v-icon>
+                                    <v-icon v-bind="props" size="x-small" class="ml-1" color="medium-emphasis">mdi-note-text-outline</v-icon>
                                   </template>
                                </v-tooltip>
                                 <v-tooltip v-if="checkIn.completedTasks?.length > 0" location="top" :text="`${checkIn.completedTasks.length} công việc`">
                                    <template v-slot:activator="{ props }">
-                                     <span v-bind="props" class="ml-1 d-flex align-center">
-                                       <v-icon size="x-small">mdi-check-circle-outline</v-icon>
+                                     <span v-bind="props" class="ml-1 d-flex align-center text-medium-emphasis">
+                                       <v-icon size="x-small" color="success">mdi-check-circle-outline</v-icon>
                                        <span class="ml-0_5">{{ checkIn.completedTasks.length }}</span>
                                      </span>
                                    </template>
                                 </v-tooltip>
                                 <v-tooltip v-if="checkIn.attachments?.length > 0" location="top" :text="`${checkIn.attachments.length} hình ảnh/tệp`">
                                    <template v-slot:activator="{ props }">
-                                     <span v-bind="props" class="ml-1 d-flex align-center">
+                                     <span v-bind="props" class="ml-1 d-flex align-center text-medium-emphasis">
                                          <v-icon size="x-small">mdi-paperclip</v-icon>
                                          <span class="ml-0_5">{{ checkIn.attachments.length }}</span>
                                      </span>
@@ -72,7 +71,7 @@
                          </div>
                          </div>
                     </template>
-                     <div v-else class="text-caption text-center text-grey-lighten-1 pa-2">-</div>
+                     <div v-else class="text-caption text-center text-grey-darken-2 pa-2">-</div>
                  </div>
              </v-col>
            </v-row>
@@ -81,7 +80,7 @@
     </v-card-text>
 
      <v-dialog v-model="detailDialog" max-width="600px">
-        <v-card v-if="selectedCheckIn">
+        <v-card v-if="selectedCheckIn" class="glass-effect">
           <v-card-title>
             Chi tiết Check-in <span class="text-medium-emphasis text-body-2 ml-2">({{ selectedCheckIn.member?.userFullName }} - {{ formatDateTime(selectedCheckIn.checkInTimestamp) }})</span>
           </v-card-title>
@@ -90,8 +89,8 @@
             <p v-if="selectedCheckIn.notes" class="mb-3"><strong>Ghi chú:</strong> {{ selectedCheckIn.notes }}</p>
             <div v-if="selectedCheckIn.completedTasks?.length > 0" class="mb-3">
               <strong>Công việc đã hoàn thành:</strong>
-              <v-list density="compact" lines="one">
-                <v-list-item v-for="task in selectedCheckIn.completedTasks" :key="task.taskId" :title="task.description" prepend-icon="mdi-check"></v-list-item>
+              <v-list density="compact" lines="one" class="bg-transparent">
+                <v-list-item v-for="task in selectedCheckIn.completedTasks" :key="task.taskId" :title="task.description" prepend-icon="mdi-check" class="text-on-surface"></v-list-item>
               </v-list>
             </div>
             <div v-if="selectedCheckIn.attachments?.length > 0">
@@ -117,7 +116,7 @@
           </v-card-text>
           <v-card-actions>
             <v-spacer></v-spacer>
-            <v-btn color="grey-darken-1" text @click="detailDialog = false">Đóng</v-btn>
+            <v-btn color="medium-emphasis" text @click="detailDialog = false">Đóng</v-btn>
           </v-card-actions>
         </v-card>
       </v-dialog>
@@ -130,52 +129,43 @@ import { ref, computed } from 'vue';
 import { useProgressStore } from '@/stores/progress';
 import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
-// Import các plugin cần thiết
 import isBetween from 'dayjs/plugin/isBetween';
-import customParseFormat from 'dayjs/plugin/customParseFormat'; // Cần nếu format phức tạp
+import customParseFormat from 'dayjs/plugin/customParseFormat'; 
+
+import DateSelector from '@/components/DateSelector.vue'; 
 
 dayjs.locale('vi');
 dayjs.extend(isBetween);
 dayjs.extend(customParseFormat);
 
-
-// --- Store ---
 const progressStore = useProgressStore();
 
-// --- Computed ---
 const timelineData = computed(() => progressStore.timelineSwimlanes);
-const selectedDate = computed(() => progressStore.getSelectedDate); // YYYY-MM-DD
-const selectedDateFormatted = computed(() => dayjs(selectedDate.value).format('DD/MM/YYYY'));
+const selectedDate = computed(() => progressStore.getSelectedDate); 
 
-// --- State for Detail Dialog ---
 const detailDialog = ref(false);
 const selectedCheckIn = ref(null);
 
-// --- Logic Nhóm Thời Gian ---
 const timeGroups = ref([
     { name: 'Sáng', startHour: 0, endHour: 11 },
     { name: 'Trưa', startHour: 12, endHour: 13 },
     { name: 'Chiều', startHour: 14, endHour: 17 },
-    { name: 'Tối', startHour: 18, endHour: 24 } // 24 để bao gồm cả 23:59
+    { name: 'Tối', startHour: 18, endHour: 24 } 
 ]);
 
-// Lấy các check-in thuộc về một nhóm thời gian
 const getCheckInsForGroup = (checkIns, group) => {
     if (!checkIns) return [];
     const groupStartDate = dayjs(selectedDate.value).hour(group.startHour).minute(0).second(0);
-    // End hour cần xử lý đặc biệt: nếu là 24h thì lấy cuối ngày, không thì lấy 59 phút 59 giây
     const groupEndDate = group.endHour === 24
         ? dayjs(selectedDate.value).endOf('day')
         : dayjs(selectedDate.value).hour(group.endHour).minute(59).second(59);
 
     return checkIns.filter(checkIn => {
         const checkInTime = dayjs(checkIn.checkInTimestamp);
-        // isBetween bao gồm start, không bao gồm end -> dùng isSameOrAfter và isBefore
-        return checkInTime.isSameOrAfter(groupStartDate) && checkInTime.isBefore(groupEndDate.add(1, 'second')); // Thêm 1s để bao gồm cả :59
-    }).sort((a, b) => dayjs(a.checkInTimestamp).diff(dayjs(b.checkInTimestamp))); // Sắp xếp theo thời gian tăng dần trong nhóm
+        return checkInTime.isSameOrAfter(groupStartDate) && checkInTime.isBefore(groupEndDate.add(1, 'second')); 
+    }).sort((a, b) => dayjs(a.checkInTimestamp).diff(dayjs(b.checkInTimestamp))); 
 };
 
-// --- Methods ---
 const formatTime = (timestamp) => {
     return dayjs(timestamp).format('HH:mm');
 };
@@ -196,41 +186,48 @@ const openCheckInDetail = (checkIn) => {
   flex-direction: column;
 }
 .timeline-container {
-  flex-grow: 1; /* Cho phép nội dung chiếm hết chiều cao còn lại */
-  overflow-y: auto; /* Thêm cuộn dọc nếu nội dung quá dài */
+  flex-grow: 1; 
+  overflow-y: auto; 
+  min-height: 400px; /* Đặt chiều cao tối thiểu để swimlane hiển thị tốt */
 }
 .swimlane-wrapper {
-   /* Có thể thêm style để giới hạn chiều cao nếu cần */
 }
 .swimlane {
-  /* Tùy chỉnh đường viền hoặc nền nếu muốn phân biệt rõ các swimlane */
-  /* border-bottom: 1px solid #e0e0e0; */
 }
 .member-header {
-  position: sticky; /* Giữ tên thành viên khi cuộn */
+  position: sticky; 
   top: 0;
   z-index: 1;
-  /* background-color: white; */ /* Thêm nền trắng để che nội dung bên dưới */
+  background-color: rgba(var(--v-theme-surface), 0.8);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-radius: 8px; /* Giống theme */
 }
 .time-groups {
-   /* Style cho các nhóm thời gian */
 }
 .time-group-header {
   font-weight: 500;
 }
 .checkin-stack {
-  /* Style cho khu vực chứa các card check-in */
-   min-height: 40px; /* Chiều cao tối thiểu để hiển thị dấu '-' */
+   min-height: 40px; 
 }
 .checkin-card-summary {
-  transition: background-color 0.2s ease-in-out;
+  background-color: rgba(var(--v-theme-border), 0.1);
+  border: 1px solid rgba(var(--v-theme-border), 0.2);
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
 }
 .checkin-card-summary:hover {
-  background-color: #CFD8DC !important; /* Màu nền khi hover */
+  background-color: rgba(var(--v-theme-primary), 0.1) !important; 
+  border-color: rgba(var(--v-theme-primary), 0.5) !important;
 }
-
-/* Helper class cho margin */
 .ml-0_5 {
   margin-left: 2px;
+}
+.bg-transparent {
+    background-color: transparent !important;
+}
+.border {
+    border: 1px solid rgba(var(--v-theme-border), 0.3) !important;
 }
 </style>
