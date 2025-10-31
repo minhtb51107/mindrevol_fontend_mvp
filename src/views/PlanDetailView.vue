@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid>
+  <v-container fluid class="fill-height">
     <div v-if="planStore.isLoading && !planStore.currentPlan" class="text-center mt-10">
       <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
       <p class="mt-4 text-medium-emphasis">Đang tải thông tin kế hoạch...</p>
@@ -61,61 +61,40 @@
       </v-card>
     </div>
 
-    <div v-else-if="planStore.currentPlan">
+    <div v-else-if="planStore.currentPlan" class="fill-height w-100">
       <v-row class="main-layout-row">
+        
         <v-col cols="12" md="8" class="main-content-col">
-          
-          <v-row class="main-content-row1">
-            <v-col cols="12">
-              <TimelineDashboard />
-            </v-col>
-          </v-row>
-          
-          <v-row class="main-content-row2">
-            <v-col cols="12" md="7" class="d-flex flex-column">
-              <DailyTaskList
-                class="fill-height"
-                @open-add-task="openAddTaskDialog"
-                @open-edit-task="openEditTaskDialog"
-                @confirm-delete-task="confirmDeleteTask"
-              />
-            </v-col>
-            
-            <v-col cols="12" md="5" class="d-flex flex-column">
-              <PlanInfoPanel
-                class="fill-height"
-                :link-copied="linkCopied"
-                :link-copy-text="linkCopyText"
-                :is-loading-action="planStore.isLoading" 
-                :is-archiving="isArchiving" 
-                :removing-member-id="memberToDelete?.userId" 
-                :error="planStore.error" 
-                @copy-invite-link="copyInviteLink"
-                @archive-plan="confirmArchiveAction"
-                @open-transfer-dialog="openTransferOwnershipDialog"
-                @remove-member="confirmRemoveMember"
-              />
-            </v-col>
-          </v-row>
-
+          <TimelineDashboard class="fill-height" @open-check-in="openCheckInModal" />
         </v-col>
 
-        <v-col cols="12" md="4" class="placeholder-col">
-           <v-card class="fill-height glass-effect sticky-placeholder">
-              <v-card-item>
-                <v-card-title class="d-flex align-center">
-                  <v-icon color="secondary" class="mr-2" size="small">mdi-chart-bar</v-icon>
-                  <span class="text-h6">Insights</span>
-                </v-card-title>
-                <v-card-subtitle>Thống kê dự án</v-card-subtitle>
-              </v-card-item>
-              <v-card-text class="text-center text-medium-emphasis d-flex align-center justify-center fill-height pa-4">
-                  <div>
-                    <v-icon size="64" class="my-4">mdi-chart-gantt</v-icon>
-                    <p>Biểu đồ và thống kê chi tiết sẽ sớm xuất hiện ở đây.</p>
-                  </div>
-              </v-card-text>
-            </v-card>
+        <v-col cols="12" md="4" class="sidebar-col d-flex flex-column">
+          
+          <div class="sidebar-row-info">
+            <PlanInfoPanel
+              class="fill-height"
+              :link-copied="linkCopied"
+              :link-copy-text="linkCopyText"
+              :is-loading-action="planStore.isLoading" 
+              :is-archiving="isArchiving" 
+              :removing-member-id="memberToDelete?.userId" 
+              :error="planStore.error" 
+              @copy-invite-link="copyInviteLink"
+              @archive-plan="confirmArchiveAction"
+              @open-transfer-dialog="openTransferOwnershipDialog"
+              @remove-member="confirmRemoveMember"
+            />
+          </div>
+
+          <div class="sidebar-row-tasks">
+            <DailyTaskList
+              class="fill-height"
+              @open-add-task="openAddTaskDialog"
+              @open-edit-task="openEditTaskDialog"
+              @confirm-delete-task="confirmDeleteTask"
+            />
+          </div>
+          
         </v-col>
       </v-row>
     </div>
@@ -240,22 +219,7 @@
       </v-card>
     </v-dialog>
 
-     <v-fab
-          v-if="planStore.currentPlan && planStore.isCurrentUserMember"
-          icon="mdi-check-circle-outline"
-          location="bottom end"
-          size="large"
-          color="success"
-          app
-          appear
-          class="mb-4 mr-4 neon-glow-green"
-          @click="openCheckInModal"
-      >
-        Check-in
-      </v-fab>
-
       <CheckInModal v-model="isCheckInModalOpen" />
-
 
   </v-container>
 </template>
@@ -277,7 +241,7 @@ import CheckInModal from '@/components/CheckInModal.vue';
 import {
   VContainer, VRow, VCol, VCard, VCardTitle, VCardSubtitle, VCardText, VCardItem, VList, VListItem, VListItemTitle, VListItemSubtitle, VDivider, VBtn, VAlert, VProgressCircular, VIcon, VChip, VSnackbar,
   VCardActions, VSpacer, VDialog, VForm, VTextarea, VTextField,
-  VSelect, VFab
+  VSelect
 } from 'vuetify/components';
 
 const route = useRoute();
@@ -720,52 +684,52 @@ const openCheckInModal = () => {
   flex-direction: column;
 }
 
+/* Sửa CSS */
 .main-layout-row {
-  /* 100vh - 64px (app-bar) - 24px (v-container padding-top) */
-  /* Sử dụng min-height để linh hoạt hơn, nhưng max-height để ép */
-  max-height: calc(100vh - 88px);
-  height: calc(100vh - 88px);
+  max-height: 100%;
+  height: 100%;
 }
 
 .main-layout-row > .v-col {
   height: 100%;
-  padding-top: 0; /* Xóa padding top của v-col */
-  padding-bottom: 0; /* Xóa padding bottom của v-col */
+  padding-top: 0; 
+  padding-bottom: 0;
 }
 
+/* COL 1: CHO TIMELINE */
 .main-content-col {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0; 
 }
 
-.main-content-row1 {
-  flex-grow: 0; /* Hàng 1 (Timeline) không co dãn, giữ chiều cao nội dung */
-  flex-shrink: 0;
-  margin-bottom: 16px !important; /* Thay thế mb-4 */
-}
-
-.main-content-row2 {
-  flex-grow: 1; /* Hàng 2 (Task+Info) co dãn để lấp đầy phần còn lại */
-  min-height: 0; /* Cần thiết cho flex-grow hoạt động đúng */
-}
-.main-content-row2 > .v-col {
-   height: 100%; /* Ép 2 cột con (Task, Info) cao 100% Hàng 2 */
-}
-
-.placeholder-col {
+/* COL 2: CHO INFO + TASKS */
+.sidebar-col {
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; 
+  padding-left: 12px; 
 }
 
-.sticky-placeholder {
-  height: 100%;
-  position: sticky;
-  top: 80px; /* 64px (app-bar) + 16px (v-container padding) - LƯU Ý: v-container đang là fluid */
-  /* Dùng top 80px nếu v-container có padding top 16px, nếu không thì 64px */
-  /* Hãy thử 80px trước (giả sử v-container fluid vẫn có padding) */
-  /* CẬP NHẬT: top: 64px vì padding của v-col đã bị xóa */
-  top: 64px; 
+/* ROW 2.1: INFO PANEL */
+.sidebar-row-info {
+  flex-grow: 0; 
+  flex-shrink: 0; 
+  margin-bottom: 16px; 
+  display: flex;
+  flex-direction: column;
 }
+
+/* ROW 2.2: TASK LIST */
+.sidebar-row-tasks {
+  flex-grow: 1; 
+  min-height: 0; 
+  display: flex;
+  flex-direction: column;
+}
+
 
 .bg-transparent {
     background-color: transparent !important;
