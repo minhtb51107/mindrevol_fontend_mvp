@@ -9,8 +9,9 @@ const fileUploadService = {
    */
   uploadFiles: async (formData, context = 'default') => {
     try {
-      // Thêm context vào query param
-      const response = await api.post(`/api/v1/files/upload?context=${context}`, formData, {
+      // *** SỬA LỖI: Đã BỎ /api/v1/ ở đây ***
+      // vì 'api' (từ axios.js) đã có baseURL là '/api/v1'
+      const response = await api.post(`/files/upload?context=${context}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

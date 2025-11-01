@@ -4,6 +4,7 @@ import progressService from '@/api/progressService';
 import userService from '@/api/userService'; // Vẫn giữ nếu cần cho stats/chart (dù đã deprecated)
 import { useAuthStore } from './auth';
 import dayjs from 'dayjs'; // Import dayjs
+import { usePlanStore } from './plan'; // <-- IMPORT PLAN STORE
 
 // Helper debounce (có thể đưa ra utils)
 function debounce(func, wait) {
@@ -66,6 +67,33 @@ export const useProgressStore = defineStore('progress', {
             }
         }
     },
+    
+    // --- HELPER MỚI (nội bộ store) ---
+    // Trích xuất các ID task đã hoàn thành CỦA USER HIỆN TẠI
+    // từ state `currentTimeline`
+    getCompletedTaskIdsForCurrentUser(currentUserId) {
+        if (!this.currentTimeline || !currentUserId) {
+            return new Set(); // Trả về Set rỗng
+        }
+        // 1. Tìm timeline của user hiện tại
+        const currentUserTimeline = this.currentTimeline.find(
+            timeline => timeline.userId === currentUserId
+        );
+        if (!currentUserTimeline || !Array.isArray(currentUserTimeline.checkInEvents)) {
+            return new Set(); // User này chưa check-in hôm nay
+        }
+        // 2. Lấy TẤT CẢ các completedTaskIds
+        const completedIds = new Set();
+        currentUserTimeline.checkInEvents.forEach(event => {
+            if (Array.isArray(event.completedTaskIds)) {
+                event.completedTaskIds.forEach(taskId => {
+                    completedIds.add(taskId);
+                });
+            }
+        });
+        return completedIds;
+    },
+
 
     // --- ACTION MỚI: Fetch dữ liệu Timeline cho ngày đã chọn ---
     async fetchTimeline(shareableLink, date = this.selectedDate) {
@@ -78,16 +106,33 @@ export const useProgressStore = defineStore('progress', {
         this.isLoadingTimeline = true;
         this.timelineError = null;
         this.currentPlanShareableLink = shareableLink; // Cập nhật link plan đang xem
+        
+        // Lấy các store khác
+        const planStore = usePlanStore();
+        const authStore = useAuthStore();
 
         try {
             const response = await progressService.getDailyTimeline(shareableLink, date);
             // API trả về List<MemberTimeline>, gán trực tiếp hoặc đảm bảo là array rỗng nếu không có data
             this.currentTimeline = response.data || [];
              console.log("ProgressStore: Timeline data fetched:", this.currentTimeline);
+             
+            // --- MÓC NỐI VỚI PLAN STORE (SAU KHI FETCH THÀNH CÔNG) ---
+            // Lấy Set các ID đã hoàn thành của user hiện tại
+            const completedIds = this.getCompletedTaskIdsForCurrentUser(authStore.currentUser?.id);
+            // Gửi Set này qua planStore để đồng bộ
+            planStore.syncCompletedTaskIds(completedIds);
+            // --- KẾT THÚC MÓC NỐI ---
+             
         } catch (error) {
             console.error('Lỗi khi tải dữ liệu timeline:', error);
             this.timelineError = error.response?.data?.message || 'Không thể tải dữ liệu timeline.';
             this.currentTimeline = null; // Reset về null khi lỗi
+            
+            // --- MÓC NỐI VỚI PLAN STORE (KHI LỖI) ---
+            // Nếu fetch timeline lỗi, clear cả danh sách hoàn thành
+            planStore.syncCompletedTaskIds(new Set());
+            // --- KẾT THÚC MÓC NỐI ---
         } finally {
             this.isLoadingTimeline = false;
         }
@@ -127,11 +172,15 @@ export const useProgressStore = defineStore('progress', {
         // Chỉ xử lý message type 'NEW_CHECK_IN'
         if (updateData.type === 'NEW_CHECK_IN' && updateData.checkInEvent) {
              console.log("ProgressStore: WebSocket received NEW_CHECK_IN", updateData.checkInEvent);
-            const checkInTimestamp = updateData.checkInEvent.checkInTimestamp;
+            const { checkInTimestamp, completedTaskIds, userId } = updateData.checkInEvent;
             // Lấy ngày của sự kiện check-in (YYYY-MM-DD)
             const checkInDate = dayjs(checkInTimestamp).format('YYYY-MM-DD');
+            
+            const authStore = useAuthStore();
+            const planStore = usePlanStore();
 
-            // Kiểm tra xem sự kiện check-in này có thuộc về ngày đang được chọn không
+            // 1. Cập nhật Timeline (như cũ)
+            // (Refetch để lấy thông tin của MỌI NGƯỜI)
             if (this.currentPlanShareableLink && checkInDate === this.selectedDate) {
                  console.log(`ProgressStore: New check-in matches selected date (${this.selectedDate}). Refetching timeline using debounce...`);
                  // Dùng debounce để tránh fetch liên tục nếu nhiều event đến gần nhau
@@ -140,6 +189,17 @@ export const useProgressStore = defineStore('progress', {
                  console.log(`ProgressStore: New check-in date (${checkInDate}) does not match selected date (${this.selectedDate}). Ignoring immediate refetch.`);
                  // (Optional) Có thể hiển thị một chỉ báo nhỏ trên DateSelector
                  // cho biết có hoạt động mới ở ngày 'checkInDate'
+            }
+            
+            // 2. CẬP NHẬT PLANSTORE (Giải pháp)
+            // (Cập nhật UI ngay lập tức CHỈ CHO USER HIỆN TẠI)
+            if (userId === authStore.currentUser?.id && 
+                checkInDate === this.selectedDate &&
+                completedTaskIds && completedTaskIds.length > 0) 
+            {
+                console.log(`ProgressStore: Pushing new completed IDs to planStore (optimistic):`, completedTaskIds);
+                // Gọi action mới trong planStore
+                planStore.addCompletedTaskIds(completedTaskIds); 
             }
         }
         // Thêm xử lý cho các loại WebSocket khác nếu cần (ví dụ: comment, reaction trên CheckInEvent)
@@ -170,6 +230,19 @@ export const useProgressStore = defineStore('progress', {
         this.currentTimeline = null;
         this.isLoadingTimeline = false;
         this.timelineError = null;
+        
+        // --- MÓC NỐI VỚI PLAN STORE ---
+        try {
+            // Khi clear progress, cũng clear task list 'completed'
+           const planStore = usePlanStore();
+           if(planStore) {
+                planStore.syncCompletedTaskIds(new Set());
+           }
+        } catch (e) { 
+            console.warn("Error clearing planStore completed tasks (store might be disposed)", e);
+        }
+        // --- KẾT THÚC MÓC NỐI ---
+        
         // Không reset selectedDate ở đây, để khi quay lại vẫn giữ ngày user đã chọn
     },
 
@@ -233,6 +306,7 @@ export const useProgressStore = defineStore('progress', {
         this.isChartLoading = false;
         this.errorChart = null;
         // Clear cả timeline và link plan
+        // Action này đã gọi planStore.syncCompletedTaskIds(new Set())
         this.clearPlanProgressData();
         // Reset cả selectedDate về hôm nay
         this.selectedDate = dayjs().format('YYYY-MM-DD');

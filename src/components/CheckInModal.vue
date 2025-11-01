@@ -97,7 +97,8 @@ import { ref, reactive, computed, watch } from 'vue';
 import { useProgressStore } from '@/stores/progress';
 import { usePlanStore } from '@/stores/plan';
 import { useAuthStore } from '@/stores/auth';
-import progressService from '@/api/progressService';
+// import progressService from '@/api/progressService'; // Đã có trong progressStore
+import { useProgressStore as useProgressStoreHook } from '@/stores/progress'; // Đổi tên để tránh xung đột
 import fileUploadService from '@/api/fileUploadService'; 
 import { 
   VDialog, VCard, VCardTitle, VCardText, VCardActions, VAlert, VForm, 
@@ -111,9 +112,9 @@ const props = defineProps({
 });
 const emit = defineEmits(['update:modelValue']);
 
-const progressStore = useProgressStore();
+const progressStore = useProgressStoreHook(); // Sử dụng tên đã đổi
 const planStore = usePlanStore();
-const authStore = useAuthStore(); // Vẫn cần authStore, nhưng không cần truyền email
+const authStore = useAuthStore(); 
 
 const formRef = ref(null);
 const isLoading = ref(false);
@@ -131,9 +132,13 @@ const dialog = computed({
   set: (value) => emit('update:modelValue', value)
 });
 
+// === SỬA LỖI QUAN TRỌNG Ở ĐÂY ===
 const availableTasks = computed(() => {
-  return planStore.currentDailyTasks.filter(task => !task.completed);
+  // Lấy từ getter `getCurrentDailyTasksSorted` (đã có trường `isCompleted`)
+  // thay vì state `currentDailyTasks`
+  return planStore.getCurrentDailyTasksSorted.filter(task => !task.isCompleted);
 });
+// === KẾT THÚC SỬA LỖI ===
 
 watch(dialog, (newValue) => {
   if (newValue) {
@@ -141,7 +146,8 @@ watch(dialog, (newValue) => {
     const today = dayjs().format('YYYY-MM-DD');
     // Luôn fetch task CỦA HÔM NAY khi mở modal
     // (Vì check-in chỉ áp dụng cho hôm nay)
-    if (planStore.selectedDate !== today) {
+    // Sửa: Dùng getter `getSelectedDate` của progressStore
+    if (progressStore.getSelectedDate !== today) { 
        planStore.fetchDailyTasks(planStore.currentPlan.shareableLink, today);
     }
   }
@@ -175,7 +181,7 @@ const rules = {
   fileCount: (value) => (value && value.length <= 5) || 'Chỉ được upload tối đa 5 ảnh.'
 };
 
-// === CẬP NHẬT: handleSubmit (Logic quan trọng) ===
+// === handleSubmit (Đã sửa lỗi file upload, giờ dùng store) ===
 const handleSubmit = async () => {
   if (!formRef.value) return;
   const { valid } = await formRef.value.validate();
@@ -199,7 +205,7 @@ const handleSubmit = async () => {
         storedFilename: res.storedFilename,
         fileUrl: res.fileUrl,
         originalFilename: res.originalFilename,
-        contentType: res.fileType, 
+        contentType: res.fileType, // Tên trường fileType từ backend response
         fileSize: res.fileSize,
       }));
     }
@@ -212,18 +218,17 @@ const handleSubmit = async () => {
       links: form.links.filter(link => link && link.trim() !== ''), 
     };
     
-    // 3. Gọi API check-in (ĐÃ SỬA)
-    // Bỏ userEmail. Backend sẽ tự lấy từ token.
-    await progressService.createCheckIn(planStore.currentPlan.shareableLink, checkInData);
+    // 3. Gọi API check-in qua progressStore
+    await progressStore.submitCheckIn(planStore.currentPlan.shareableLink, checkInData);
     
     // 4. Xử lý thành công
     closeDialog();
     
-    // Backend sẽ gửi WebSocket "NEW_CHECK_IN"
+    // Store (progress.js) sẽ tự động xử lý WebSocket/cập nhật
 
   } catch (err) {
     console.error("Check-in error:", err);
-    error.value = err.response?.data?.message || 'Check-in thất bại. Vui lòng thử lại.';
+    error.value = err.response?.data?.message || err.message || 'Check-in thất bại. Vui lòng thử lại.';
   } finally {
     isLoading.value = false;
   }

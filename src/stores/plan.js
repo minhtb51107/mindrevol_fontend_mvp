@@ -35,6 +35,12 @@ export const usePlanStore = defineStore('plan', {
     isLoadingDailyTasks: false,
     dailyTasksError: null,
 
+    // --- STATE MỚI ĐỂ TRACK UI HOÀN THÀNH ---
+    // Set này chứa các ID của task đã hoàn thành (trong ngày đang chọn)
+    // Nó được quản lý bởi planStore nhưng được "điền" bởi progressStore
+    clientSideCompletedTaskIds: new Set(),
+    // --- KẾT THÚC STATE MỚI ---
+
     // Task CRUD loading/error (vẫn dùng chung cho add/update/delete/reorder)
     isTaskLoading: false,
     taskError: null,
@@ -69,11 +75,17 @@ export const usePlanStore = defineStore('plan', {
 
     getUserPlans: (state) => state.userPlans,
 
-    // --- GETTER MỚI ---
+    // --- CẬP NHẬT GETTER NÀY ---
     // Trả về danh sách task của ngày hiện tại, đã sắp xếp theo 'order'
     getCurrentDailyTasksSorted: (state) => {
-        // Tạo bản sao và sắp xếp, đảm bảo không thay đổi state gốc
-        return [...state.currentDailyTasks].sort((a, b) => (a.order ?? Infinity) - (b.order ?? Infinity));
+        // Tạo bản sao, map qua để thêm trường 'isCompleted', và sắp xếp
+        return [...state.currentDailyTasks]
+            .map(task => ({
+                ...task,
+                // Thêm trường 'isCompleted' dựa trên Set trong state
+                isCompleted: state.clientSideCompletedTaskIds.has(task.id) 
+            }))
+            .sort((a, b) => (a.order ?? Infinity) - (b.order ?? Infinity));
     },
 
     getSearchTerm: (state) => state.searchTerm,
@@ -184,6 +196,11 @@ export const usePlanStore = defineStore('plan', {
             return;
         }
         const formattedDate = dayjs(date).format('YYYY-MM-DD'); // Đảm bảo format đúng
+
+        // --- QUAN TRỌNG: RESET SET KHI TẢI NGÀY MỚI ---
+        // Vì progressStore (sẽ gọi sync) cũng sẽ fetch lại
+        this.clientSideCompletedTaskIds.clear(); 
+        
         console.log(`PlanStore: Fetching tasks for ${shareableLink} on ${formattedDate}...`);
         this.isLoadingDailyTasks = true;
         this.dailyTasksError = null;
@@ -193,6 +210,11 @@ export const usePlanStore = defineStore('plan', {
              // Sắp xếp lại lần nữa để chắc chắn đúng thứ tự 'order'
              this.currentDailyTasks.sort((a, b) => (a.order ?? Infinity) - (b.order ?? Infinity));
             console.log(`PlanStore: Daily tasks fetched for ${formattedDate}:`, this.currentDailyTasks.length);
+
+            // Lưu ý: Việc điền Set `clientSideCompletedTaskIds` sẽ do
+            // progressStore.fetchTimeline đảm nhận (xem file progress.js)
+            // vì PlanDetailView.vue gọi cả hai hàm fetch này cùng lúc.
+            
         } catch (error) {
             console.error(`Lỗi khi tải công việc ngày ${formattedDate}:`, error);
             this.dailyTasksError = error.response?.data?.message || `Không thể tải công việc cho ngày ${formattedDate}.`;
@@ -206,7 +228,43 @@ export const usePlanStore = defineStore('plan', {
         this.currentDailyTasks = [];
         this.isLoadingDailyTasks = false;
         this.dailyTasksError = null;
+        // Clear cả Set khi rời đi
+        this.clientSideCompletedTaskIds.clear(); 
     },
+
+    // --- ACTION MỚI (Được gọi bởi progressStore) ---
+    // Dùng để đồng bộ toàn bộ state "đã hoàn thành" khi fetchTimeline xong
+    syncCompletedTaskIds(completedIdsSet) {
+        if (completedIdsSet instanceof Set) {
+            console.log("PlanStore: Syncing completed task IDs from progress store.", completedIdsSet);
+            // Ghi đè bằng Set mới (đảm bảo reactivity)
+            this.clientSideCompletedTaskIds = new Set(completedIdsSet); 
+        } else {
+             console.warn("PlanStore: syncCompletedTaskIds called with invalid data type.");
+             this.clientSideCompletedTaskIds = new Set(); // Reset về rỗng
+        }
+    },
+
+    // --- ACTION MỚI (Được gọi bởi progressStore từ WebSocket) ---
+    // Dùng để thêm task hoàn thành MỚI (cập nhật UI ngay lập tức)
+    addCompletedTaskIds(taskIdsArray) {
+        if (!Array.isArray(taskIdsArray) || taskIdsArray.length === 0) return;
+        
+        console.log("PlanStore: Adding new completed task IDs from WebSocket.", taskIdsArray);
+        let changed = false;
+        taskIdsArray.forEach(id => {
+            if (!this.clientSideCompletedTaskIds.has(id)) {
+                this.clientSideCompletedTaskIds.add(id);
+                changed = true;
+            }
+        });
+        
+         if (changed) {
+             // Đảm bảo reactivity nếu Set không tự trigger
+             this.clientSideCompletedTaskIds = new Set(this.clientSideCompletedTaskIds);
+         }
+    },
+    // --- KẾT THÚC ACTIONS MỚI ---
 
     // Tham gia plan
     async joinCurrentPlan(shareableLink) {
@@ -553,7 +611,7 @@ export const usePlanStore = defineStore('plan', {
         this.currentPlan = null;
         this.isLoading = false;
         this.error = null;
-        this.clearDailyTasks(); // Gọi action xóa task list
+        this.clearDailyTasks(); // Gọi action xóa task list (đã bao gồm clear Set)
         this.isTaskLoading = false; // Reset cả task loading/error
         this.taskError = null;
      }
