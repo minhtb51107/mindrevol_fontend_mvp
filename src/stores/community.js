@@ -73,7 +73,18 @@ export const useCommunityStore = defineStore('community', {
             } else {
                 await communityService.addOrUpdateReaction(this.selectedProgress.id, reactionType);
             }
-            await progressStore.fetchDashboard(shareableLink);
+
+            // ================== START: SỬA LỖI ==================
+            // Lỗi là ở đây: Tên hàm đúng là 'fetchTimeline' và nó cần cả 'date'
+            
+            // DÒNG CŨ (BỊ LỖI):
+            // await progressStore.fetchDashboard(shareableLink);
+            
+            // DÒNG MỚI (ĐÃ SỬA):
+            await progressStore.fetchTimeline(shareableLink, this.selectedProgress.date);
+            
+            // =================== END: SỬA LỖI ===================
+
             const updatedDashboard = progressStore.dashboard;
             if (updatedDashboard?.membersProgress) {
                  const updatedMember = updatedDashboard.membersProgress.find(m => m.userFullName === this.selectedProgress.memberFullName);
@@ -93,6 +104,7 @@ export const useCommunityStore = defineStore('community', {
         } catch (error) {
             console.error("Lỗi khi thả reaction:", error);
             this.error = error.response?.data?.message || "Thao tác reaction thất bại.";
+            throw error; // Ném lỗi để component xử lý
         } finally {
              this.isLoading = false;
         }

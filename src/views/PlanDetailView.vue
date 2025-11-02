@@ -138,7 +138,7 @@
                 type="date" variant="outlined" density="compact"
                 :rules="[rules.required, rules.date]"
                 class="mt-3"
-            ></v-text-field>
+             ></v-text-field>
              <v-text-field
                 v-if="editingTask"
                 v-model="taskForm.taskDate"
@@ -147,7 +147,7 @@
                 :rules="[rules.date]"
                 class="mt-3"
                 clearable
-            ></v-text-field>
+             ></v-text-field>
 
           </v-form>
         </v-card-text>
@@ -176,9 +176,13 @@
     <v-dialog v-model="archiveConfirmDialog" persistent max-width="450px">
        </v-dialog>
     <v-dialog v-model="transferOwnershipDialog" persistent max-width="500px">
-      </v-dialog>
+      </V-dialog>
 
-    <CheckInModal 
+    <ProgressDetailModal 
+      v-if="planStore.currentPlan?.shareableLink"
+      :shareable-link="planStore.currentPlan.shareableLink"
+    />
+        <CheckInModal 
       v-model="isCheckInModalOpen"
       :is-editing="!!checkInToEdit"
       :existing-check-in="checkInToEdit"
@@ -213,6 +217,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { usePlanStore } from '@/stores/plan';
 import { useAuthStore } from '@/stores/auth';
 import { useProgressStore } from '@/stores/progress';
+import { useCommunityStore } from '@/stores/community'; // <-- (THÊM) Import community store
 import websocketService from '@/api/websocketService';
 import dayjs from 'dayjs'; 
 
@@ -220,6 +225,7 @@ import PlanInfoPanel from '@/components/PlanInfoPanel.vue';
 import TimelineDashboard from '@/components/TimelineDashboard.vue';
 import DailyTaskList from '@/components/DailyTaskList.vue';
 import CheckInModal from '@/components/CheckInModal.vue'; 
+import ProgressDetailModal from '@/components/ProgressDetailModal.vue'; // <-- (THÊM) Import modal chi tiết
 
 import {
   VContainer, VRow, VCol, VCard, VCardTitle, VCardSubtitle, VCardText, VCardItem, VList, VListItem, VListItemTitle, VListItemSubtitle, VDivider, VBtn, VAlert, VProgressCircular, VIcon, VChip, VSnackbar,
@@ -232,6 +238,7 @@ const router = useRouter();
 const planStore = usePlanStore();
 const authStore = useAuthStore();
 const progressStore = useProgressStore();
+const communityStore = useCommunityStore(); // <-- (THÊM) Khởi tạo community store
 
 // (State gốc giữ nguyên)
 const isJoining = ref(false);
@@ -524,8 +531,8 @@ const saveTask = async () => {
         }
     }
      if (!editingTask.value && !taskForm.taskDate) {
-        taskDialogError.value = 'Vui lòng chọn ngày thực hiện công việc.';
-        return;
+         taskDialogError.value = 'Vui lòng chọn ngày thực hiện công việc.';
+         return;
      }
      if (taskForm.taskDate && !dayjs(taskForm.taskDate, 'YYYY-MM-DD', true).isValid()) {
          taskDialogError.value = 'Định dạng ngày không hợp lệ (YYYY-MM-DD).';
@@ -718,12 +725,19 @@ const executeDeleteCheckIn = async () => {
     }
 };
 
-// (MỚI) Hàm này xử lý BÌNH LUẬN
+// ================== START: CODE ĐƯỢC SỬA ==================
+// (SỬA) Hàm này xử lý BÌNH LUẬN
 const openCommentDialog = (checkInEvent) => {
-    // TODO: Triển khai logic mở panel/dialog bình luận
-    console.log("PlanDetailView: Opening comments for check-in:", checkInEvent.id);
-    showSnackbar('Tính năng bình luận đang được phát triển!', 'info');
+    // (SỬA) Thay vì hiển thị snackbar, chúng ta gọi communityStore
+    console.log("PlanDetailView: Opening Progress Detail Modal for check-in:", checkInEvent.id);
+    
+    // Dữ liệu 'checkInEvent' (chính là 'progress' chi tiết)
+    // được đưa vào communityStore.
+    // ProgressDetailModal sẽ tự động mở vì nó đang theo dõi store này.
+    communityStore.selectProgress(checkInEvent);
 };
+// =================== END: CODE ĐƯỢC SỬA ===================
+
 </script>
 
 <style scoped>
