@@ -21,13 +21,8 @@ function debounce(func, wait) {
 
 export const useProgressStore = defineStore('progress', {
   state: () => ({
-    // --- STATE CŨ (marked as deprecated or removed) ---
-    // dashboard: null, // Không dùng nữa
-    // isLoading: false, // Không dùng nữa
-    // error: null, // Không dùng nữa
-    currentPlanShareableLink: null, // Vẫn cần để biết đang xem plan nào
-
-    // Stats & Chart (logic cũ dựa trên DailyProgress, cần viết lại nếu muốn dùng)
+    // (State gốc của bạn giữ nguyên)
+    currentPlanShareableLink: null,
     userStats: {
         checkedInTodayComplete: false,
         currentStreak: 0,
@@ -39,50 +34,42 @@ export const useProgressStore = defineStore('progress', {
     chartData: [],
     isChartLoading: false,
     errorChart: null,
-
-    // --- STATE MỚI CHO TIMELINE DASHBOARD ---
-    currentTimeline: null, // Dữ liệu TimelineResponse từ API GET /timeline (List<MemberTimeline>)
+    currentTimeline: null, 
     isLoadingTimeline: false,
     timelineError: null,
-    selectedDate: dayjs().format('YYYY-MM-DD'), // Ngày đang được chọn, mặc định là hôm nay
+    selectedDate: dayjs().format('YYYY-MM-DD'),
   }),
 
   getters: {
-     // Getter để lấy timeline theo cấu trúc swimlane (API đã trả về đúng cấu trúc này)
+     // (Getters gốc của bạn giữ nguyên)
      timelineSwimlanes: (state) => state.currentTimeline,
-     // Getter lấy ngày đang chọn
      getSelectedDate: (state) => state.selectedDate,
   },
 
   actions: {
-    // --- ACTION MỚI: Cập nhật ngày đang xem ---
+    // (Hàm gốc giữ nguyên)
     setSelectedDate(date) {
         const newDate = dayjs(date).format('YYYY-MM-DD');
         if (newDate !== this.selectedDate) {
             console.log(`ProgressStore: Selected date changed to ${newDate}`);
             this.selectedDate = newDate;
-            // Tự động fetch timeline cho ngày mới nếu đang xem plan
             if (this.currentPlanShareableLink) {
               this.fetchTimeline(this.currentPlanShareableLink, newDate);
             }
         }
     },
     
-    // --- HELPER MỚI (nội bộ store) ---
-    // Trích xuất các ID task đã hoàn thành CỦA USER HIỆN TẠI
-    // từ state `currentTimeline`
+    // (Hàm gốc giữ nguyên)
     getCompletedTaskIdsForCurrentUser(currentUserId) {
         if (!this.currentTimeline || !currentUserId) {
-            return new Set(); // Trả về Set rỗng
+            return new Set(); 
         }
-        // 1. Tìm timeline của user hiện tại
         const currentUserTimeline = this.currentTimeline.find(
             timeline => timeline.userId === currentUserId
         );
         if (!currentUserTimeline || !Array.isArray(currentUserTimeline.checkInEvents)) {
-            return new Set(); // User này chưa check-in hôm nay
+            return new Set(); 
         }
-        // 2. Lấy TẤT CẢ các completedTaskIds
         const completedIds = new Set();
         currentUserTimeline.checkInEvents.forEach(event => {
             if (Array.isArray(event.completedTaskIds)) {
@@ -95,7 +82,7 @@ export const useProgressStore = defineStore('progress', {
     },
 
 
-    // --- ACTION MỚI: Fetch dữ liệu Timeline cho ngày đã chọn ---
+    // (Hàm gốc giữ nguyên - với Hotfix 2)
     async fetchTimeline(shareableLink, date = this.selectedDate) {
         if (!shareableLink) {
             this.timelineError = "Không thể tải timeline (thiếu mã kế hoạch).";
@@ -105,135 +92,182 @@ export const useProgressStore = defineStore('progress', {
         console.log(`ProgressStore: Fetching timeline for ${shareableLink} on ${date}...`);
         this.isLoadingTimeline = true;
         this.timelineError = null;
-        this.currentPlanShareableLink = shareableLink; // Cập nhật link plan đang xem
+        this.currentPlanShareableLink = shareableLink; 
         
-        // Lấy các store khác
         const planStore = usePlanStore();
         const authStore = useAuthStore();
 
         try {
-            const response = await progressService.getDailyTimeline(shareableLink, date);
-            // API trả về List<MemberTimeline>, gán trực tiếp hoặc đảm bảo là array rỗng nếu không có data
+            // Dòng này bây giờ sẽ gọi hàm getDailyTimeline với đường dẫn ĐÚNG
+            const response = await progressService.getDailyTimeline(shareableLink, date); 
             this.currentTimeline = response.data || [];
              console.log("ProgressStore: Timeline data fetched:", this.currentTimeline);
              
-            // --- MÓC NỐI VỚI PLAN STORE (SAU KHI FETCH THÀNH CÔNG) ---
-            // Lấy Set các ID đã hoàn thành của user hiện tại
             const completedIds = this.getCompletedTaskIdsForCurrentUser(authStore.currentUser?.id);
-            // Gửi Set này qua planStore để đồng bộ
-            planStore.syncCompletedTaskIds(completedIds);
-            // --- KẾT THÚC MÓC NỐI ---
+            
+            // --- HOTFIX 2 (TỪ FILE GỐC CỦA BẠN - GIỮ NGUYÊN) ---
+            const today = dayjs().format('YYYY-MM-DD');
+            if (date === today && completedIds.size === 0 && planStore.clientSideCompletedTaskIds.size > 0) {
+                 console.warn(`ProgressStore: fetchTimeline for TODAY returned 0 completed tasks, but planStore has ${planStore.clientSideCompletedTaskIds.size} (from optimistic update). Skipping sync to preserve state.`);
+            } else {
+                 console.log(`ProgressStore: Syncing timeline completed IDs to planStore (Size: ${completedIds.size})`);
+                 planStore.syncCompletedTaskIds(completedIds);
+            }
+            // --- KẾT THÚC HOTFIX 2 ---
              
         } catch (error) {
             console.error('Lỗi khi tải dữ liệu timeline:', error);
             this.timelineError = error.response?.data?.message || 'Không thể tải dữ liệu timeline.';
-            this.currentTimeline = null; // Reset về null khi lỗi
+            this.currentTimeline = null; 
             
-            // --- MÓC NỐI VỚI PLAN STORE (KHI LỖI) ---
-            // Nếu fetch timeline lỗi, clear cả danh sách hoàn thành
             planStore.syncCompletedTaskIds(new Set());
-            // --- KẾT THÚC MÓC NỐI ---
         } finally {
             this.isLoadingTimeline = false;
         }
     },
 
-    // --- ACTION MỚI: Gửi Check-in ---
+    // (Hàm gốc giữ nguyên - với Hotfix 1)
     async submitCheckIn(shareableLink, checkInData) {
         if (!shareableLink) {
             throw new Error("Không tìm thấy mã kế hoạch để check-in.");
         }
         console.log("ProgressStore: Submitting check-in...", checkInData);
-        // Có thể thêm isLoadingCheckIn nếu muốn component hiển thị loading khi submit
-        // this.isLoadingCheckIn = true;
+        
+        const planStore = usePlanStore(); 
         try {
-            // Gọi API mới để tạo CheckInEvent
+            // Dòng này bây giờ sẽ gọi hàm createCheckIn với đường dẫn ĐÚNG
             const response = await progressService.createCheckIn(shareableLink, checkInData);
             console.log("ProgressStore: Check-in successful:", response.data);
 
-            // Xử lý sau khi check-in thành công:
-            // 1. Không cần fetch lại timeline ngay lập tức, vì WebSocket sẽ làm điều đó (xem handleWebSocketUpdate).
-            // 2. Fetch lại stats (dù logic stats cũ đã hỏng, nhưng giữ lại luồng gọi)
-            await this.fetchUserStats();
-            // await this.fetchChartData(); // Chart cũng hỏng logic
+            // --- HOTFIX 1 (TỪ FILE GỐC CỦA BẠN - GIỮ NGUYÊN) ---
+            const checkInDate = dayjs().format('YYYY-MM-DD');
+            if (checkInDate === this.selectedDate && 
+                checkInData.completedTaskIds && 
+                checkInData.completedTaskIds.length > 0) 
+            {
+                console.log(`ProgressStore: (Inside submitCheckIn) Pushing new completed IDs to planStore (optimistic):`, checkInData.completedTaskIds);
+                planStore.addCompletedTaskIds(checkInData.completedTaskIds); 
+            }
+            // --- KẾT THÚC HOTFIX 1 ---
 
-            return response.data; // Trả về checkInEvent vừa tạo nếu component cần
+            await this.fetchUserStats();
+            return response.data;
         } catch (error) {
             console.error('Lỗi khi thực hiện check-in:', error);
-            // Ném lỗi ra để component bắt và hiển thị thông báo
             throw error.response?.data?.message || error.message || 'Có lỗi xảy ra khi check-in.';
-        } finally {
-            // this.isLoadingCheckIn = false;
         }
     },
 
-    // --- CẬP NHẬT: Xử lý WebSocket cho Timeline ---
+    // --- (MỚI) ACTION: Cập nhật Check-in ---
+    async updateCheckInAction(checkInEventId, updateData) {
+        if (!this.currentPlanShareableLink) {
+             throw new Error("Không tìm thấy mã kế hoạch (shareableLink) để cập nhật.");
+        }
+        console.log(`ProgressStore: Submitting update for check-in ${checkInEventId}...`);
+        try {
+            // Dòng này sẽ gọi hàm updateCheckIn MỚI với đường dẫn ĐÚNG
+            await progressService.updateCheckIn(this.currentPlanShareableLink, checkInEventId, updateData);
+            console.log(`ProgressStore: Update for ${checkInEventId} successful.`);
+        } catch (error) {
+            console.error('Lỗi khi cập nhật check-in:', error);
+            throw error.response?.data?.message || 'Không thể cập nhật check-in.';
+        }
+    },
+
+    // --- (MỚI) ACTION: Xóa Check-in ---
+    async deleteCheckInAction(checkInEventId) {
+        if (!this.currentPlanShareableLink) {
+             throw new Error("Không tìm thấy mã kế hoạch (shareableLink) để xóa.");
+        }
+        console.log(`ProgressStore: Submitting delete for check-in ${checkInEventId}...`);
+         try {
+            // Dòng này sẽ gọi hàm deleteCheckIn MỚI với đường dẫn ĐÚNG
+            await progressService.deleteCheckIn(this.currentPlanShareableLink, checkInEventId);
+            console.log(`ProgressStore: Delete for ${checkInEventId} successful.`);
+        } catch (error) {
+            console.error('Lỗi khi xóa check-in:', error);
+            throw error.response?.data?.message || 'Không thể xóa check-in.';
+        }
+    },
+
+
+    // --- (CẬP NHẬT) Xử lý WebSocket cho Timeline ---
     handleWebSocketUpdate(updateData) {
-        // Chỉ xử lý message type 'NEW_CHECK_IN'
+        // (Logic gốc cho NEW_CHECK_IN giữ nguyên)
         if (updateData.type === 'NEW_CHECK_IN' && updateData.checkInEvent) {
              console.log("ProgressStore: WebSocket received NEW_CHECK_IN", updateData.checkInEvent);
             const { checkInTimestamp, completedTaskIds, userId } = updateData.checkInEvent;
-            // Lấy ngày của sự kiện check-in (YYYY-MM-DD)
             const checkInDate = dayjs(checkInTimestamp).format('YYYY-MM-DD');
             
             const authStore = useAuthStore();
             const planStore = usePlanStore();
 
-            // 1. Cập nhật Timeline (như cũ)
-            // (Refetch để lấy thông tin của MỌI NGƯỜI)
             if (this.currentPlanShareableLink && checkInDate === this.selectedDate) {
                  console.log(`ProgressStore: New check-in matches selected date (${this.selectedDate}). Refetching timeline using debounce...`);
-                 // Dùng debounce để tránh fetch liên tục nếu nhiều event đến gần nhau
                  this.debouncedRefetchTimeline();
             } else {
                  console.log(`ProgressStore: New check-in date (${checkInDate}) does not match selected date (${this.selectedDate}). Ignoring immediate refetch.`);
-                 // (Optional) Có thể hiển thị một chỉ báo nhỏ trên DateSelector
-                 // cho biết có hoạt động mới ở ngày 'checkInDate'
             }
             
-            // 2. CẬP NHẬT PLANSTORE (Giải pháp)
-            // (Cập nhật UI ngay lập tức CHỈ CHO USER HIỆN TẠI)
             if (userId === authStore.currentUser?.id && 
                 checkInDate === this.selectedDate &&
                 completedTaskIds && completedTaskIds.length > 0) 
             {
                 console.log(`ProgressStore: Pushing new completed IDs to planStore (optimistic):`, completedTaskIds);
-                // Gọi action mới trong planStore
                 planStore.addCompletedTaskIds(completedTaskIds); 
             }
         }
-        // Thêm xử lý cho các loại WebSocket khác nếu cần (ví dụ: comment, reaction trên CheckInEvent)
-        // else if (updateData.type === 'NEW_CHECKIN_COMMENT') { ... }
+        
+        // --- LOGIC MỚI ---
+        
+        else if (updateData.type === 'UPDATE_CHECK_IN') {
+             console.log("ProgressStore: WebSocket received UPDATE_CHECK_IN. Refetching timeline...");
+             if (this.currentPlanShareableLink) {
+                 this.fetchTimeline(this.currentPlanShareableLink, this.selectedDate);
+             }
+        }
+        
+        else if (updateData.type === 'DELETE_CHECK_IN') {
+             console.log("ProgressStore: WebSocket received DELETE_CHECK_IN. Refetching timeline...");
+             if (this.currentPlanShareableLink) {
+                 this.fetchTimeline(this.currentPlanShareableLink, this.selectedDate);
+            }
+        }
+        
+        else if (updateData.type === 'NEW_CHECKIN_COMMENT') {
+            console.log("ProgressStore: WebSocket received NEW_CHECKIN_COMMENT.");
+             if (this.currentPlanShareableLink) {
+                this.debouncedRefetchTimeline();
+             }
+        }
+        // --- KẾT THÚC LOGIC MỚI ---
+        
         else {
              console.log("ProgressStore: Received unhandled WebSocket update type or invalid data:", updateData.type);
         }
     },
 
-    // Hàm debounce để tránh gọi fetchTimeline liên tục từ WebSocket
+    // (Các hàm gốc còn lại giữ nguyên)
     debouncedRefetchTimeline() {
         if (!this._refetchTimelineDebounce) {
-            // Sử dụng helper debounce đã định nghĩa ở đầu file
             this._refetchTimelineDebounce = debounce(() => {
                 if (this.currentPlanShareableLink) {
                     console.log(`ProgressStore: Debounced fetchTimeline executing for ${this.selectedDate}`);
                     this.fetchTimeline(this.currentPlanShareableLink, this.selectedDate);
                 }
-            }, 600); // Tăng debounce time lên một chút (600ms)
+            }, 600); 
         }
         this._refetchTimelineDebounce();
     },
 
-    // --- Action để xóa dữ liệu progress của plan hiện tại (khi rời trang) ---
     clearPlanProgressData() {
         console.log("ProgressStore: Clearing current plan progress data (timeline)...");
-        this.currentPlanShareableLink = null; // Xóa link plan đang xem
+        this.currentPlanShareableLink = null; 
         this.currentTimeline = null;
         this.isLoadingTimeline = false;
         this.timelineError = null;
         
-        // --- MÓC NỐI VỚI PLAN STORE ---
         try {
-            // Khi clear progress, cũng clear task list 'completed'
            const planStore = usePlanStore();
            if(planStore) {
                 planStore.syncCompletedTaskIds(new Set());
@@ -241,12 +275,8 @@ export const useProgressStore = defineStore('progress', {
         } catch (e) { 
             console.warn("Error clearing planStore completed tasks (store might be disposed)", e);
         }
-        // --- KẾT THÚC MÓC NỐI ---
-        
-        // Không reset selectedDate ở đây, để khi quay lại vẫn giữ ngày user đã chọn
     },
 
-    // --- ACTIONS Stats/Chart (giữ nguyên nhưng đánh dấu là logic cũ/hỏng) ---
     async fetchUserStats() {
       console.warn("ProgressStore: fetchUserStats() uses deprecated logic based on DailyProgress. Backend API might not work correctly.");
       const authStore = useAuthStore();
@@ -254,7 +284,6 @@ export const useProgressStore = defineStore('progress', {
       this.isLoadingStats = true;
       this.errorStats = null;
       try {
-        // Gọi API cũ, có thể backend chưa cập nhật API này để hoạt động với CheckInEvent
         const response = await userService.getMyStats();
         this.userStats = {
             checkedInTodayComplete: response.data?.checkedInTodayComplete ?? false,
@@ -277,7 +306,6 @@ export const useProgressStore = defineStore('progress', {
       this.isChartLoading = true;
       this.errorChart = null;
       try {
-        // Gọi API cũ, có thể backend chưa cập nhật API này
         const response = await userService.getMyProgressChartData();
         if (response.data && Array.isArray(response.data)) {
           this.chartData = response.data.sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -294,21 +322,15 @@ export const useProgressStore = defineStore('progress', {
       }
     },
 
-    // --- CẬP NHẬT: clearUserSessionData (khi logout) ---
     clearUserSessionData() {
         console.log("ProgressStore: Clearing user session data (stats, chart, timeline, selected date)...");
-        // Clear stats
         this.userStats = { checkedInTodayComplete: false, currentStreak: 0, totalTasksToday: 0, completedTasksToday: 0 };
         this.isLoadingStats = false;
         this.errorStats = null;
-        // Clear chart
         this.chartData = [];
         this.isChartLoading = false;
         this.errorChart = null;
-        // Clear cả timeline và link plan
-        // Action này đã gọi planStore.syncCompletedTaskIds(new Set())
         this.clearPlanProgressData();
-        // Reset cả selectedDate về hôm nay
         this.selectedDate = dayjs().format('YYYY-MM-DD');
     }
   },

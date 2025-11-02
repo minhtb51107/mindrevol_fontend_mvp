@@ -1,8 +1,8 @@
 <template>
-  <v-dialog v-model="dialog" persistent max-width="650px">
+  <v-dialog :model-value="dialog" persistent max-width="650px">
     <v-card class="glass-effect">
       <v-card-title>
-        <span class="text-h6">Check-in tiến độ hôm nay</span>
+        <span class="text-h6">{{ isEditing ? 'Chỉnh sửa Check-in' : 'Check-in tiến độ hôm nay' }}</span>
       </v-card-title>
       <v-card-text>
         <v-alert v-if="error" type="error" density="compact" class="mb-4" closable @click:close="error = ''">
@@ -11,16 +11,18 @@
 
         <v-form ref="formRef" @submit.prevent="handleSubmit">
           <p class="text-subtitle-1 mb-2 font-weight-medium">Công việc đã hoàn thành *</p>
-          <div v-if="planStore.isLoadingDailyTasks && availableTasks.length === 0" class="text-center pa-4">
+          
+          <div v-if="isLoadingTasks" class="text-center pa-4">
             <v-progress-circular indeterminate size="24"></v-progress-circular>
             <span class="text-medium-emphasis ml-2">Đang tải tasks...</span>
           </div>
-          <v-alert v-else-if="planStore.taskError" type="warning" density="compact" class="mb-3">
-            {{ planStore.taskError }}
+          <v-alert v-else-if="tasksError" type="warning" density="compact" class="mb-3">
+            {{ tasksError }}
           </v-alert>
           <div v-else-if="availableTasks.length === 0" class="text-medium-emphasis mb-3">
             Không có công việc nào khả dụng để check-in.
           </div>
+
           <v-chip-group v-else v-model="form.completedTaskIds" column multiple class="mb-3">
             <v-chip
               v-for="task in availableTasks"
@@ -68,25 +70,29 @@
             Thêm liên kết
           </v-btn>
 
-          <p class="text-subtitle-1 mb-2 font-weight-medium">Ảnh minh chứng (Tùy chọn)</p>
-          <v-file-input
-            v-model="form.files"
-            label="Chọn ảnh (tối đa 5 ảnh)"
-            multiple
-            chips
-            accept="image/*"
-            variant="outlined"
-            density="compact"
-            prepend-icon=""
-            prepend-inner-icon="mdi-camera-outline"
-            :rules="[rules.fileCount]"
-          ></v-file-input>
+          <template v-if="!isEditing">
+            <p class="text-subtitle-1 mb-2 font-weight-medium">Ảnh minh chứng (Tùy chọn)</p>
+            <v-file-input
+              v-model="form.files"
+              label="Chọn ảnh (tối đa 5 ảnh)"
+              multiple
+              chips
+              accept="image/*"
+              variant="outlined"
+              density="compact"
+              prepend-icon=""
+              prepend-inner-icon="mdi-camera-outline"
+              :rules="[rules.fileCount]"
+            ></v-file-input>
+          </template>
         </v-form>
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
         <v-btn color="medium-emphasis" variant="text" @click="closeDialog" :disabled="isLoading">Hủy</v-btn>
-        <v-btn color="primary" variant="flat" @click="handleSubmit" :loading="isLoading">Check-in</v-btn>
+        <v-btn color="primary" variant="flat" @click="handleSubmit" :loading="isLoading">
+          {{ isEditing ? 'Lưu thay đổi' : 'Check-in' }}
+        </v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -96,9 +102,9 @@
 import { ref, reactive, computed, watch } from 'vue';
 import { useProgressStore } from '@/stores/progress';
 import { usePlanStore } from '@/stores/plan';
-import { useAuthStore } from '@/stores/auth';
-// import progressService from '@/api/progressService'; // Đã có trong progressStore
-import { useProgressStore as useProgressStoreHook } from '@/stores/progress'; // Đổi tên để tránh xung đột
+import { useAuthStore } from '@/stores/auth'; // <-- MỚI: DÒNG BỊ THIẾU
+import planService from '@/api/planService'; 
+import progressService from '@/api/progressService'; 
 import fileUploadService from '@/api/fileUploadService'; 
 import { 
   VDialog, VCard, VCardTitle, VCardText, VCardActions, VAlert, VForm, 
@@ -108,17 +114,29 @@ import {
 import dayjs from 'dayjs';
 
 const props = defineProps({
-  modelValue: Boolean
+  modelValue: Boolean,
+  isEditing: {
+    type: Boolean,
+    default: false
+  },
+  existingCheckIn: {
+    type: Object,
+    default: null
+  }
 });
+
 const emit = defineEmits(['update:modelValue']);
 
-const progressStore = useProgressStoreHook(); // Sử dụng tên đã đổi
+const progressStore = useProgressStore();
 const planStore = usePlanStore();
-const authStore = useAuthStore(); 
 
 const formRef = ref(null);
-const isLoading = ref(false);
-const error = ref('');
+const isLoading = ref(false); 
+const error = ref(''); 
+
+const isLoadingTasks = ref(false); 
+const tasksError = ref(''); 
+const localTasks = ref([]); 
 
 const form = reactive({
   notes: '',
@@ -132,26 +150,101 @@ const dialog = computed({
   set: (value) => emit('update:modelValue', value)
 });
 
-// === SỬA LỖI QUAN TRỌNG Ở ĐÂY ===
 const availableTasks = computed(() => {
-  // Lấy từ getter `getCurrentDailyTasksSorted` (đã có trường `isCompleted`)
-  // thay vì state `currentDailyTasks`
-  return planStore.getCurrentDailyTasksSorted.filter(task => !task.isCompleted);
+  const allTasks = localTasks.value; 
+  
+  if (props.isEditing && props.existingCheckIn) {
+    const checkedIdsInThisEvent = props.existingCheckIn.completedTasks?.map(t => t.taskId) || [];
+    
+    return allTasks.filter(task => 
+      !task.isCompleted || checkedIdsInThisEvent.includes(task.id)
+    );
+  } else {
+    return allTasks.filter(task => !task.isCompleted);
+  }
 });
-// === KẾT THÚC SỬA LỖI ===
 
-watch(dialog, (newValue) => {
+watch(() => props.modelValue, (newValue) => {
   if (newValue) {
-    resetForm();
-    const today = dayjs().format('YYYY-MM-DD');
-    // Luôn fetch task CỦA HÔM NAY khi mở modal
-    // (Vì check-in chỉ áp dụng cho hôm nay)
-    // Sửa: Dùng getter `getSelectedDate` của progressStore
-    if (progressStore.getSelectedDate !== today) { 
-       planStore.fetchDailyTasks(planStore.currentPlan.shareableLink, today);
+    resetForm(); 
+    
+    if (props.isEditing && props.existingCheckIn) {
+      // --- CHẾ ĐỘ SỬA ---
+      console.log("CheckInModal: Populating form for editing.", props.existingCheckIn);
+      form.notes = props.existingCheckIn.notes || '';
+      form.links = props.existingCheckIn.links ? [...props.existingCheckIn.links] : []; 
+      form.files = []; 
+
+      localTasks.value = planStore.getCurrentDailyTasksSorted;
+      form.completedTaskIds = props.existingCheckIn.completedTasks?.map(t => t.taskId) || [];
+      isLoadingTasks.value = false;
+      tasksError.value = '';
+
+    } else {
+      // --- CHẾ ĐỘ TẠO MỚI ---
+      fetchTasksForToday();
     }
   }
 });
+
+const fetchTasksForToday = async () => {
+  isLoadingTasks.value = true;
+  tasksError.value = '';
+  localTasks.value = [];
+  
+  const shareableLink = progressStore.currentPlanShareableLink; 
+  if (!shareableLink) {
+    tasksError.value = "Lỗi: Không tìm thấy kế hoạch.";
+    isLoadingTasks.value = false;
+    return;
+  }
+  
+  const today = dayjs().format('YYYY-MM-DD');
+  
+  try {
+    
+    const [tasksResponse, timelineResponse] = await Promise.allSettled([
+      planService.getTasksByDate(shareableLink, today),
+      progressService.getDailyTimeline(shareableLink, today) // Tự lấy timeline HÔM NAY
+    ]);
+
+    if (tasksResponse.status === 'rejected') {
+      throw new Error("Không thể tải danh sách công việc hôm nay.");
+    }
+    
+    const tasks = tasksResponse.value.data || [];
+    
+    let completedIds = new Set();
+    if (timelineResponse.status === 'fulfilled') {
+      const authStore = useAuthStore(); // <-- Dòng này giờ đã hợp lệ
+      const currentUserId = authStore.currentUser?.id;
+      const timelineData = timelineResponse.value.data || [];
+      const currentUserTimeline = timelineData.find(t => t.userId === currentUserId);
+      
+      if (currentUserTimeline && Array.isArray(currentUserTimeline.checkInEvents)) {
+        currentUserTimeline.checkInEvents.forEach(event => {
+          if (Array.isArray(event.completedTaskIds)) { 
+            event.completedTaskIds.forEach(taskId => completedIds.add(taskId));
+          }
+        });
+      }
+    }
+    
+    localTasks.value = tasks
+      .map(task => ({
+        ...task,
+        isCompleted: completedIds.has(task.id) 
+      }))
+      .sort((a, b) => (a.order ?? Infinity) - (b.order ?? Infinity));
+    
+  } catch (err) {
+    console.error("CheckInModal: Error fetching tasks for today:", err);
+    tasksError.value = err.message || "Không thể tải công việc hôm nay.";
+  } finally {
+    isLoadingTasks.value = false;
+  }
+};
+
 
 const resetForm = () => {
   form.notes = '';
@@ -163,7 +256,7 @@ const resetForm = () => {
 };
 
 const closeDialog = () => {
-  dialog.value = false;
+  emit('update:modelValue', false);
 };
 
 const addLink = () => {
@@ -181,7 +274,6 @@ const rules = {
   fileCount: (value) => (value && value.length <= 5) || 'Chỉ được upload tối đa 5 ảnh.'
 };
 
-// === handleSubmit (Đã sửa lỗi file upload, giờ dùng store) ===
 const handleSubmit = async () => {
   if (!formRef.value) return;
   const { valid } = await formRef.value.validate();
@@ -189,46 +281,59 @@ const handleSubmit = async () => {
 
   isLoading.value = true;
   error.value = '';
+  const shareableLink = progressStore.currentPlanShareableLink; 
+  if (!shareableLink) {
+    error.value = "Không tìm thấy mã kế hoạch.";
+    isLoading.value = false;
+    return;
+  }
 
   try {
-    // 1. Upload files trước
-    let attachmentRequests = [];
-    if (form.files.length > 0) {
-      const formData = new FormData();
-      form.files.forEach(file => {
-        formData.append('files', file); 
-      });
+    if (props.isEditing) {
+      // --- LOGIC SỬA ---
+      const payload = {
+        notes: form.notes,
+        completedTaskIds: form.completedTaskIds.map(id => Number(id)), 
+        links: form.links.filter(link => link && link.trim() !== ''), 
+      };
+      await progressStore.updateCheckInAction(props.existingCheckIn.id, payload);
       
-      const uploadResponses = await fileUploadService.uploadFiles(formData, 'checkin'); 
+    } else {
+      // --- LOGIC TẠO MỚI ---
+      let attachmentRequests = [];
+      if (form.files.length > 0) {
+        const formData = new FormData();
+        form.files.forEach(file => {
+          formData.append('files', file); 
+        });
+        
+        const uploadResponses = await fileUploadService.uploadFiles(formData, 'checkin'); 
+        
+        attachmentRequests = uploadResponses.map(res => ({
+          storedFilename: res.storedFilename,
+          fileUrl: res.fileUrl,
+          originalFilename: res.originalFilename,
+          contentType: res.fileType, 
+          fileSize: res.fileSize,
+        }));
+      }
       
-      attachmentRequests = uploadResponses.map(res => ({
-        storedFilename: res.storedFilename,
-        fileUrl: res.fileUrl,
-        originalFilename: res.originalFilename,
-        contentType: res.fileType, // Tên trường fileType từ backend response
-        fileSize: res.fileSize,
-      }));
+      const checkInData = {
+        notes: form.notes,
+        completedTaskIds: form.completedTaskIds.map(id => Number(id)), 
+        attachments: attachmentRequests,
+        links: form.links.filter(link => link && link.trim() !== ''), 
+      };
+      
+      await progressStore.submitCheckIn(shareableLink, checkInData);
     }
     
-    // 2. Build CheckInRequest DTO
-    const checkInData = {
-      notes: form.notes,
-      completedTaskIds: form.completedTaskIds.map(id => Number(id)), 
-      attachments: attachmentRequests,
-      links: form.links.filter(link => link && link.trim() !== ''), 
-    };
-    
-    // 3. Gọi API check-in qua progressStore
-    await progressStore.submitCheckIn(planStore.currentPlan.shareableLink, checkInData);
-    
-    // 4. Xử lý thành công
     closeDialog();
     
-    // Store (progress.js) sẽ tự động xử lý WebSocket/cập nhật
-
   } catch (err) {
-    console.error("Check-in error:", err);
-    error.value = err.response?.data?.message || err.message || 'Check-in thất bại. Vui lòng thử lại.';
+    console.error("Check-in/Update error:", err);
+    // (Sửa: Đảm bảo err.message được ưu tiên)
+    error.value = err.message || err.response?.data?.message || 'Thao tác thất bại. Vui lòng thử lại.';
   } finally {
     isLoading.value = false;
   }

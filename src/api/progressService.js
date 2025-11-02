@@ -3,23 +3,34 @@ import apiClient from './axios';
 import dayjs from 'dayjs'; // Cần thư viện dayjs để format ngày
 
 export default {
-  // --- HÀM MỚI: Tạo Check-in Event ---
+  // --- HÀM GỐC: Tạo Check-in Event ---
+  // (Giữ nguyên đường dẫn GỐC của bạn)
   createCheckIn(shareableLink, checkInData) {
-    // checkInData sẽ có dạng { notes: '...', attachments: [{storedFilename, fileUrl,...}], completedTaskIds: [1, 2] }
     return apiClient.post(`/plans/${shareableLink}/progress/check-in`, checkInData);
   },
 
-  // --- HÀM MỚI: Lấy dữ liệu Timeline theo ngày ---
+  // --- HÀM GỐC: Lấy dữ liệu Timeline theo ngày ---
+  // (Giữ nguyên đường dẫn GỐC của bạn)
   getDailyTimeline(shareableLink, date) {
-    // Format date sang YYYY-MM-DD
     const formattedDate = dayjs(date).format('YYYY-MM-DD');
     return apiClient.get(`/plans/${shareableLink}/progress/timeline`, {
       params: { date: formattedDate }
     });
   },
 
-  // --- HÀM UPLOAD FILE (Giữ nguyên) ---
-  // Vẫn cần thiết để upload ảnh/file trước khi gọi createCheckIn
+  // --- (MỚI) HÀM SỬA CHECK-IN ---
+  // (Thêm mới, sử dụng đường dẫn chính xác)
+  updateCheckIn(shareableLink, checkInEventId, updateData) {
+    return apiClient.put(`/plans/${shareableLink}/progress/check-in/${checkInEventId}`, updateData);
+  },
+
+  // --- (MỚI) HÀM XÓA CHECK-IN ---
+  // (Thêm mới, sử dụng đường dẫn chính xác)
+  deleteCheckIn(shareableLink, checkInEventId) {
+    return apiClient.delete(`/plans/${shareableLink}/progress/check-in/${checkInEventId}`);
+  },
+
+  // --- HÀM UPLOAD FILE (Giữ nguyên từ file gốc) ---
   uploadEvidenceFile(file) {
     const formData = new FormData();
     formData.append('file', file);
@@ -27,11 +38,6 @@ export default {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
-      // Ví dụ theo dõi tiến trình upload:
-      // onUploadProgress: progressEvent => {
-      //   const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-      //   console.log(`Upload progress: ${percentCompleted}%`);
-      // }
     });
   }
 };

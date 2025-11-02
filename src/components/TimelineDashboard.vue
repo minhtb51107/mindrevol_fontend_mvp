@@ -34,7 +34,7 @@
 
         </div>
       </v-card-title>
-    </v-card-item>    
+    </v-card-item>    
     <v-divider class="mt-2"></v-divider>
 
     <v-card-text class="pa-0 timeline-container">
@@ -68,118 +68,156 @@
                   <div class="time-group-header text-caption text-center text-medium-emphasis mb-1">{{ group.name }}</div>
                   
                   <div class="checkin-stack">
-                    <template v-if="getCheckInsForGroup(memberTimeline.checkIns, group).length > 0">
-                        
-                      <div
-                        v-for="checkIn in getCheckInsForGroup(memberTimeline.checkIns, group)"
-                        :key="checkIn.id"
-                        class="checkin-item"
-                      >
-                        <div v-if="checkIn.attachments?.length > 0 && isImageVisible(checkIn)" class="checkin-card-modern" @click="openCheckInDetail(checkIn)">
+                      <template v-if="getCheckInsForGroup(memberTimeline.checkIns, group).length > 0">
                           
-                          <div class="card-header">
-                            <span class="card-time">{{ formatTime(checkIn.checkInTimestamp) }}</span>
-                            <v-btn
-                              class="toggle-pill-simple"
-                              density="compact"
-                              variant="text"
-                              icon="mdi-image-off-outline"
-                              size="x-small"
-                              title="Ẩn ảnh này"
-                              @click.stop="toggleLocalImage(checkIn)"
-                            ></v-btn>
-                          </div>
+                          <div
+                            v-for="checkIn in getCheckInsForGroup(memberTimeline.checkIns, group)"
+                            :key="checkIn.id"
+                            class="checkin-item"
+                          >
+                            <div v-if="checkIn.attachments?.length > 0 && isImageVisible(checkIn)" class="checkin-card-modern" @click="openCheckInDetail(checkIn)">
+                              
+                              <div class="card-header">
+                                <span class="card-time">{{ formatTime(checkIn.checkInTimestamp) }}</span>
+                                
+                                <div class="d-flex align-center">
+                                  <v-menu v-if="canModify(checkIn)" location="bottom end">
+                                    <template v-slot:activator="{ props }">
+                                      <v-btn icon="mdi-dots-vertical" variant="text" size="x-small" v-bind="props" @click.stop></v-btn>
+                                    </template>
+                                    <v-list density="compact">
+                                      <v-list-item @click.stop="emit('edit-check-in', checkIn)">
+                                        <template v-slot:prepend><v-icon icon="mdi-pencil-outline" size="small"></v-icon></template>
+                                        <v-list-item-title>Sửa</v-list-item-title>
+                                      </v-list-item>
+                                      <v-list-item @click.stop="emit('delete-check-in', checkIn)" base-color="error">
+                                        <template v-slot:prepend><v-icon icon="mdi-delete-outline" size="small"></v-icon></template>
+                                        <v-list-item-title>Xóa</v-list-item-title>
+                                      </v-list-item>
+                                    </v-list>
+                                  </v-menu>
 
-                          <div class="card-body">
-                            <div class="image-container">
-                              <v-img
-                                :src="checkIn.attachments[0].fileUrl"
-                                class="card-image rounded"
-                                max-height="150px"
-                              ></v-img>
+                                  <v-btn
+                                    class="toggle-pill-simple"
+                                    density="compact"
+                                    variant="text"
+                                    icon="mdi-image-off-outline"
+                                    size="x-small"
+                                    title="Ẩn ảnh này"
+                                    @click.stop="toggleLocalImage(checkIn)"
+                                  ></v-btn>
+                                </div>
+                              </div>
+
+                              <div class="card-body">
+                                <div class="image-container">
+                                  <v-img
+                                    :src="checkIn.attachments[0].fileUrl"
+                                    class="card-image rounded"
+                                    max-height="150px"
+                                  ></v-img>
+                                </div>
+                              </div>
+                              
+                              <div class="stats-footer">
+                                <span v-if="checkIn.completedTasks?.length > 0" :title="`${checkIn.completedTasks.length} task`">
+                                  <v-icon size="small">mdi-check-all</v-icon>
+                                  {{ checkIn.completedTasks.length }}
+                                </span>
+                                <span v-if="checkIn.attachments?.length > 0" :title="`${checkIn.attachments.length} ảnh`">
+                                  <v-icon size="small">mdi-image</v-icon>
+                                  {{ checkIn.attachments.length }}
+                                </span>
+                                <span v-if="checkIn.links?.length > 0" :title="`${checkIn.links.length} link`">
+                                  <v-icon size="small">mdi-link-variant</v-icon>
+                                  {{ checkIn.links.length }}
+                                </span>
+                                <span v-if="checkIn.commentCount > 0" :title="`${checkIn.commentCount} bình luận`">
+                                  <v-icon size="small">mdi-comment-outline</v-icon>
+                                  {{ checkIn.commentCount }}
+                                </span> 
+                                <span v-if="checkIn.reactionCount > 0" :title="`${checkIn.reactionCount} cảm xúc`">
+                                  <v-icon size="small">mdi-emoticon-happy-outline</v-icon>
+                                  {{ checkIn.reactionCount }}
+                                </span> 
+                              </div>
+                            </div>
+
+                            <div v-else class="checkin-card-modern" @click="openCheckInDetail(checkIn)">
+                              
+                              <div class="card-header">
+                                <span class="card-time">{{ formatTime(checkIn.checkInTimestamp) }}</span>
+                                
+                                <div class="d-flex align-center">
+                                  <v-menu v-if="canModify(checkIn)" location="bottom end">
+                                    <template v-slot:activator="{ props }">
+                                      <v-btn icon="mdi-dots-vertical" variant="text" size="x-small" v-bind="props" @click.stop></v-btn>
+                                    </template>
+                                    <v-list density="compact">
+                                      <v-list-item @click.stop="emit('edit-check-in', checkIn)">
+                                        <template v-slot:prepend><v-icon icon="mdi-pencil-outline" size="small"></v-icon></template>
+                                        <v-list-item-title>Sửa</v-list-item-title>
+                                      </v-list-item>
+                                      <v-list-item @click.stop="emit('delete-check-in', checkIn)" base-color="error">
+                                        <template v-slot:prepend><v-icon icon="mdi-delete-outline" size="small"></v-icon></template>
+                                        <v-list-item-title>Xóa</v-list-item-title>
+                                      </v-list-item>
+                                    </v-list>
+                                  </v-menu>
+
+                                  <v-btn
+                                    v-if="checkIn.attachments?.length > 0"
+                                    class="toggle-pill-simple"
+                                    density="compact"
+                                    variant="text"
+                                    icon="mdi-image-outline"
+                                    size="x-small"
+                                    title="Hiện ảnh này"
+                                    @click.stop="toggleLocalImage(checkIn)"
+                                  ></v-btn>
+                                </div>
+                              </div>
+
+                              <div class="card-body">
+                                <div class="text-content">
+                                  <p v-if="checkIn.completedTasks?.length > 0" class="card-title text-truncate-2" :title="checkIn.completedTasks[0].description">
+                                    {{ checkIn.completedTasks[0].description }}
+                                  </p>
+                                  <p v-if="checkIn.notes" class="card-notes text-truncate-2" :title="checkIn.notes">
+                                    {{ checkIn.notes }}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              <div class="stats-footer">
+                                 <span v-if="checkIn.completedTasks?.length > 0" :title="`${checkIn.completedTasks.length} task`">
+                                  <v-icon size="small">mdi-check-all</v-icon>
+                                  {{ checkIn.completedTasks.length }}
+                                </span>
+                                <span v-if="checkIn.attachments?.length > 0" :title="`${checkIn.attachments.length} ảnh`">
+                                  <v-icon size="small">mdi-image</v-icon>
+                                  {{ checkIn.attachments.length }}
+                                </span>
+                                <span v-if="checkIn.links?.length > 0" :title="`${checkIn.links.length} link`">
+                                  <v-icon size="small">mdi-link-variant</v-icon>
+                                  {{ checkIn.links.length }}
+                                </span>
+                                <span v-if="checkIn.commentCount > 0" :title="`${checkIn.commentCount} bình luận`">
+                                  <v-icon size="small">mdi-comment-outline</v-icon>
+                                  {{ checkIn.commentCount }}
+                                </span> 
+                                <span v-if="checkIn.reactionCount > 0" :title="`${checkIn.reactionCount} cảm xúc`">
+                                  <v-icon size="small">mdi-emoticon-happy-outline</v-icon>
+                                  {{ checkIn.reactionCount }}
+                                </span> 
+                              </div>
                             </div>
                           </div>
-                          
-                          <div class="stats-footer">
-                            <span v-if="checkIn.completedTasks?.length > 0" :title="`${checkIn.completedTasks.length} task`">
-                              <v-icon size="small">mdi-check-all</v-icon>
-                              {{ checkIn.completedTasks.length }}
-                            </span>
-                            <span v-if="checkIn.attachments?.length > 0" :title="`${checkIn.attachments.length} ảnh`">
-                              <v-icon size="small">mdi-image</v-icon>
-                              {{ checkIn.attachments.length }}
-                            </span>
-                            <span v-if="checkIn.links?.length > 0" :title="`${checkIn.links.length} link`">
-                              <v-icon size="small">mdi-link-variant</v-icon>
-                              {{ checkIn.links.length }}
-                            </span>
-                            <span v-if="checkIn.commentCount > 0" :title="`${checkIn.commentCount} bình luận`">
-                              <v-icon size="small">mdi-comment-outline</v-icon>
-                              {{ checkIn.commentCount }}
-                            </span> 
-                            <span v-if="checkIn.reactionCount > 0" :title="`${checkIn.reactionCount} cảm xúc`">
-                              <v-icon size="small">mdi-emoticon-happy-outline</v-icon>
-                              {{ checkIn.reactionCount }}
-                            </span> 
-                          </div>
-                        </div>
-
-                        <div v-else class="checkin-card-modern" @click="openCheckInDetail(checkIn)">
-                          
-                          <div class="card-header">
-                            <span class="card-time">{{ formatTime(checkIn.checkInTimestamp) }}</span>
-                            <v-btn
-                              v-if="checkIn.attachments?.length > 0"
-                              class="toggle-pill-simple"
-                              density="compact"
-                              variant="text"
-                              icon="mdi-image-outline"
-                              size="x-small"
-                              title="Hiện ảnh này"
-                              @click.stop="toggleLocalImage(checkIn)"
-                            ></v-btn>
-                          </div>
-
-                          <div class="card-body">
-                            <div class="text-content">
-                              <p v-if="checkIn.completedTasks?.length > 0" class="card-title text-truncate-2" :title="checkIn.completedTasks[0].description">
-                                {{ checkIn.completedTasks[0].description }}
-                              </p>
-                              <p v-if="checkIn.notes" class="card-notes text-truncate-2" :title="checkIn.notes">
-                                {{ checkIn.notes }}
-                              </p>
-                            </div>
-                          </div>
-                          
-                          <div class="stats-footer">
-                             <span v-if="checkIn.completedTasks?.length > 0" :title="`${checkIn.completedTasks.length} task`">
-                              <v-icon size="small">mdi-check-all</v-icon>
-                              {{ checkIn.completedTasks.length }}
-                            </span>
-                            <span v-if="checkIn.attachments?.length > 0" :title="`${checkIn.attachments.length} ảnh`">
-                              <v-icon size="small">mdi-image</v-icon>
-                              {{ checkIn.attachments.length }}
-                            </span>
-                            <span v-if="checkIn.links?.length > 0" :title="`${checkIn.links.length} link`">
-                              <v-icon size="small">mdi-link-variant</v-icon>
-                              {{ checkIn.links.length }}
-                            </span>
-                            <span v-if="checkIn.commentCount > 0" :title="`${checkIn.commentCount} bình luận`">
-                              <v-icon size="small">mdi-comment-outline</v-icon>
-                              {{ checkIn.commentCount }}
-                            </span> 
-                            <span v-if="checkIn.reactionCount > 0" :title="`${checkIn.reactionCount} cảm xúc`">
-                              <v-icon size="small">mdi-emoticon-happy-outline</v-icon>
-                              {{ checkIn.reactionCount }}
-                            </span> 
-                          </div>
-                        </div>
-                      </div>
-                    </template>
-                      <div v-else class="text-caption text-center text-grey-darken-2 pa-2">-</div>
+                      </template>
+                        <div v-else class="text-caption text-center text-grey-darken-2 pa-2">-</div>
                   </div>
               </v-col>
-            </v-row>
+          </v-row>
         </div>
       </div>
     </v-card-text>
@@ -190,59 +228,39 @@
             Chi tiết Check-in <span class="text-medium-emphasis text-body-2 ml-2">({{ selectedCheckIn.member?.userFullName }} - {{ formatDateTime(selectedCheckIn.checkInTimestamp) }})</span>
           </v-card-title>
           <v-divider></v-divider>
+          
           <v-card-text>
-            
-            <p v-if="selectedCheckIn.notes" class="mb-3"><strong>Ghi chú:</strong> {{ selectedCheckIn.notes }}</p>
-            
-            <div v-if="selectedCheckIn.links?.length > 0" class="mb-3">
-              <strong>Liên kết:</strong>
-              <v-list density="compact" lines="one" class="bg-transparent">
-                <v-list-item 
-                  v-for="(link, index) in selectedCheckIn.links" 
-                  :key="index" 
-                  :href="link.startsWith('http') ? link : `//${link}`"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  prepend-icon="mdi-link-variant" 
-                  class="text-primary"
-                >
-                  <v-list-item-title class="text-truncate">{{ link }}</v-list-item-title>
-                </v-list-item>
-              </v-list>
-            </div>
-            
-            <div v-if="selectedCheckIn.completedTasks?.length > 0" class="mb-3">
-              <strong>Công việc đã hoàn thành:</strong>
-              <v-list density="compact" lines="one" class="bg-transparent">
-                <v-list-item v-for="task in selectedCheckIn.completedTasks" :key="task.taskId" :title="task.description" prepend-icon="mdi-check" class="text-on-surface"></v-list-item>
-              </v-list>
-            </div>
-            
-            <div v-if="selectedCheckIn.attachments?.length > 0">
-              <strong>Hình ảnh/Tệp đính kèm:</strong>
-              <v-row dense class="mt-1">
-                  <v-col v-for="(att, index) in selectedCheckIn.attachments" :key="index" cols="6" sm="4">
-                    <v-img
-                        :src="att.fileUrl"
-                        :alt="att.originalFilename || 'Attachment'"
-                        aspect-ratio="1"
-                        cover
-                        class="rounded border"
-                    >
-                      <template v-slot:placeholder>
-                        <div class="d-flex align-center justify-center fill-height">
-                          <v-progress-circular indeterminate color="grey-lighten-4"></v-progress-circular>
-                        </div>
-                      </template>
-                    </v-img>
-                  </v-col>
-              </v-row>
-            </div>
+            <CheckInDetailCard :check-in="selectedCheckIn" />
           </v-card-text>
+
           <v-card-actions>
+            <v-btn 
+              variant="text" 
+              @click="emit('comment-on-check-in', selectedCheckIn)"
+              prepend-icon="mdi-comment-outline"
+            >
+              Bình luận
+            </v-btn>
             <v-spacer></v-spacer>
+            <v-btn 
+              v-if="canModify(selectedCheckIn)"
+              color="primary"
+              text 
+              @click="emit('edit-check-in', selectedCheckIn); detailDialog = false;"
+            >
+              Sửa
+            </v-btn>
+            <v-btn 
+              v-if="canModify(selectedCheckIn)"
+              color="error"
+              text 
+              @click="emit('delete-check-in', selectedCheckIn); detailDialog = false;"
+            >
+              Xóa
+            </v-btn>
             <v-btn color="medium-emphasis" text @click="detailDialog = false">Đóng</v-btn>
           </v-card-actions>
+
         </v-card>
       </v-dialog>
 
@@ -253,18 +271,20 @@
 import { ref, computed } from 'vue';
 import { useProgressStore } from '@/stores/progress';
 import { usePlanStore } from '@/stores/plan'; 
+import { useAuthStore } from '@/stores/auth'; // <-- MỚI
 import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
 import isBetween from 'dayjs/plugin/isBetween';
 import customParseFormat from 'dayjs/plugin/customParseFormat'; 
 
 import DateSelector from '@/components/DateSelector.vue'; 
+import CheckInDetailCard from '@/components/CheckInDetailCard.vue'; // <-- MỚI
 
 import {
   VCard, VCardTitle, VCardText, VDivider, VProgressCircular, VAlert, VIcon, VRow, VCol, VTooltip,
-  VDialog, VCardActions, VSpacer, VBtn, VList, VListItem, VImg, VCardItem, VListItemTitle
-  // SỬA LỖI: Xóa VListItemGroup
-} from 'vuetify/components';
+  VDialog, VCardActions, VSpacer, VBtn, VList, VListItem, VImg, VCardItem, VListItemTitle,
+  VMenu // <-- MỚI
+} from 'vuetify/components'; // <-- SỬA LỖI: vuety -> vuetify
 
 dayjs.locale('vi');
 dayjs.extend(isBetween);
@@ -272,8 +292,12 @@ dayjs.extend(customParseFormat);
 
 const progressStore = useProgressStore();
 const planStore = usePlanStore(); 
+const authStore = useAuthStore(); // <-- MỚI
 
-const emit = defineEmits(['open-check-in']);
+// MỚI: Thêm các emit
+const emit = defineEmits(['open-check-in', 'edit-check-in', 'delete-check-in', 'comment-on-check-in']);
+
+const EDIT_GRACE_PERIOD_HOURS = 24; // <-- MỚI: Thời gian ân hạn 24 giờ
 
 // === LOGIC QUẢN LÝ ẢNH (Giữ nguyên) ===
 const showImages = ref(true); 
@@ -303,7 +327,7 @@ const emitOpenCheckIn = () => {
   emit('open-check-in');
 };
 
-// --- (Toàn bộ logic gốc của bạn giữ nguyên) ---
+// --- (Logic gốc của bạn giữ nguyên) ---
 const timelineData = computed(() => progressStore.timelineSwimlanes); 
 const selectedDate = computed(() => progressStore.getSelectedDate); 
 
@@ -344,6 +368,20 @@ const openCheckInDetail = (checkIn) => {
     detailDialog.value = true;
 };
 // --- (Kết thúc logic gốc) ---
+
+// --- MỚI: Hàm kiểm tra quyền Sửa/Xóa ---
+const canModify = (checkIn) => {
+  if (!checkIn || !authStore.currentUser) {
+    return false;
+  }
+  // 1. Phải là của tôi
+  const isOwner = checkIn.member?.userId === authStore.currentUser.id;
+  // 2. Phải còn trong 24 giờ
+  const isWithinGracePeriod = dayjs().diff(checkIn.checkInTimestamp, 'hour') < EDIT_GRACE_PERIOD_HOURS;
+  
+  return isOwner && isWithinGracePeriod;
+};
+// --- KẾT THÚC HÀM MỚI ---
 
 </script>
 
@@ -452,6 +490,10 @@ const openCheckInDetail = (checkIn) => {
 .toggle-pill-simple.v-btn:hover {
   opacity: 1;
   background-color: rgba(var(--v-theme-on-surface), 0.05);
+}
+/* MỚI: Căn chỉnh wrapper nút bên phải header */
+.card-header .d-flex {
+  margin-left: auto; /* Đẩy nhóm nút sang phải */
 }
 
 /* 2. Body */

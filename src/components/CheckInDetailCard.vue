@@ -6,7 +6,7 @@
         Ghi chú
       </p>
       <v-card variant="tonal" color="info" density="compact">
-        <v-card-text class="text-body-2">{{ checkIn.notes }}</v-card-text>
+        <v-card-text class="text-body-2" style="white-space: pre-wrap;">{{ checkIn.notes }}</v-card-text>
       </v-card>
     </div>
 
@@ -30,7 +30,30 @@
       </v-list>
     </div>
 
-    <div v-if="checkIn.attachments?.length > 0">
+    <div v-if="checkIn.links?.length > 0" class="mb-4">
+      <p class="text-subtitle-2 font-weight-medium mb-2">
+        <v-icon size="small" color="primary" class="mr-1">mdi-link-variant</v-icon>
+        Liên kết
+      </p>
+      <v-list density="compact" lines="one" class="bg-transparent pa-0">
+        <v-list-item 
+          v-for="(link, index) in checkIn.links" 
+          :key="index" 
+          :href="link.startsWith('http') ? link : `//${link}`"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-primary mb-1 rounded"
+          style="background-color: rgba(var(--v-theme-primary), 0.1);"
+        >
+          <template v-slot:prepend>
+            <v-icon color="primary">mdi-link-variant</v-icon>
+          </template>
+          <v-list-item-title class="text-truncate">{{ link }}</v-list-item-title>
+        </v-list-item>
+      </v-list>
+    </div>
+
+    <div v-if="checkIn.attachments?.length > 0" class="mb-4">
       <p class="text-subtitle-2 font-weight-medium mb-2">
         <v-icon size="small" color="secondary" class="mr-1">mdi-image-multiple-outline</v-icon>
         Hình ảnh/Tệp đính kèm
@@ -55,24 +78,6 @@
       </v-row>
     </div>
 
-    <v-divider class="my-4"></v-divider>
-    <div>
-      <p class="text-subtitle-2 font-weight-medium mb-2">
-        <v-icon size="small" color="warning" class="mr-1">mdi-comment-text-multiple-outline</v-icon>
-        Tương tác (Sắp có)
-      </p>
-      <div class="d-flex align-center text-medium-emphasis">
-        <v-btn icon="mdi-emoticon-happy-outline" variant="text" size="small"></v-btn>
-        <v-text-field
-          density="compact"
-          variant="outlined"
-          placeholder="Viết bình luận..."
-          hide-details
-          disabled
-        ></v-text-field>
-      </div>
-    </div>
-
     <v-dialog v-model="imageDialog" max-width="800px">
       <v-card>
         <v-img :src="previewingImageUrl" contain max-height="80vh"></v-img>
@@ -93,7 +98,8 @@
 import { ref } from 'vue';
 import {
   VIcon, VCard, VCardText, VList, VListItem, VRow, VCol, VImg, 
-  VProgressCircular, VDivider, VBtn, VTextField, VDialog, VCardActions, VSpacer
+  VProgressCircular, VDivider, VBtn, VTextField, VDialog, VCardActions, VSpacer,
+  VListItemTitle // MỚI: Thêm import bị thiếu từ file gốc
 } from 'vuetify/components';
 
 const props = defineProps({

@@ -1,3 +1,4 @@
+// File: src/api/axios.js
 import axios from 'axios';
 import { useAuthStore } from '@/stores/auth';
 
@@ -8,20 +9,23 @@ const apiClient = axios.create({
     }
 });
 
+// --- (PHẦN SỬA ĐỔI V4) ---
+// Sửa request interceptor để LUÔN ghi đè token cũ
 apiClient.interceptors.request.use(
     (config) => {
         const authStore = useAuthStore();
         const token = authStore.accessToken;
 
-        // Chỉ thêm header Authorization nếu có token VÀ header chưa được đặt
-        // Ngoại trừ request refresh token
-        if (token && !config.headers.Authorization && !config.url?.includes('/auth/refresh-token')) {
-             config.headers.Authorization = `Bearer ${token}`;
+        // Luôn gắn token mới nhất, trừ khi đó là request refresh
+        if (token && !config.url?.includes('/auth/refresh-token')) {
+            config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
     },
     (error) => Promise.reject(error)
 );
+// --- (KẾT THÚC PHẦN SỬA ĐỔI V4) ---
+
 
 let isRefreshing = false;
 let failedQueue = [];
@@ -41,11 +45,10 @@ apiClient.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
-        const getAuthStore = () => useAuthStore(); // Hàm lấy store động
+        const getAuthStore = () => useAuthStore(); 
 
-        // Chỉ xử lý 401, không phải request refresh, và chưa thử lại
         if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/auth/refresh-token')) {
-             console.log("Received 401, path:", originalRequest.url);
+            console.log("Received 401, path:", originalRequest.url);
 
             if (isRefreshing) {
                 console.log("Already refreshing, adding request to queue...");
@@ -53,46 +56,45 @@ apiClient.interceptors.response.use(
                     failedQueue.push({ resolve, reject });
                 }).then(token => {
                     console.log("Retrying request from queue with new token...");
-                    originalRequest.headers['Authorization'] = 'Bearer ' + token; // Gắn token mới vào request đang chờ
-                    return apiClient(originalRequest); // Thử lại request đang chờ
+                    
+                    // --- (PHẦN SỬA ĐỔI V4) ---
+                    // Gắn token MỚI (từ promise) vào request đang chờ
+                    originalRequest.headers['Authorization'] = 'Bearer ' + token; 
+                    // --- (KẾT THÚC PHẦN SỬA ĐỔI V4) ---
+                    
+                    return apiClient(originalRequest); 
                 }).catch(err => {
                     return Promise.reject(err);
                 });
             }
 
-             originalRequest._retry = true; // Đánh dấu đã thử lại
-             isRefreshing = true;
-             console.log("Attempting token refresh...");
+            originalRequest._retry = true; 
+            isRefreshing = true;
+            console.log("Attempting token refresh...");
 
-             const authStore = getAuthStore();
+            const authStore = getAuthStore();
 
             try {
                 const newAccessToken = await authStore.refreshAccessToken();
                 console.log("Refresh successful, processing queue and retrying original request...");
 
-                // *** SỬA LỖI QUAN TRỌNG: Gắn token mới vào request gốc TRƯỚC KHI thử lại ***
+                // (Dòng này của bạn đã đúng)
                 originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
 
                 processQueue(null, newAccessToken); // Xử lý các request đang chờ trong queue
-
-                // Thử lại request gốc với token đã được cập nhật
-                return apiClient(originalRequest);
+                return apiClient(originalRequest); // Thử lại request gốc
 
             } catch (refreshError) {
-                 console.error("Refresh token failed:", refreshError);
-                 processQueue(refreshError, null); // Xử lý queue thất bại
-                 // Quan trọng: Logout user nếu refresh thất bại
-                 authStore.logout(); // Hoặc gọi action tương ứng
-                 // Redirect về trang login
-                 // window.location.href = '/login'; // Hoặc dùng router nếu có thể truy cập
-                 return Promise.reject(refreshError || error); // Ném lỗi cuối cùng
+                console.error("Refresh token failed:", refreshError);
+                processQueue(refreshError, null); 
+                authStore.logout(); 
+                return Promise.reject(refreshError || error); 
             } finally {
                 isRefreshing = false;
                 console.log("Refresh process finished.");
             }
         }
 
-        // Trả về lỗi nếu không phải 401 hoặc các điều kiện khác không khớp
         return Promise.reject(error);
     }
 );
