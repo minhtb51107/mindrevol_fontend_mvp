@@ -1,25 +1,33 @@
 <template>
-  <div class="comment-section mt-4">
+  <div class="comment-section">
+    <h6 class="text-subtitle-1 font-weight-medium mb-3">
+      Thảo luận ({{ comments.length || 0 }})
+    </h6>
+
     <v-form @submit.prevent="handlePostComment" class="mb-4">
       <div class="d-flex align-start">
         <v-avatar size="36" class="mr-3 mt-1">
-          <v-img :src="authStore.user?.avatar || defaultAvatar" :alt="authStore.user?.fullName"></v-img>
+          <v-img :src="authStore.currentUser?.avatar || defaultAvatar" :alt="authStore.currentUser?.fullName"></v-img>
         </v-avatar>
-        <v-textarea
+        
+        <MentionTextarea
           v-model="newCommentContent"
-          label="Viết bình luận..."
+          label="Viết bình luận (@mention)..."
+          :items="mentionableMembers"
           rows="2"
           density="compact"
           variant="outlined"
           hide-details
-          :disabled="communityStore.isLoading"
-        ></v-textarea>
+          :loading="progressStore.isLoading"
+          :disabled="progressStore.isLoading"
+          class="flex-grow-1"
+        />
       </div>
       <div class="d-flex justify-end mt-2" v-if="newCommentContent">
         <v-btn
           type="submit"
           color="primary"
-          :loading="communityStore.isLoading"
+          :loading="progressStore.isLoading"
           :disabled="!newCommentContent.trim()"
           size="small"
         >
@@ -39,25 +47,26 @@
         >
           <div class="d-flex align-start">
             <v-avatar size="36" class="mr-3 mt-1">
-              <v-img :src="comment.authorAvatar || defaultAvatar" :alt="comment.authorName"></v-img>
+              <v-img :src="comment.authorAvatar || defaultAvatar" :alt="comment.authorFullName"></v-img>
             </v-avatar>
 
             <div class="flex-grow-1">
-              <div v-if="communityStore.editingCommentId === comment.id">
-                <v-textarea
-                  v-model="communityStore.editingCommentContent"
+              <div v-if="progressStore.editingCheckInCommentId === comment.id">
+                <MentionTextarea
+                  v-model="progressStore.editingCheckInCommentContent"
+                  :items="mentionableMembers"
                   rows="2"
                   density="compact"
                   variant="outlined"
                   autofocus
                   hide-details
                   class="mb-2"
-                ></v-textarea>
+                />
                 <div class="d-flex justify-end">
                   <v-btn
                     size="small"
                     variant="text"
-                    @click="communityStore.cancelEditingComment()"
+                    @click="progressStore.cancelEditingCheckInComment()"
                     class="mr-2"
                   >
                     Hủy
@@ -66,7 +75,7 @@
                     size="small" 
                     color="primary" 
                     @click="handleSaveEdit"
-                    :loading="communityStore.isLoading"
+                    :loading="progressStore.isLoading"
                   >
                     Lưu
                   </v-btn>
@@ -76,13 +85,16 @@
               <v-card variant="tonal" v-else>
                 <v-card-title class="d-flex justify-space-between align-center text-body-2 pa-2">
                   <div class="d-flex align-center">
-                    <span class="font-weight-medium">{{ comment.authorName }}</span>
+                    <span class="font-weight-medium">{{ comment.authorFullName }}</span>
                     <span class="text-caption text-medium-emphasis ml-2">
                       · {{ formatTimeAgo(comment.createdAt) }}
                     </span>
+                    <span v-if="comment.updatedAt !== comment.createdAt" class="text-caption text-medium-emphasis ml-1">
+                      (đã sửa)
+                    </span>
                   </div>
                   
-                  <div v-if="authStore.user && authStore.user.id === comment.authorId">
+                  <div v-if="canModifyComment(comment)">
                     <v-menu location="bottom end">
                       <template v-slot:activator="{ props }">
                         <v-btn 
@@ -93,17 +105,20 @@
                         ></v-btn>
                       </template>
                       <v-list density="compact">
-                        <v-list-item @click="communityStore.startEditingComment(comment)">
+                        <v-list-item 
+                          v-if="authStore.currentUser?.id === comment.authorId"
+                          @click="progressStore.startEditingCheckInComment(comment)"
+                        >
                           <template v-slot:prepend>
-                            <v-icon>mdi-pencil</v-icon>
+                            <v-icon size="small">mdi-pencil-outline</v-icon>
                           </template>
-                          <v-list-item-title>Sửa bình luận</v-list-item-title>
+                          <v-list-item-title>Sửa</v-list-item-title>
                         </v-list-item>
-                        <v-list-item @click="handleDeleteComment(comment.id)" class="text-error">
+                        <v-list-item @click="handleDeleteComment(comment.id)" base-color="error">
                           <template v-slot:prepend>
-                            <v-icon>mdi-delete</v-icon>
+                            <v-icon size="small">mdi-delete-outline</v-icon>
                           </template>
-                          <v-list-item-title>Xóa bình luận</v-list-item-title>
+                          <v-list-item-title>Xóa</v-list-item-title>
                         </v-list-item>
                       </v-list>
                     </v-menu>
@@ -121,17 +136,17 @@
     </div>
     
     <div v-else class="text-center text-medium-emphasis text-caption py-4">
-      Chưa có bình luận nào. Hãy là người đầu tiên bình luận!
+      Chưa có bình luận nào. Hãy là người đầu tiên!
     </div>
     
-    <v-dialog v-model="deleteDialog" max-width="400">
+    <v-dialog v-model="deleteDialog" max-width="400" persistent>
       <v-card>
         <v-card-title class="text-h6">Xác nhận xóa</v-card-title>
         <v-card-text>Bạn có chắc chắn muốn xóa bình luận này không? Hành động này không thể hoàn tác.</v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn text @click="deleteDialog = false">Hủy</v-btn>
-          <v-btn color="error" @click="confirmDelete" :loading="communityStore.isLoading">Xóa</v-btn>
+          <v-btn text @click="deleteDialog = false" :disabled="progressStore.isLoading">Hủy</v-btn>
+          <v-btn color="error" @click="confirmDelete" :loading="progressStore.isLoading">Xóa</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -140,70 +155,107 @@
 
 <script setup>
 import { ref, computed } from 'vue';
-import { useCommunityStore } from '@/stores/community';
+import { useProgressStore } from '@/stores/progress'; // THAY ĐỔI
+import { usePlanStore } from '@/stores/plan'; // MỚI
 import { useAuthStore } from '@/stores/auth';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import defaultAvatar from '@/assets/default-avatar.png'; // (Đảm bảo bạn có file này trong src/assets)
+import defaultAvatar from '@/assets/default-avatar.png'; 
+
+// Import component MỚI
+import MentionTextarea from '@/components/MentionTextarea.vue';
 
 // Import các component Vuetify
 import {
-  VForm, VTextarea, VBtn, VDivider, VList, VListItem, VAvatar, VImg, VCard,
+  VForm, VBtn, VDivider, VList, VListItem, VAvatar, VImg, VCard,
   VCardTitle, VCardText, VMenu, VIcon, VListItemTitle, VSpacer, VDialog, VCardActions
 } from 'vuetify/components';
 
-const communityStore = useCommunityStore();
+// 1. Định nghĩa props
+const props = defineProps({
+  comments: {
+    type: Array,
+    default: () => []
+  },
+  checkInId: {
+    type: [String, Number],
+    required: true
+  }
+});
+
+// 2. Khởi tạo stores
+const progressStore = useProgressStore();
+const planStore = usePlanStore();
 const authStore = useAuthStore();
 
+// 3. State cục bộ
 const newCommentContent = ref('');
 const deleteDialog = ref(false);
 const commentToDeleteId = ref(null);
 
-// Lấy danh sách bình luận từ store
-const comments = computed(() => communityStore.selectedProgress?.comments);
+// 4. Lấy danh sách @mention (từ PlanStore, giống như logic cũ)
+const mentionableMembers = computed(() => {
+    if (!planStore.currentPlan?.members) return [];
+    const currentUserId = authStore.currentUser?.id; 
+    return planStore.currentPlan.members
+        .filter(member => member.userId !== currentUserId) 
+        .map(member => ({
+            id: member.userId,
+            label: member.userFullName,
+            avatar: null,
+            initial: member.userFullName ? member.userFullName.charAt(0).toUpperCase() : '?',
+            email: member.userEmail,
+        }));
+});
 
-// Định dạng thời gian (ví dụ: "5 phút trước")
+// 5. Định dạng thời gian
 const formatTimeAgo = (timestamp) => {
   if (!timestamp) return '';
   return formatDistanceToNow(new Date(timestamp), { addSuffix: true, locale: vi });
 };
 
-// Xử lý đăng bình luận mới
+// 6. Quyền Sửa/Xóa
+const isPlanOwner = computed(() => planStore.isCurrentUserPlanOwner);
+const canModifyComment = (comment) => {
+  if (!authStore.currentUser) return false;
+  const isAuthor = authStore.currentUser.id === comment.authorId;
+  return isAuthor || isPlanOwner.value;
+};
+
+// 7. Handlers (gọi actions MỚI trong progressStore)
 const handlePostComment = async () => {
-  if (!newCommentContent.value.trim()) return;
+  if (!newCommentContent.value.trim() || !props.checkInId) return;
   try {
-    await communityStore.addComment(newCommentContent.value);
-    newCommentContent.value = ''; // Xóa nội dung sau khi gửi
+    // Dùng action MỚI
+    await progressStore.addCommentToCheckIn(props.checkInId, newCommentContent.value);
+    newCommentContent.value = ''; 
   } catch (error) {
     console.error("Lỗi khi gửi bình luận:", error);
-    // (Bạn có thể thêm snackbar thông báo lỗi ở đây)
+    // (progressStore sẽ tự xử lý lỗi và hiển thị)
   }
 };
 
-// Xử lý lưu bình luận đã sửa
 const handleSaveEdit = async () => {
   try {
-    await communityStore.saveEditedComment();
+    // Dùng action MỚI
+    await progressStore.saveEditingCheckInComment(props.checkInId);
   } catch (error) {
     console.error("Lỗi khi lưu bình luận:", error);
-    // (Bạn có thể thêm snackbar thông báo lỗi ở đây)
   }
 };
 
-// Mở dialog xác nhận xóa
 const handleDeleteComment = (commentId) => {
   commentToDeleteId.value = commentId;
   deleteDialog.value = true;
 };
 
-// Xác nhận xóa
 const confirmDelete = async () => {
-  if (commentToDeleteId.value) {
+  if (commentToDeleteId.value && props.checkInId) {
     try {
-      await communityStore.deleteComment(commentToDeleteId.value);
+      // Dùng action MỚI
+      await progressStore.deleteCheckInComment(props.checkInId, commentToDeleteId.value);
     } catch (error) {
       console.error("Lỗi khi xóa bình luận:", error);
-      // (Bạn có thể thêm snackbar thông báo lỗi ở đây)
     } finally {
       deleteDialog.value = false;
       commentToDeleteId.value = null;
@@ -218,6 +270,10 @@ const confirmDelete = async () => {
 }
 .comment-section {
   max-width: 100%;
-  overflow-x: hidden; /* Tránh lỗi thanh cuộn ngang do menu */
+  overflow-x: hidden;
+}
+/* Style cho MentionTextarea dropdown nếu cần */
+:deep(.mention-dropdown) {
+    z-index: 2500; /* Đảm bảo cao hơn z-index của v-dialog (thường là 2400) */
 }
 </style>

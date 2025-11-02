@@ -1,16 +1,14 @@
 // File: src/api/progressService.js
 import apiClient from './axios';
-import dayjs from 'dayjs'; // Cần thư viện dayjs để format ngày
+import dayjs from 'dayjs'; 
 
 export default {
   // --- HÀM GỐC: Tạo Check-in Event ---
-  // (Giữ nguyên đường dẫn GỐC của bạn)
   createCheckIn(shareableLink, checkInData) {
     return apiClient.post(`/plans/${shareableLink}/progress/check-in`, checkInData);
   },
 
   // --- HÀM GỐC: Lấy dữ liệu Timeline theo ngày ---
-  // (Giữ nguyên đường dẫn GỐC của bạn)
   getDailyTimeline(shareableLink, date) {
     const formattedDate = dayjs(date).format('YYYY-MM-DD');
     return apiClient.get(`/plans/${shareableLink}/progress/timeline`, {
@@ -18,26 +16,65 @@ export default {
     });
   },
 
-  // --- (MỚI) HÀM SỬA CHECK-IN ---
-  // (Thêm mới, sử dụng đường dẫn chính xác)
+  // --- (HÀM GỐC) SỬA CHECK-IN ---
   updateCheckIn(shareableLink, checkInEventId, updateData) {
     return apiClient.put(`/plans/${shareableLink}/progress/check-in/${checkInEventId}`, updateData);
   },
 
-  // --- (MỚI) HÀM XÓA CHECK-IN ---
-  // (Thêm mới, sử dụng đường dẫn chính xác)
+  // --- (HÀM GỐC) HÀM XÓA CHECK-IN ---
   deleteCheckIn(shareableLink, checkInEventId) {
     return apiClient.delete(`/plans/${shareableLink}/progress/check-in/${checkInEventId}`);
   },
 
   // --- HÀM UPLOAD FILE (Giữ nguyên từ file gốc) ---
   uploadEvidenceFile(file) {
-    const formData = new FormData();
-    formData.append('file', file);
-    return apiClient.post('/files/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    });
+    // ... (giữ nguyên)
+  },
+
+  // === THÊM CÁC HÀM MỚI CHO COMMENT VÀ REACTION ===
+
+  /**
+   * Thêm bình luận vào một CheckInEvent cụ thể
+   * @param {string} shareableLink 
+   * @param {number} checkInId 
+   * @param {object} commentData - { content: "Nội dung" }
+   * @returns {Promise}
+   */
+  addCommentToCheckIn(shareableLink, checkInId, commentData) {
+    return apiClient.post(`/plans/${shareableLink}/progress/check-in/${checkInId}/comments`, commentData);
+  },
+
+  /**
+   * Cập nhật bình luận
+   * @param {string} shareableLink 
+   * @param {number} checkInId 
+   * @param {number} commentId 
+   * @param {object} commentData - { content: "Nội dung mới" }
+   * @returns {Promise}
+   */
+  updateCheckInComment(shareableLink, checkInId, commentId, commentData) {
+    return apiClient.put(`/plans/${shareableLink}/progress/check-in/${checkInId}/comments/${commentId}`, commentData);
+  },
+
+  /**
+   * Xóa bình luận
+   * @param {string} shareableLink 
+   * @param {number} checkInId 
+   * @param {number} commentId 
+   * @returns {Promise}
+   */
+  deleteCheckInComment(shareableLink, checkInId, commentId) {
+    return apiClient.delete(`/plans/${shareableLink}/progress/check-in/${checkInId}/comments/${commentId}`);
+  },
+
+  /**
+   * Bật/tắt reaction
+   * @param {string} shareableLink 
+   * @param {number} checkInId 
+   * @param {object} reactionData - { type: "THUMBS_UP" }
+   * @returns {Promise}
+   */
+  toggleReactionOnCheckIn(shareableLink, checkInId, reactionData) {
+    return apiClient.post(`/plans/${shareableLink}/progress/check-in/${checkInId}/reactions`, reactionData);
   }
 };

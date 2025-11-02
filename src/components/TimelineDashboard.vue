@@ -120,6 +120,25 @@
                               </div>
                               
                               <div class="stats-footer">
+                                <v-chip-group class="mr-auto" density="compact">
+                                  <v-chip
+                                    size="x-small"
+                                    @click.stop="handleToggleReaction(checkIn, 'THUMBS_UP')"
+                                    :color="hasMyReaction(checkIn, 'THUMBS_UP') ? 'primary' : 'default'"
+                                    variant="tonal"
+                                  >
+                                    👍 {{ getReactionCount(checkIn, 'THUMBS_UP') }}
+                                  </v-chip>
+                                  <v-chip
+                                    size="x-small"
+                                    @click.stop="handleToggleReaction(checkIn, 'HEART')"
+                                    :color="hasMyReaction(checkIn, 'HEART') ? 'pink' : 'default'"
+                                    variant="tonal"
+                                  >
+                                    ❤️ {{ getReactionCount(checkIn, 'HEART') }}
+                                  </v-chip>
+                                </v-chip-group>
+
                                 <span v-if="checkIn.completedTasks?.length > 0" :title="`${checkIn.completedTasks.length} task`">
                                   <v-icon size="small">mdi-check-all</v-icon>
                                   {{ checkIn.completedTasks.length }}
@@ -135,10 +154,6 @@
                                 <span v-if="checkIn.commentCount > 0" :title="`${checkIn.commentCount} bình luận`">
                                   <v-icon size="small">mdi-comment-outline</v-icon>
                                   {{ checkIn.commentCount }}
-                                </span> 
-                                <span v-if="checkIn.reactionCount > 0" :title="`${checkIn.reactionCount} cảm xúc`">
-                                  <v-icon size="small">mdi-emoticon-happy-outline</v-icon>
-                                  {{ checkIn.reactionCount }}
                                 </span> 
                               </div>
                             </div>
@@ -186,11 +201,33 @@
                                   <p v-if="checkIn.notes" class="card-notes text-truncate-2" :title="checkIn.notes">
                                     {{ checkIn.notes }}
                                   </p>
+                                  <p v-if="checkIn.completedTasks?.length === 0 && !checkIn.notes" class="card-notes text-truncate-2 text-medium-emphasis">
+                                    (Không có ghi chú)
+                                  </p>
                                 </div>
                               </div>
                               
                               <div class="stats-footer">
-                                 <span v-if="checkIn.completedTasks?.length > 0" :title="`${checkIn.completedTasks.length} task`">
+                                <v-chip-group class="mr-auto" density="compact">
+                                  <v-chip
+                                    size="x-small"
+                                    @click.stop="handleToggleReaction(checkIn, 'THUMBS_UP')"
+                                    :color="hasMyReaction(checkIn, 'THUMBS_UP') ? 'primary' : 'default'"
+                                    variant="tonal"
+                                  >
+                                    👍 {{ getReactionCount(checkIn, 'THUMBS_UP') }}
+                                  </v-chip>
+                                  <v-chip
+                                    size="x-small"
+                                    @click.stop="handleToggleReaction(checkIn, 'HEART')"
+                                    :color="hasMyReaction(checkIn, 'HEART') ? 'pink' : 'default'"
+                                    variant="tonal"
+                                  >
+                                    ❤️ {{ getReactionCount(checkIn, 'HEART') }}
+                                  </v-chip>
+                                </v-chip-group>
+                                
+                                <span v-if="checkIn.completedTasks?.length > 0" :title="`${checkIn.completedTasks.length} task`">
                                   <v-icon size="small">mdi-check-all</v-icon>
                                   {{ checkIn.completedTasks.length }}
                                 </span>
@@ -206,10 +243,6 @@
                                   <v-icon size="small">mdi-comment-outline</v-icon>
                                   {{ checkIn.commentCount }}
                                 </span> 
-                                <span v-if="checkIn.reactionCount > 0" :title="`${checkIn.reactionCount} cảm xúc`">
-                                  <v-icon size="small">mdi-emoticon-happy-outline</v-icon>
-                                  {{ checkIn.reactionCount }}
-                                </span> 
                               </div>
                             </div>
                           </div>
@@ -222,43 +255,45 @@
       </div>
     </v-card-text>
 
-    <v-dialog v-model="detailDialog" max-width="600px" scrollable>
+    <v-dialog v-model="detailDialog" max-width="700px" scrollable>
         <v-card v-if="selectedCheckIn" class="glass-effect">
-          <v-card-title>
-            Chi tiết Check-in <span class="text-medium-emphasis text-body-2 ml-2">({{ selectedCheckIn.member?.userFullName }} - {{ formatDateTime(selectedCheckIn.checkInTimestamp) }})</span>
+          <v-card-title class="d-flex justify-space-between align-center">
+            Chi tiết Check-in
+            <v-btn icon="mdi-close" variant="text" size="small" @click="detailDialog = false"></v-btn>
           </v-card-title>
-          <v-divider></v-divider>
           
           <v-card-text>
             <CheckInDetailCard :check-in="selectedCheckIn" />
+
+            <v-divider class="my-4"></v-divider>
+
+            <CommentSection 
+              :comments="selectedCheckIn.comments || []" 
+              :check-in-id="selectedCheckIn.id"
+            />
+
           </v-card-text>
 
+          <v-divider></v-divider>
           <v-card-actions>
-            <v-btn 
-              variant="text" 
-              @click="emit('comment-on-check-in', selectedCheckIn)"
-              prepend-icon="mdi-comment-outline"
-            >
-              Bình luận
-            </v-btn>
             <v-spacer></v-spacer>
             <v-btn 
               v-if="canModify(selectedCheckIn)"
               color="primary"
-              text 
+              variant="text" 
               @click="emit('edit-check-in', selectedCheckIn); detailDialog = false;"
             >
-              Sửa
+              Sửa Check-in
             </v-btn>
             <v-btn 
               v-if="canModify(selectedCheckIn)"
               color="error"
-              text 
+              variant="text" 
               @click="emit('delete-check-in', selectedCheckIn); detailDialog = false;"
             >
-              Xóa
+              Xóa Check-in
             </v-btn>
-            <v-btn color="medium-emphasis" text @click="detailDialog = false">Đóng</v-btn>
+            <v-btn color="medium-emphasis" variant="text" @click="detailDialog = false">Đóng</v-btn>
           </v-card-actions>
 
         </v-card>
@@ -271,20 +306,22 @@
 import { ref, computed } from 'vue';
 import { useProgressStore } from '@/stores/progress';
 import { usePlanStore } from '@/stores/plan'; 
-import { useAuthStore } from '@/stores/auth'; // <-- MỚI
+import { useAuthStore } from '@/stores/auth'; 
 import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
 import isBetween from 'dayjs/plugin/isBetween';
 import customParseFormat from 'dayjs/plugin/customParseFormat'; 
 
 import DateSelector from '@/components/DateSelector.vue'; 
-import CheckInDetailCard from '@/components/CheckInDetailCard.vue'; // <-- MỚI
+import CheckInDetailCard from '@/components/CheckInDetailCard.vue'; 
+// THÊM MỚI: Import CommentSection
+import CommentSection from '@/components/CommentSection.vue';
 
 import {
-  VCard, VCardTitle, VCardText, VDivider, VProgressCircular, VAlert, VIcon, VRow, VCol, VTooltip,
+  VCard, VCardTitle, VCardText, VDivider, VProgressCircular, VAlert, VIcon, VRow, VCol,
   VDialog, VCardActions, VSpacer, VBtn, VList, VListItem, VImg, VCardItem, VListItemTitle,
-  VMenu // <-- MỚI
-} from 'vuetify/components'; // <-- SỬA LỖI: vuety -> vuetify
+  VMenu, VChipGroup, VChip // Thêm VChipGroup, VChip
+} from 'vuetify/components'; 
 
 dayjs.locale('vi');
 dayjs.extend(isBetween);
@@ -292,12 +329,11 @@ dayjs.extend(customParseFormat);
 
 const progressStore = useProgressStore();
 const planStore = usePlanStore(); 
-const authStore = useAuthStore(); // <-- MỚI
+const authStore = useAuthStore(); 
 
-// MỚI: Thêm các emit
 const emit = defineEmits(['open-check-in', 'edit-check-in', 'delete-check-in', 'comment-on-check-in']);
 
-const EDIT_GRACE_PERIOD_HOURS = 24; // <-- MỚI: Thời gian ân hạn 24 giờ
+const EDIT_GRACE_PERIOD_HOURS = 24; 
 
 // === LOGIC QUẢN LÝ ẢNH (Giữ nguyên) ===
 const showImages = ref(true); 
@@ -327,7 +363,6 @@ const emitOpenCheckIn = () => {
   emit('open-check-in');
 };
 
-// --- (Logic gốc của bạn giữ nguyên) ---
 const timelineData = computed(() => progressStore.timelineSwimlanes); 
 const selectedDate = computed(() => progressStore.getSelectedDate); 
 
@@ -364,24 +399,45 @@ const formatDateTime = (timestamp) => {
 };
 
 const openCheckInDetail = (checkIn) => {
+    // Khi mở dialog, chúng ta nạp "selectedCheckIn"
+    // Toàn bộ dialog (bao gồm cả CommentSection) sẽ dùng chung dữ liệu này
     selectedCheckIn.value = checkIn;
     detailDialog.value = true;
 };
-// --- (Kết thúc logic gốc) ---
 
-// --- MỚI: Hàm kiểm tra quyền Sửa/Xóa ---
+// --- Logic Sửa/Xóa Check-in (Giữ nguyên) ---
 const canModify = (checkIn) => {
   if (!checkIn || !authStore.currentUser) {
     return false;
   }
-  // 1. Phải là của tôi
   const isOwner = checkIn.member?.userId === authStore.currentUser.id;
-  // 2. Phải còn trong 24 giờ
   const isWithinGracePeriod = dayjs().diff(checkIn.checkInTimestamp, 'hour') < EDIT_GRACE_PERIOD_HOURS;
-  
   return isOwner && isWithinGracePeriod;
 };
-// --- KẾT THÚC HÀM MỚI ---
+
+// --- THÊM MỚI: LOGIC XỬ LÝ REACTION IN-LINE ---
+
+// Giả định: checkIn.reactions là một mảng:
+// [ { type: "THUMBS_UP", count: 2, hasCurrentUserReacted: true }, ... ]
+
+const getReactionCount = (checkIn, reactionType) => {
+  if (!checkIn.reactions) return 0;
+  const reaction = checkIn.reactions.find(r => r.type === reactionType);
+  return reaction ? reaction.count : 0;
+};
+
+const hasMyReaction = (checkIn, reactionType) => {
+  if (!checkIn.reactions) return false;
+  const reaction = checkIn.reactions.find(r => r.type === reactionType);
+  return reaction ? reaction.hasCurrentUserReacted : false;
+};
+
+const handleToggleReaction = (checkIn, reactionType) => {
+  // Gọi action mới trong progressStore (sẽ tạo ở bước 3)
+  // Ngăn sự kiện click nổi bọt (bubble) để không mở dialog
+  console.log(`Toggling ${reactionType} for check-in ${checkIn.id}`);
+  progressStore.toggleReactionOnCheckIn(checkIn.id, reactionType);
+};
 
 </script>
 
@@ -546,6 +602,15 @@ const canModify = (checkIn) => {
   align-items: center;
   gap: 3px;
 }
+/* CẬP NHẬT: Căn chỉnh cho VChipGroup (Reaction) */
+.stats-footer .v-chip-group {
+    flex-grow: 1; /* Đẩy các span (count) sang phải */
+    margin-right: auto;
+}
+.stats-footer .v-chip {
+    margin: 0 4px 0 0 !important;
+}
+
 /* === KẾT THÚC CSS MỚI === */
 
 
