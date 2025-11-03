@@ -5,6 +5,7 @@ import userService from '@/api/userService'; // Vẫn giữ nếu cần cho stat
 import { useAuthStore } from './auth';
 import dayjs from 'dayjs'; // Import dayjs
 import { usePlanStore } from './plan'; // <-- IMPORT PLAN STORE
+import { useCommunityStore } from './community'; // <--- THÊM DÒNG NÀY
 
 // Helper debounce (có thể đưa ra utils)
 function debounce(func, wait) {
@@ -291,15 +292,29 @@ export const useProgressStore = defineStore('progress', {
     	this.currentTimeline = response.data || [];
     	 console.log("ProgressStore: Timeline data fetched:", this.currentTimeline);
     	 
-    	const completedIds = this.getCompletedTaskIdsForCurrentUser(authStore.currentUser?.id);
-    	
-    	const today = dayjs().format('YYYY-MM-DD');
-    	if (date === today && completedIds.size === 0 && planStore.clientSideCompletedTaskIds.size > 0) {
-    	 console.warn(`ProgressStore: fetchTimeline for TODAY returned 0 completed tasks, but planStore has ${planStore.clientSideCompletedTaskIds.size} (from optimistic update). Skipping sync to preserve state.`);
-    	} else {
-    	 console.log(`ProgressStore: Syncing timeline completed IDs to planStore (Size: ${completedIds.size})`);
-    	 planStore.syncCompletedTaskIds(completedIds);
-    	}
+    	const communityStore = useCommunityStore();
+         if (communityStore.selectedProgress) {
+             const selectedId = communityStore.selectedProgress.id;
+             let updatedProgressData = null;
+
+             // Tìm dữ liệu mới nhất của check-in đang được chọn trong modal
+             for (const memberTimeline of this.currentTimeline) {
+                 // Dùng .find() trên mảng checkIns của mỗi member
+                 updatedProgressData = memberTimeline.checkIns.find(c => c.id === selectedId);
+                 if (updatedProgressData) break; // Thoát ngay khi tìm thấy
+             }
+
+             if (updatedProgressData) {
+                 // Đẩy dữ liệu mới vào communityStore để modal tự cập nhật
+                 // (Giả sử communityStore cho phép gán trực tiếp)
+                 communityStore.selectedProgress = updatedProgressData; 
+                 console.log("ProgressStore: Đã đồng bộ dữ liệu mới nhất vào communityStore.selectedProgress");
+             } else {
+                 // Có thể check-in đã bị xóa, đóng modal lại
+                 console.log("ProgressStore: Check-in đang xem (ID: " + selectedId + ") không còn tồn tại. Đóng modal.");
+                 communityStore.clearSelectedProgress(); // Đóng modal
+             }
+         }
     	 
   	} catch (error) {
     	console.error('Lỗi khi tải dữ liệu timeline:', error);
