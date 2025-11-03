@@ -136,19 +136,34 @@
                       >
                           Lưu trữ Kế hoạch
                       </v-btn>
-                      <v-btn
-                          v-if="isOwner && plan?.status === 'ARCHIVED'"
-                          @click="$emit('archive-plan', false)"
-                          :loading="isLoadingAction && isArchiving === false"
-                          :disabled="isLoadingAction"
-                          variant="outlined"
-                          color="blue"
-                          block
-                          class="mb-3"
-                          prepend-icon="mdi-archive-arrow-up-outline"
-                      >
-                          Khôi phục Kế hoạch
-                      </v-btn>
+
+                      <div v-if="isOwner && plan?.status === 'ARCHIVED'">
+                          <v-btn
+                              @click="$emit('archive-plan', false)"
+                              :loading="isLoadingAction && isArchiving === false"
+                              :disabled="isLoadingAction"
+                              variant="outlined"
+                              color="blue"
+                              block
+                              class="mb-3"
+                              prepend-icon="mdi-archive-arrow-up-outline"
+                          >
+                              Khôi phục Kế hoạch
+                          </v-btn>
+
+                          <v-btn
+                              @click="$emit('open-delete-dialog')" 
+                              :disabled="isLoadingAction"
+                              variant="outlined"
+                              color="error"
+                              block
+                              class="mb-3"
+                              prepend-icon="mdi-alert-octagon-outline"
+                          >
+                              Xóa Vĩnh Viễn
+                          </v-btn>
+                          </div>
+
                       <v-btn
                           v-if="isOwner && otherMembers.length > 0 && plan?.status !== 'ARCHIVED'"
                           @click="$emit('open-transfer-dialog')"
@@ -245,7 +260,8 @@ const emit = defineEmits([
     'open-transfer-dialog',
     'remove-member', // Gửi kèm thông tin member cần xóa
     'open-edit-dialog', // THÊM MỚI
-    'leave-plan' // THÊM MỚI
+    'leave-plan', // THÊM MỚI
+    'open-delete-dialog' // <-- THÊM EMIT MỚI
 ]);
 
 // --- Store ---

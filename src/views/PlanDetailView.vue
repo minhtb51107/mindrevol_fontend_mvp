@@ -1,16 +1,17 @@
 <template>
   <v-container fluid class="fill-height">
-    <div v-if="planStore.isLoading && !planStore.currentPlan" class="text-center mt-10">
+    <div v-if="planStore.isLoading && !planStore.currentPlan" class="text-center mt-10 w-100">
       <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
       <p class="mt-4 text-medium-emphasis">Đang tải thông tin kế hoạch...</p>
     </div>
+
     <v-alert
       v-else-if="planStore.error && !planStore.currentPlan"
-      type="error" variant="tonal" class="my-5" closable @click:close="planStore.error = null">
+      type="error" variant="tonal" class="my-5 w-100" closable @click:close="planStore.error = null">
       {{ planStore.error }}
     </v-alert>
 
-    <div v-else-if="planStore.currentPlan && !planStore.isCurrentUserMember">
+    <div v-else-if="planStore.currentPlan && !planStore.isCurrentUserMember" class="w-100">
       <v-card class="text-center pa-6 mx-auto glass-effect" max-width="600">
         <v-card-item>
             <v-icon icon="mdi-account-group-outline" size="48" color="primary" class="mb-4"></v-icon>
@@ -65,13 +66,15 @@
       <v-row class="main-layout-row">
         
         <v-col cols="12" md="8" class="main-content-col">
-          <TimelineDashboard 
-            class="fill-height" 
-            @open-check-in="openCheckInModal"
-            @edit-check-in="openEditCheckInDialog"
-            @delete-check-in="openDeleteCheckInConfirm"
-            @comment-on-check-in="openCommentDialog"
-          />
+          <v-card class="fill-height" rounded="lg">
+            <TimelineDashboard 
+              class="fill-height" 
+              @open-check-in="openCheckInModal"
+              @edit-check-in="openEditCheckInDialog"
+              @delete-check-in="openDeleteCheckInConfirm"
+              @comment-on-check-in="openCommentDialog"
+            />
+          </v-card>
         </v-col>
 
         <v-col cols="12" md="4" class="sidebar-col d-flex flex-column">
@@ -81,27 +84,30 @@
               class="fill-height"
               :link-copied="linkCopied"
               :link-copy-text="linkCopyText"
-              :is-loading-action="planStore.isLoading" 
+              :is-loading-action="isLoadingAction" 
               :is-archiving="isArchiving" 
               :is-leaving="isLeaving"
-              :removing-member-id="memberToDelete?.userId" 
-              :error="planStore.error" 
+              :removing-member-id="removingMemberId" 
+              :error="actionError" 
               @copy-invite-link="copyInviteLink"
               @archive-plan="confirmArchiveAction"
               @open-transfer-dialog="openTransferOwnershipDialog"
               @remove-member="confirmRemoveMember"
               @open-edit-dialog="openEditPlanDialog"
               @leave-plan="confirmLeavePlan"
+              @open-delete-dialog="openDeletePlanDialog"
             />
             </div>
 
           <div class="sidebar-row-tasks">
-            <DailyTaskList
-              class="fill-height"
-              @open-add-task="openAddTaskDialog"
-              @open-edit-task="openEditTaskDialog"
-              @confirm-delete-task="confirmDeleteTask"
-            />
+            <v-card class="fill-height" rounded="lg">
+              <DailyTaskList
+                class="fill-height"
+                @open-add-task="openAddTaskDialog"
+                @open-edit-task="openEditTaskDialog"
+                @confirm-delete-task="confirmDeleteTask"
+              />
+            </v-card>
           </div>
           
         </v-col>
@@ -120,23 +126,18 @@
       @close="isEditPlanModalOpen = false"
       @plan-updated="showSnackbar('Cập nhật chi tiết kế hoạch thành công.', 'success')"
     />
+    <TransferOwnershipDialog
+      v-model="showTransferDialog"
+      :members="otherMembers"
+      @transfer-success="showSnackbar('Đã gửi yêu cầu chuyển quyền sở hữu.', 'success')"
+    />
+    <DeleteConfirmDialog
+      v-model="showConfirmDialog"
+      :itemType="confirmDialogType"
+      @confirm="onConfirmDialog"
+    />
 
-    <v-dialog v-model="leaveConfirmDialog" persistent max-width="450px">
-      <v-card class="glass-effect">
-        <v-card-title class="text-h6">Xác nhận rời kế hoạch</v-card-title>
-        <v-card-text>
-          Bạn có chắc chắn muốn rời khỏi kế hoạch 
-          "<span class="font-weight-medium">{{ planStore.currentPlan?.title }}</span>"?
-          <br><br>
-          Toàn bộ lịch sử check-in và thành quả của bạn sẽ được giữ lại, nhưng bạn sẽ không thể tham gia hay xem kế hoạch này nữa (trừ khi được mời lại).
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn color="medium-emphasis" text @click="leaveConfirmDialog = false" :disabled="isLeaving">Hủy</v-btn>
-          <v-btn color="error" text @click="executeLeavePlan" :loading="isLeaving">Rời đi</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+
     <v-dialog v-model="taskDialog" persistent max-width="500px">
       <v-card class="glass-effect">
         <v-card-title>{{ editingTask ? 'Chỉnh sửa công việc' : 'Thêm công việc mới' }}</v-card-title>
@@ -196,24 +197,16 @@
       </v-card>
     </v-dialog>
 
-    <v-dialog v-model="deleteMemberConfirmDialog" persistent max-width="450px">
-      </v-dialog>
-    <v-dialog v-model="archiveConfirmDialog" persistent max-width="450px">
-       </v-dialog>
-    <v-dialog v-model="transferOwnershipDialog" persistent max-width="500px">
-      </v-dialog>
-
     <ProgressDetailModal 
       v-if="planStore.currentPlan?.shareableLink"
       :shareable-link="planStore.currentPlan.shareableLink"
     />
-        <CheckInModal 
+    <CheckInModal 
       v-model="isCheckInModalOpen"
       :is-editing="!!checkInToEdit"
       :existing-check-in="checkInToEdit"
       @update:modelValue="onCheckInModalClose"
     />
-
     <v-dialog v-model="deleteCheckInConfirmDialog" persistent max-width="450px">
       <v-card class="glass-effect">
         <v-card-title class="text-h6">Xác nhận xóa Check-in</v-card-title>
@@ -237,6 +230,7 @@
 </template>
 
 <script setup>
+// (Toàn bộ phần <script setup> giữ nguyên y hệt như lần trước, không cần thay đổi)
 import { ref, onMounted, onUnmounted, computed, reactive, nextTick, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { usePlanStore } from '@/stores/plan';
@@ -246,20 +240,26 @@ import { useCommunityStore } from '@/stores/community';
 import websocketService from '@/api/websocketService';
 import dayjs from 'dayjs'; 
 
+// Import components chính
 import PlanInfoPanel from '@/components/PlanInfoPanel.vue';
 import TimelineDashboard from '@/components/TimelineDashboard.vue';
 import DailyTaskList from '@/components/DailyTaskList.vue';
 import CheckInModal from '@/components/CheckInModal.vue'; 
 import ProgressDetailModal from '@/components/ProgressDetailModal.vue'; 
-// THÊM MỚI: Import dialog sửa plan
-import EditPlanModal from '@/components/dialogs/EditPlanModal.vue'; 
 
+// === (SỬA) IMPORT CÁC DIALOGS MỚI ===
+import EditPlanModal from '@/components/dialogs/EditPlanModal.vue'; 
+import TransferOwnershipDialog from '@/components/dialogs/TransferOwnershipDialog.vue';
+import DeleteConfirmDialog from '@/components/dialogs/DeleteConfirmDialog.vue';
+
+// Import components từ Vuetify (giữ nguyên)
 import {
   VContainer, VRow, VCol, VCard, VCardTitle, VCardSubtitle, VCardText, VCardItem, VList, VListItem, VListItemTitle, VListItemSubtitle, VDivider, VBtn, VAlert, VProgressCircular, VIcon, VChip, VSnackbar,
   VCardActions, VSpacer, VDialog, VForm, VTextarea, VTextField,
   VSelect
 } from 'vuetify/components';
 
+// --- Stores & Router ---
 const route = useRoute();
 const router = useRouter();
 const planStore = usePlanStore();
@@ -267,15 +267,33 @@ const authStore = useAuthStore();
 const progressStore = useProgressStore();
 const communityStore = useCommunityStore(); 
 
-// (State gốc giữ nguyên)
+// --- State cho "Join Plan" ---
 const isJoining = ref(false);
 const joinError = ref('');
+
+// --- State cho UI chung ---
 const linkCopyText = ref('Copy link mời');
 const linkCopied = ref(false);
 const snackbar = ref(false);
 const snackbarText = ref('');
 const snackbarColor = ref('success');
 
+// === (SỬA) STATE QUẢN LÝ PLAN (REFACTORED) ===
+const actionError = ref(null); // Lỗi chung cho các hành động
+const isLoadingAction = ref(false); // Loading chung (để disable các nút khác)
+const isEditPlanModalOpen = ref(false); // State cho dialog Sửa
+const showTransferDialog = ref(false); // State cho dialog Chuyển quyền
+const showConfirmDialog = ref(false); // 1 dialog cho tất cả xác nhận
+const confirmDialogType = ref(''); // 'leave-plan', 'archive-plan', 'unarchive-plan', 'remove-member', 'delete-plan'
+const itemToProcess = ref(null); // Dùng để lưu member/task cần xử lý
+// State loading chi tiết cho PlanInfoPanel
+const isArchiving = ref(null); // null, true (archiving), false (unarchiving)
+const isLeaving = ref(false);
+const removingMemberId = ref(null);
+const isDeleting = ref(false); // (MỚI) State cho xóa vĩnh viễn
+
+
+// --- State cho Dialogs Task (GIỮ NGUYÊN) ---
 const taskDialog = ref(false);
 const editingTask = ref(null);
 const taskFormRef = ref(null);
@@ -284,60 +302,52 @@ const taskDialogError = ref('');
 const deleteTaskConfirmDialog = ref(false);
 const taskToDelete = ref(null);
 
-const deleteMemberConfirmDialog = ref(false);
-const memberToDelete = ref(null);
-
-const archiveConfirmDialog = ref(false);
-const isArchiving = ref(null); 
-
-const transferOwnershipDialog = ref(false);
-const selectedNewOwnerId = ref(null);
-const transferOwnershipError = ref('');
-
-// --- (THÊM STATE MỚI) ---
-const isEditPlanModalOpen = ref(false);
-const leaveConfirmDialog = ref(false);
-const isLeaving = ref(false);
-// --- (KẾT THÚC THÊM STATE) ---
-
-// --- (STATE MỚI CHO CHECK-IN) ---
+// --- State cho Dialogs Check-in (GIỮ NGUYÊN) ---
 const isCheckInModalOpen = ref(false);
-const checkInToEdit = ref(null); // (Mới) Dùng để phân biệt Sửa và Tạo mới
+const checkInToEdit = ref(null); 
+const deleteCheckInConfirmDialog = ref(false); 
+const checkInToDelete = ref(null); 
+const isDeletingCheckIn = ref(false); 
 
-const deleteCheckInConfirmDialog = ref(false); // (Mới)
-const checkInToDelete = ref(null); // (Mới)
-const isDeletingCheckIn = ref(false); // (Mới)
-// --- (KẾT THÚC STATE MỚI) ---
-
-
+// --- State cho WebSocket ---
 const progressTopic = ref('');
 const taskTopic = ref('');
 const planDetailsTopic = ref('');
 
-// (Tất cả các hàm logic gốc: fetch, rules, computed, watch, v.v. giữ nguyên)
-// ...
+// --- Computed Properties ---
+const selectedDate = computed(() => progressStore.getSelectedDate);
+const otherMembers = computed(() => {
+    if (!planStore.currentPlan?.members || !authStore.currentUser?.id) return [];
+    // Chỉ trả về các member khác, KHÔNG PHẢI CHÍNH MÌNH
+    return planStore.currentPlan.members.filter(member => member.userId !== authStore.currentUser.id && member.role !== 'OWNER');
+}); 
 
-const unsubscribeWebSocketTopics = () => {
-    if (progressTopic.value) websocketService.unsubscribe(progressTopic.value);
-    if (taskTopic.value) websocketService.unsubscribe(taskTopic.value);
-    if (planDetailsTopic.value) websocketService.unsubscribe(planDetailsTopic.value);
-    progressTopic.value = '';
-    taskTopic.value = '';
-    planDetailsTopic.value = '';
-    console.log(`WS: Unsubscribed from plan topics.`);
+const rules = {
+  required: value => !!value || 'Thông tin bắt buộc.',
+  date: value => !value || dayjs(value, 'YYYY-MM-DD', true).isValid() || 'Định dạng ngày YYYY-MM-DD.',
 };
 
+// =================================================================
+// ===           (SỬA) DI CHUYỂN HÀM LÊN TRÊN                 ===
+// =================================================================
+
+// --- Logic Tải dữ liệu ---
 const fetchPlanAndInitialData = async (shareableLink) => {
     if (!shareableLink) {
         planStore.error = "URL không hợp lệ.";
         return;
     }
+    // (SỬA) Reset lỗi action chung khi tải lại
+    actionError.value = null;
     await planStore.fetchPlan(shareableLink);
     if (planStore.currentPlan && planStore.isCurrentUserMember) {
+        // Mặc định tải dữ liệu cho ngày hôm nay (hoặc ngày đã chọn từ store)
         await fetchDataForSelectedDate(shareableLink, progressStore.selectedDate);
+        // Cài đặt WebSocket
         setupWebSocket(shareableLink);
     } else if (planStore.currentPlan && !planStore.isCurrentUserMember) {
         console.log("PlanDetailView: User is not a member yet.");
+        // (Không làm gì cả, màn hình "Join" sẽ hiển thị)
     }
 };
 
@@ -346,6 +356,7 @@ const fetchDataForSelectedDate = async (shareableLink, date) => {
     console.log(`PlanDetailView: Fetching timeline and tasks for ${date}...`);
     progressStore.timelineError = null;
     planStore.dailyTasksError = null;
+    // Tải song song timeline và task list
     await Promise.allSettled([ 
         progressStore.fetchTimeline(shareableLink, date),
         planStore.fetchDailyTasks(shareableLink, date)
@@ -353,45 +364,7 @@ const fetchDataForSelectedDate = async (shareableLink, date) => {
      console.log(`PlanDetailView: Finished fetching data for ${date}.`);
 };
 
-const rules = {
-  required: value => !!value || 'Thông tin bắt buộc.',
-  date: value => !value || dayjs(value, 'YYYY-MM-DD', true).isValid() || 'Định dạng ngày YYYY-MM-DD.',
-};
-
-const selectedDate = computed(() => progressStore.getSelectedDate);
-const otherMembers = computed(() => {
-    if (!planStore.currentPlan?.members || !authStore.currentUser?.id) return [];
-    return planStore.currentPlan.members.filter(member => member.role !== 'OWNER' && member.userId !== authStore.currentUser.id);
-}); 
-
-watch(() => route.params.shareableLink, (newLink, oldLink) => {
-  if (newLink && newLink !== oldLink) {
-    console.log(`PlanDetailView: Route changed to ${newLink}. Refetching data...`);
-    unsubscribeWebSocketTopics(); 
-    fetchPlanAndInitialData(newLink); 
-  }
-}, { immediate: true });
-
-watch(selectedDate, (newDate, oldDate) => {
-    if (newDate && newDate !== oldDate && planStore.currentPlan?.shareableLink) {
-        console.log(`PlanDetailView: Selected date changed to ${newDate}. Fetching data for this date...`);
-        fetchDataForSelectedDate(planStore.currentPlan.shareableLink, newDate); 
-    }
-});
-
-onMounted(() => {
-    if (!websocketService.isConnected()) {
-        websocketService.connect();
-    }
-});
-
-onUnmounted(() => {
-    console.log("PlanDetailView: Unmounting. Cleaning up stores and unsubscribing WebSocket.");
-    planStore.clearCurrentPlanData();
-    progressStore.clearPlanProgressData();
-    unsubscribeWebSocketTopics();
-});
-
+// --- Logic WebSocket ---
 const setupWebSocket = (shareableLink) => { 
     if (!shareableLink || !planStore.isCurrentUserMember) return;
 
@@ -408,11 +381,21 @@ const setupWebSocket = (shareableLink) => {
             .catch(err => console.error(`WS Subscribe Error ${topicPath}:`, err));
     };
 
+    // 3 Kênh chính
     subscribeAndLog(progressTopic, `/topic/plan/${shareableLink}/progress`, handleProgressUpdate);
     subscribeAndLog(taskTopic, `/topic/plan/${shareableLink}/tasks`, handleTaskUpdate);
     subscribeAndLog(planDetailsTopic, `/topic/plan/${shareableLink}/details`, handlePlanDetailsUpdate);
 };
 
+const unsubscribeWebSocketTopics = () => {
+    if (progressTopic.value) websocketService.unsubscribe(progressTopic.value);
+    if (taskTopic.value) websocketService.unsubscribe(taskTopic.value);
+    if (planDetailsTopic.value) websocketService.unsubscribe(planDetailsTopic.value);
+    progressTopic.value = '';
+    taskTopic.value = '';
+    planDetailsTopic.value = '';
+    console.log(`WS: Unsubscribed from plan topics.`);
+};
 
 const handleProgressUpdate = (message) => { 
     console.log("WS Received progress update:", message);
@@ -424,22 +407,20 @@ const handleTaskUpdate = (message) => {
     planStore.handleTaskWebSocketUpdate(message, progressStore.selectedDate);
 };
 
-// SỬA: Cập nhật hàm này để xử lý các sự kiện WebSocket mới
 const handlePlanDetailsUpdate = (message) => { 
     console.log("WS Received plan details update:", message);
     if (!planStore.currentPlan) return;
     
-    // Sửa: Giải nén các payload mới và cũ
     const { 
-        type, member, userId, 
-        status, displayStatus, 
-        title, description, dailyGoal, 
-        durationInDays, startDate, endDate, 
-        oldOwnerUserId, newOwnerUserId 
+      type, member, userId, 
+      status, displayStatus, 
+      title, description, dailyGoal, 
+      durationInDays, startDate, endDate, 
+      oldOwnerUserId, newOwnerUserId 
     } = message;
 
     let needsTimelineRefetch = false;
-    const authStore = useAuthStore(); // Lấy authStore
+    const authStore = useAuthStore(); 
 
     switch(type) {
         case 'MEMBER_JOINED':
@@ -451,9 +432,7 @@ const handlePlanDetailsUpdate = (message) => {
             }
             break;
         
-        // SỬA: Thêm case 'MEMBER_LEFT' (từ 'leavePlan' backend)
         case 'MEMBER_LEFT':
-        // SỬA: Thêm case 'MEMBER_REMOVED' (từ 'removeMember' backend)
         case 'MEMBER_REMOVED':
             if (planStore.currentPlan.members) {
                 const index = planStore.currentPlan.members.findIndex(m => m.userId === userId);
@@ -475,20 +454,23 @@ const handlePlanDetailsUpdate = (message) => {
             if (status !== undefined) planStore.currentPlan.status = status;
             if (displayStatus !== undefined) planStore.currentPlan.displayStatus = displayStatus;
             console.log("RT: Status Changed:", status);
-            // Nếu plan bị lưu trữ, điều hướng người dùng đi
-            if (status === 'ARCHIVED') {
+            // Nếu plan bị lưu trữ, *và* người dùng hiện tại *không phải* là owner,
+            // thì mới điều hướng đi. Owner cần ở lại để thấy nút "Khôi phục" / "Xóa".
+            if (status === 'ARCHIVED' && !planStore.isCurrentUserOwner) {
                 showSnackbar('Kế hoạch này đã được lưu trữ.', 'info');
                 router.push('/dashboard');
             }
+            // (SỬA) Nếu plan được khôi phục, tải lại dữ liệu
+            else if (status === 'ACTIVE' || status === 'COMPLETED') {
+                 fetchDataForSelectedDate(planStore.currentPlan.shareableLink, progressStore.selectedDate);
+            }
             break;
 
-        // SỬA: Đổi tên event
         case 'PLAN_DETAILS_UPDATED':
-        case 'PLAN_INFO_UPDATED': // Giữ lại event cũ cho tương thích
+        case 'PLAN_INFO_UPDATED': 
             if (title !== undefined) planStore.currentPlan.title = title;
             if (description !== undefined) planStore.currentPlan.description = description;
             if (dailyGoal !== undefined) planStore.currentPlan.dailyGoal = dailyGoal;
-            // Các trường này chỉ được gửi từ 'PLAN_INFO_UPDATED' (hàm updatePlan cũ)
             if (durationInDays !== undefined) planStore.currentPlan.durationInDays = durationInDays;
             if (startDate !== undefined) planStore.currentPlan.startDate = startDate;
             if (endDate !== undefined) planStore.currentPlan.endDate = endDate;
@@ -512,17 +494,16 @@ const handlePlanDetailsUpdate = (message) => {
          progressStore.fetchTimeline(planStore.currentPlan.shareableLink, progressStore.selectedDate);
     }
 };
-// --- KẾT THÚC SỬA WEBSOCKET ---
 
-
+// --- Logic Hành động (Join, Copy) ---
 const handleJoinPlan = async () => {
-    // ... (Logic gốc của bạn giữ nguyên)
     const link = route.params.shareableLink;
     if (!link) { joinError.value="Mã mời không hợp lệ."; return; }
     isJoining.value=true;
     joinError.value='';
     try {
         await planStore.joinCurrentPlan(link);
+        // Sau khi join thành công, tải lại toàn bộ dữ liệu
         await fetchPlanAndInitialData(link);
     } catch (e) {
         joinError.value = planStore.error || 'Lỗi tham gia.';
@@ -533,9 +514,9 @@ const handleJoinPlan = async () => {
 };
 
 const copyInviteLink = () => {
-    // ... (Logic gốc của bạn giữ nguyên)
     if(linkCopied.value || !planStore.currentPlan?.shareableLink) return;
-    const inviteUrl = `${window.location.origin}/plan/${planStore.currentPlan.shareableLink}`;
+    // (Sửa) Tạo link mời đúng
+    const inviteUrl = `${window.location.origin}/plan/join/${planStore.currentPlan.shareableLink}`; 
     navigator.clipboard.writeText(inviteUrl).then(() => {
         linkCopyText.value='Đã copy!';
         linkCopied.value=true;
@@ -553,37 +534,139 @@ const showSnackbar = (text, color = 'success') => {
     snackbar.value = true;
 };
 
-// --- (Logic CRUD Task - Giữ nguyên) ---
+// --- Logic Hành động Quản lý Plan (REFACTORED) ---
+
+// Mở dialog Sửa (Từ PlanInfoPanel)
+const openEditPlanDialog = () => {
+    isEditPlanModalOpen.value = true;
+};
+
+// Mở dialog Chuyển quyền (Từ PlanInfoPanel)
+const openTransferOwnershipDialog = () => {
+    showTransferDialog.value = true;
+};
+
+// Mở dialog Rời Plan (Từ PlanInfoPanel)
+const confirmLeavePlan = () => {
+    openConfirmDialog('leave-plan');
+};
+
+// Mở dialog Lưu trữ/Khôi phục (Từ PlanInfoPanel)
+const confirmArchiveAction = (isArchivingFlag) => {
+    openConfirmDialog(isArchivingFlag ? 'archive-plan' : 'unarchive-plan');
+};
+
+// Mở dialog Xóa Member (Từ PlanInfoPanel)
+const confirmRemoveMember = (member) => {
+    openConfirmDialog('remove-member', member);
+};
+
+// (MỚI) Mở dialog Xóa Vĩnh viễn (Từ PlanInfoPanel)
+const openDeletePlanDialog = () => {
+    openConfirmDialog('delete-plan');
+};
+
+// Hàm trợ giúp: Mở Dialog Xác nhận chung
+const openConfirmDialog = (type, item = null) => {
+    confirmDialogType.value = type;
+    itemToProcess.value = item; // Lưu member hoặc item khác nếu cần
+    actionError.value = null; // Reset lỗi
+    showConfirmDialog.value = true;
+};
+
+// Hàm Thực thi Xác nhận (Từ DeleteConfirmDialog)
+const onConfirmDialog = async () => {
+  const type = confirmDialogType.value;
+  const item = itemToProcess.value;
+  showConfirmDialog.value = false;
+  
+  // Bật loading chung
+  isLoadingAction.value = true;
+  actionError.value = null;
+
+  try {
+    switch (type) {
+      case 'leave-plan':
+        isLeaving.value = true;
+        await planStore.leaveCurrentPlan();
+        showSnackbar('Bạn đã rời khỏi kế hoạch.');
+        // Store đã xử lý điều hướng
+        break;
+        
+      case 'archive-plan':
+        isArchiving.value = true;
+        await planStore.archiveCurrentPlan();
+        showSnackbar('Kế hoạch đã được lưu trữ.');
+        // (SỬA) KHÔNG ĐIỀU HƯỚNG, plan state sẽ tự cập nhật
+        break;
+
+      case 'unarchive-plan':
+        isArchiving.value = false;
+        await planStore.unarchiveCurrentPlan();
+        showSnackbar('Kế hoạch đã được khôi phục.');
+        // Tải lại toàn bộ dữ liệu (vì userPlans list cũng thay đổi)
+        await fetchPlanAndInitialData(route.params.shareableLink);
+        break;
+        
+      case 'remove-member':
+        if (item) {
+          removingMemberId.value = item.userId;
+          await planStore.removeMemberFromCurrentPlan(removingMemberId.value);
+          showSnackbar(`Đã xóa thành viên: ${item.userFullName}`, 'success');
+        }
+        break;
+        
+      case 'delete-plan': // (MỚI)
+        isDeleting.value = true;
+        await planStore.deletePlanPermanently();
+        showSnackbar('Kế hoạch đã được xóa vĩnh viễn.');
+        // Store đã xử lý điều hướng
+        break;
+    }
+  } catch (err) {
+    const errorMessage = err.message || 'Hành động thất bại. Vui lòng thử lại.';
+    actionError.value = errorMessage; // Hiển thị lỗi trên PlanInfoPanel
+    showSnackbar(errorMessage, 'error');
+  } finally {
+    // Reset tất cả các state loading
+    isLoadingAction.value = false;
+    isArchiving.value = null;
+    isLeaving.value = false;
+    removingMemberId.value = null;
+    isDeleting.value = false;
+    itemToProcess.value = null;
+    confirmDialogType.value = '';
+  }
+};
+
+
+// --- Logic Task (GIỮ NGUYÊN) ---
 const openAddTaskDialog = () => {
-    // ... (Logic gốc của bạn giữ nguyên)
     editingTask.value = null;
     taskForm.description = '';
     taskForm.deadlineTime = null;
-    taskForm.taskDate = progressStore.selectedDate; 
+    taskForm.taskDate = progressStore.selectedDate; // Tự động điền ngày đang chọn
     taskDialogError.value = '';
     taskDialog.value = true;
     nextTick(() => taskFormRef.value?.resetValidation());
 };
 
 const openEditTaskDialog = (task) => {
-    // ... (Logic gốc của bạn giữ nguyên)
     editingTask.value = { ...task };
     taskForm.description = task.description;
     taskForm.deadlineTime = task.deadlineTime || null;
-    taskForm.taskDate = null; 
+    taskForm.taskDate = null; // Để null khi edit, user có thể chọn ngày mới
     taskDialogError.value = '';
     taskDialog.value = true;
     nextTick(() => taskFormRef.value?.resetValidation());
 };
 
 const closeTaskDialog = () => {
-    // ... (Logic gốc của bạn giữ nguyên)
     taskDialog.value = false;
     editingTask.value = null; 
 };
 
 const saveTask = async () => {
-    // ... (Logic gốc của bạn giữ nguyên)
     if (!taskFormRef.value) return;
     const { valid } = await taskFormRef.value.validate();
     if (!valid) return;
@@ -607,7 +690,7 @@ const saveTask = async () => {
     const data = {
         description: taskForm.description,
         deadlineTime: time,
-        taskDate: taskForm.taskDate || undefined 
+        taskDate: taskForm.taskDate || undefined // Chỉ gửi nếu có
     };
     taskDialogError.value = '';
     try {
@@ -626,13 +709,11 @@ const saveTask = async () => {
 };
 
 const confirmDeleteTask = (task) => {
-    // ... (Logic gốc của bạn giữ nguyên)
     taskToDelete.value = { id: task.id, description: task.description, taskDate: task.taskDate };
     deleteTaskConfirmDialog.value = true;
 };
 
 const executeDeleteTask = async () => {
-    // ... (Logic gốc của bạn giữ nguyên)
     if (!taskToDelete.value?.id || !taskToDelete.value?.taskDate) return;
     const desc = taskToDelete.value.description;
     const id = taskToDelete.value.id;
@@ -650,131 +731,16 @@ const executeDeleteTask = async () => {
     }
 };
 
-// --- (CẬP NHẬT LOGIC QUẢN LÝ PLAN/MEMBER) ---
-
-// THÊM MỚI
-const openEditPlanDialog = () => {
-    isEditPlanModalOpen.value = true;
-};
-
-// THÊM MỚI
-const confirmLeavePlan = () => {
-    isLeaving.value = false; // Reset
-    leaveConfirmDialog.value = true;
-};
-
-// THÊM MỚI
-const executeLeavePlan = async () => {
-    isLeaving.value = true;
-    try {
-        await planStore.leaveCurrentPlan();
-        // Store đã xử lý việc điều hướng
-        showSnackbar('Bạn đã rời kế hoạch.', 'info');
-        leaveConfirmDialog.value = false;
-    } catch (e) {
-        showSnackbar(planStore.error || 'Lỗi khi rời kế hoạch.', 'error');
-        console.error("Leave plan error:", e);
-    } finally {
-        isLeaving.value = false;
-    }
-};
-
-const confirmRemoveMember = (member) => {
-    // ... (Logic gốc của bạn giữ nguyên)
-    memberToDelete.value = member;
-    deleteMemberConfirmDialog.value = true;
-};
-const executeRemoveMember = async () => {
-    // ... (Logic gốc của bạn giữ nguyên)
-    if (!memberToDelete.value?.userId) return;
-    const name = memberToDelete.value.userFullName;
-    const id = memberToDelete.value.userId;
-    deleteMemberConfirmDialog.value = false;
-    const memberBeingRemoved = { ...memberToDelete.value };
-    memberToDelete.value = null; 
-    try {
-        await planStore.removeMemberFromCurrentPlan(id);
-        showSnackbar(`Yêu cầu loại bỏ ${name} đã được gửi.`, 'success');
-    } catch (e) {
-        console.error("Remove member error:", e);
-        showSnackbar(planStore.error || `Lỗi khi loại bỏ ${name}.`, 'error');
-        memberToDelete.value = memberBeingRemoved; 
-    }
-};
-const confirmArchiveAction = (archive) => {
-    // ... (Logic gốc của bạn giữ nguyên)
-    isArchiving.value = archive; 
-    archiveConfirmDialog.value = true;
-};
-const executeArchiveAction = async () => {
-    // ... (Logic gốc của bạn giữ nguyên)
-    archiveConfirmDialog.value = false;
-    const currentlyArchiving = isArchiving.value; 
-    isArchiving.value = null; 
-    try {
-        let msg = '';
-        if (currentlyArchiving) {
-            await planStore.archiveCurrentPlan();
-            msg = 'Đã lưu trữ kế hoạch. Bạn sẽ được đưa về trang chính.';
-            showSnackbar(msg, 'info');
-        } else {
-            await planStore.unarchiveCurrentPlan();
-            msg = 'Yêu cầu khôi phục kế hoạch đã được gửi.';
-            showSnackbar(msg, 'success');
-        }
-    } catch (e) {
-        showSnackbar(planStore.error || `Lỗi khi ${currentlyArchiving ? 'lưu trữ' : 'khôi phục'}.`, 'error');
-        console.error("Archive/Unarchive error:", e);
-        isArchiving.value = currentlyArchiving; 
-    }
-};
-const openTransferOwnershipDialog = () => {
-    // ... (Logic gốc của bạn giữ nguyên)
-    selectedNewOwnerId.value = null;
-    transferOwnershipError.value = '';
-    transferOwnershipDialog.value = true;
-};
-const closeTransferOwnershipDialog = () => {
-    // ... (Logic gốc của bạn giữ nguyên)
-    transferOwnershipDialog.value = false;
-};
-const confirmTransferOwnership = async () => {
-    // ... (Logic gốc của bạn giữ nguyên)
-    if (!selectedNewOwnerId.value) {
-        transferOwnershipError.value = "Vui lòng chọn một thành viên.";
-        return;
-    }
-    transferOwnershipError.value = '';
-    try {
-        await planStore.transferPlanOwnership(selectedNewOwnerId.value);
-        showSnackbar('Yêu cầu chuyển quyền sở hữu đã được gửi.', 'success');
-        closeTransferOwnershipDialog();
-    } catch (error) {
-       transferOwnershipError.value = planStore.error || 'Có lỗi xảy ra, vui lòng thử lại.';
-       console.error("Transfer ownership error:", error);
-    }
-};
-
-
-// --- (CẬP NHẬT LOGIC CHECK-IN) ---
-
-// (Hàm này giờ chỉ mở modal ở chế độ TẠO MỚI)
+// --- Logic Check-in & Comment (GIỮ NGUYÊN) ---
 const openCheckInModal = () => {
-    // (MỚI) Logic fetch đã bị XÓA. 
-    // CheckInModal giờ sẽ tự fetch.
-    const todayStr = dayjs().format('YYYY-MM-DD');
-
-    // (Rút gọn) Chỉ kiểm tra xem có phải là thành viên không.
-    // Việc kiểm tra "có task hay không" sẽ do modal tự xử lý.
     if (planStore.isCurrentUserMember) {
-         checkInToEdit.value = null; 
+         checkInToEdit.value = null; // Mở ở chế độ TẠO MỚI
          isCheckInModalOpen.value = true;
     } else {
          showSnackbar("Bạn phải là thành viên để check-in.", "error");
     }
 };
 
-// (MỚI) Hàm này được gọi khi CheckInModal đóng
 const onCheckInModalClose = (value) => {
     if (!value) {
         isCheckInModalOpen.value = false;
@@ -782,87 +748,105 @@ const onCheckInModalClose = (value) => {
     }
 };
 
-// (MỚI) Hàm này mở modal ở chế độ SỬA
 const openEditCheckInDialog = (checkInEvent) => {
     console.log("PlanDetailView: Opening dialog to EDIT check-in:", checkInEvent.id);
     checkInToEdit.value = checkInEvent; // Gán dữ liệu check-in cần sửa
     isCheckInModalOpen.value = true; // Mở cùng một modal
 };
 
-// (MỚI) Hàm này mở dialog XÓA CHECK-IN
 const openDeleteCheckInConfirm = (checkInEvent) => {
     checkInToDelete.value = checkInEvent;
     deleteCheckInConfirmDialog.value = true;
 };
 
-// (MỚI) Hàm này đóng dialog XÓA CHECK-IN
 const closeDeleteCheckInConfirm = () => {
     checkInToDelete.value = null;
     deleteCheckInConfirmDialog.value = false;
 };
 
-// (MỚI) Hàm này thực thi XÓA CHECK-IN
 const executeDeleteCheckIn = async () => {
     if (!checkInToDelete.value) return;
     
     isDeletingCheckIn.value = true;
     try {
-        // Gọi action mới trong progressStore
         await progressStore.deleteCheckInAction(checkInToDelete.value.id);
         showSnackbar('Đã gửi yêu cầu xóa check-in.', 'success');
-        // WebSocket sẽ tự động cập nhật UI
         closeDeleteCheckInConfirm();
     } catch (error) {
-        showSnackbar(error || 'Lỗi khi xóa check-in.', 'error');
+        showSnackbar(error.message || 'Lỗi khi xóa check-in.', 'error');
     } finally {
         isDeletingCheckIn.value = false;
     }
 };
 
-// ================== START: CODE ĐƯỢC SỬA ==================
-// (SỬA) Hàm này xử lý BÌNH LUẬN
 const openCommentDialog = (checkInEvent) => {
-    // (SỬA) Thay vì hiển thị snackbar, chúng ta gọi communityStore
     console.log("PlanDetailView: Opening Progress Detail Modal for check-in:", checkInEvent.id);
-    
-    // Dữ liệu 'checkInEvent' (chính là 'progress' chi tiết)
-    // được đưa vào communityStore.
-    // ProgressDetailModal sẽ tự động mở vì nó đang theo dõi store này.
+    // Mở modal chi tiết/comment
     communityStore.selectProgress(checkInEvent);
 };
-// =================== END: CODE ĐƯỢC SỬA ===================
+
+// =================================================================
+// ===           (SỬA) HOOKS ĐƯỢC DI CHUYỂN XUỐNG DƯỚI           ===
+// =================================================================
+
+// --- Watchers (Theo dõi route và ngày) ---
+watch(() => route.params.shareableLink, (newLink, oldLink) => {
+  if (newLink && newLink !== oldLink) {
+    console.log(`PlanDetailView: Route changed to ${newLink}. Refetching data...`);
+    unsubscribeWebSocketTopics(); 
+    fetchPlanAndInitialData(newLink); 
+  }
+}, { immediate: true });
+
+watch(selectedDate, (newDate, oldDate) => {
+    if (newDate && newDate !== oldDate && planStore.currentPlan?.shareableLink) {
+        console.log(`PlanDetailView: Selected date changed to ${newDate}. Fetching data for this date...`);
+        fetchDataForSelectedDate(planStore.currentPlan.shareableLink, newDate); 
+    }
+});
+
+// --- Hooks Vòng đời (onMounted, onUnmounted) ---
+onMounted(() => {
+    if (!websocketService.isConnected()) {
+        websocketService.connect();
+    }
+});
+
+onUnmounted(() => {
+    console.log("PlanDetailView: Unmounting. Cleaning up stores and unsubscribing WebSocket.");
+    planStore.clearCurrentPlanData();
+    progressStore.clearPlanProgressData();
+    unsubscribeWebSocketTopics();
+});
 
 </script>
 
 <style scoped>
-/* (CSS gốc của bạn giữ nguyên) */
+/* (Giữ nguyên CSS) */
 .fill-height {
   height: 100%;
   display: flex;
   flex-direction: column;
 }
-
-/* Sửa CSS */
+.w-100 {
+  width: 100%;
+}
 .main-layout-row {
   max-height: 100%;
   height: 100%;
+  flex-grow: 1; /* (MỚI) Đảm bảo row chiếm không gian */
 }
-
 .main-layout-row > .v-col {
   height: 100%;
   padding-top: 0; 
   padding-bottom: 0;
 }
-
-/* COL 1: CHO TIMELINE */
 .main-content-col {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0; 
 }
-
-/* COL 2: CHO INFO + TASKS */
 .sidebar-col {
   height: 100%;
   display: flex;
@@ -870,8 +854,6 @@ const openCommentDialog = (checkInEvent) => {
   min-height: 0; 
   padding-left: 12px; 
 }
-
-/* ROW 2.1: INFO PANEL */
 .sidebar-row-info {
   flex-grow: 0; 
   flex-shrink: 0; 
@@ -879,17 +861,19 @@ const openCommentDialog = (checkInEvent) => {
   display: flex;
   flex-direction: column;
 }
-
-/* ROW 2.2: TASK LIST */
 .sidebar-row-tasks {
   flex-grow: 1; 
   min-height: 0; 
   display: flex;
   flex-direction: column;
 }
-
-
 .bg-transparent {
     background-color: transparent !important;
+}
+/* (Thêm) Sửa lỗi glass-effect nếu cần */
+.glass-effect {
+  background-color: rgba(var(--v-theme-surface-variant), 0.7) !important;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(var(--v-border-color), 0.3) !important;
 }
 </style>

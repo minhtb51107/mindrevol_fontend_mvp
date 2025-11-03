@@ -553,19 +553,27 @@ export const usePlanStore = defineStore('plan', {
             this.isLoading = false;
         }
     },
+    
+    // =================================================================
+    // ===                 ĐÂY LÀ THAY ĐỔI QUAN TRỌNG                  ===
+    // =================================================================
     async archiveCurrentPlan() {
         if (!this.currentPlan?.shareableLink) { throw new Error("Missing current plan link"); }
         if (!this.isCurrentUserOwner) { throw new Error("Permission denied"); }
         this.isLoading = true; this.error = null;
         try {
+            // (SỬA) Gọi API và CẬP NHẬT plan hiện tại, KHÔNG điều hướng
             const response = await planService.archivePlan(this.currentPlan.shareableLink);
+            this.currentPlan = response.data; // Cập nhật plan (giờ có status: ARCHIVED)
             
-            // SỬA: Điều hướng ra khỏi plan đã lưu trữ
+            // (SỬA) Xóa khỏi danh sách userPlans (vì list này chỉ hiện plan ACTIVE)
             this.userPlans = this.userPlans.filter(p => p.shareableLink !== this.currentPlan.shareableLink);
-            this.currentPlan = null;
-            this.router.push('/dashboard');
             
-            console.log("PlanStore: Plan archived. Navigating to dashboard.");
+            console.log("PlanStore: Plan archived. State updated. Not navigating.");
+            // (SỬA) Bỏ điều hướng
+            // this.currentPlan = null;
+            // this.router.push('/dashboard');
+            
         } catch (error) {
             console.error("Lỗi khi lưu trữ kế hoạch:", error);
             this.error = error.response?.data?.message || "Lưu trữ kế hoạch thất bại.";
@@ -574,6 +582,10 @@ export const usePlanStore = defineStore('plan', {
             this.isLoading = false;
         }
     },
+    // =================================================================
+    // ===                 KẾT THÚC THAY ĐỔI QUAN TRỌNG                 ===
+    // =================================================================
+
     async unarchiveCurrentPlan() {
         if (!this.currentPlan?.shareableLink) { throw new Error("Missing current plan link"); }
         if (!this.isCurrentUserOwner) { throw new Error("Permission denied"); }
@@ -611,6 +623,43 @@ export const usePlanStore = defineStore('plan', {
             this.isLoading = false;
         }
     },
+
+    // --- THÊM ACTION MỚI ---
+    async deletePlanPermanently() {
+      if (!this.currentPlan?.shareableLink) { throw new Error("Không tìm thấy kế hoạch hiện tại."); }
+      if (!this.isCurrentUserOwner) { throw new Error("Chỉ chủ sở hữu mới có quyền xóa."); }
+
+      // Chỉ kiểm tra UI, backend sẽ kiểm tra logic chính
+      if (this.currentPlan.status !== 'ARCHIVED') {
+        console.warn("Attempted to delete a non-archived plan from UI.");
+        throw new Error("Kế hoạch phải được lưu trữ trước khi xóa vĩnh viễn.");
+      }
+
+      this.isLoading = true;
+      this.error = null;
+
+      try {
+        const linkToDelete = this.currentPlan.shareableLink;
+        await planService.deletePlanPermanently(linkToDelete);
+
+        console.log("PlanStore: Plan permanently deleted.", linkToDelete);
+
+        // Xóa khỏi danh sách userPlans (nếu có)
+        this.userPlans = this.userPlans.filter(p => p.shareableLink !== linkToDelete);
+        
+        // Clear plan hiện tại và điều hướng về dashboard
+        this.currentPlan = null;
+        this.router.push('/dashboard');
+
+      } catch (error) {
+        console.error("Lỗi khi xóa vĩnh viễn kế hoạch:", error);
+        this.error = error.response?.data?.message || "Xóa vĩnh viễn thất bại.";
+        throw error;
+      } finally {
+        this.isLoading = false;
+      }
+    },
+    // --- KẾT THÚC THÊM ACTION ---
 
     // Helper để cập nhật một plan trong danh sách userPlans
     updatePlanInUserList(updatedPlanData) {

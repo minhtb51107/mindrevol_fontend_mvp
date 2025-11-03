@@ -1,4 +1,4 @@
-<!-- <template>
+<template>
   <v-dialog
     :model-value="modelValue"
     @update:model-value="$emit('update:modelValue', $event)"
@@ -54,7 +54,7 @@ const props = defineProps({
   itemType: {
     type: String,
     required: true,
-    // ( 'task', 'remove-member', 'archive-plan', 'delete-plan' )
+    // ( 'task', 'remove-member', 'archive-plan', 'delete-plan', 'leave-plan' )
   },
 });
 
@@ -93,13 +93,23 @@ const dialogConfig = computed(() => {
         color: 'orange',
         confirmText: 'Lưu trữ',
       };
+    case 'leave-plan': // Thêm case này
+      return {
+        title: 'Rời khỏi kế hoạch?',
+        message:
+          'Bạn có chắc chắn muốn rời khỏi kế hoạch này không?',
+        warning: 'Bạn sẽ mất quyền truy cập, nhưng thành quả của bạn vẫn được giữ lại cho nhóm.',
+        icon: 'mdi-logout',
+        color: 'error',
+        confirmText: 'Rời đi',
+      };
     case 'delete-plan':
       return {
         title: 'XÓA VĨNH VIỄN KẾ HOẠCH?',
         message:
           'Bạn có hoàn toàn chắc chắn muốn xóa vĩnh viễn kế hoạch này không?',
         warning:
-          'Tất cả dữ liệu liên quan (công việc, tiến độ...) sẽ bị mất. HÀNH ĐỘNG NÀY KHÔNG THỂ HOÀN TÁC.',
+          'Tất cả dữ liệu liên quan (công việc, thành viên, check-in, comment...) sẽ bị mất. HÀNH ĐỘNG NÀY KHÔNG THỂ HOÀN TÁC.',
         icon: 'mdi-alert-octagon-outline',
         color: 'error',
         confirmText: 'Tôi hiểu, Xóa vĩnh viễn',
@@ -123,9 +133,7 @@ const closeDialog = () => {
 
 const confirmAction = () => {
   emit('confirm');
-  // PlanDetailView sẽ xử lý việc đóng dialog sau khi hành động hoàn tất
-  // nhưng chúng ta có thể đóng ngay tại đây
-  // closeDialog(); // Tạm thời để PlanDetailView tự đóng
+  // Component cha (PlanDetailView) sẽ xử lý việc đóng dialog sau khi hành động hoàn tất
 };
 </script>
 
@@ -136,4 +144,4 @@ const confirmAction = () => {
   backdrop-filter: blur(10px);
   border: 1px solid rgba(var(--v-border-color), 0.3) !important;
 }
-</style> -->
+</style>

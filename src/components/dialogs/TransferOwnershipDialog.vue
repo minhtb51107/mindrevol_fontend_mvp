@@ -1,4 +1,4 @@
-<!-- <template>
+<template>
   <v-dialog
     :model-value="modelValue"
     @update:model-value="$emit('update:modelValue', $event)"
@@ -38,13 +38,7 @@
               <v-list-item v-bind="props" :title="item.raw.userFullName">
                 <template v-slot:prepend>
                   <v-avatar size="32" class="mr-3">
-                    <v-img
-                      :src="
-                        item.raw.userAvatar ||
-                        'https://avatar.iran.liara.run/public/boy'
-                      "
-                      :alt="item.raw.userFullName"
-                    ></v-img>
+                    <span class="text-caption font-weight-medium">{{ getInitials(item.raw.userFullName) }}</span>
                   </v-avatar>
                 </template>
                 <v-list-item-subtitle>{{
@@ -56,12 +50,7 @@
             <template v-slot:selection="{ item }">
               <v-chip size="small">
                 <v-avatar start>
-                  <v-img
-                    :src="
-                      item.raw.userAvatar ||
-                      'https://avatar.iran.liara.run/public/boy'
-                    "
-                  ></v-img>
+                  <span class="text-caption font-weight-medium">{{ getInitials(item.raw.userFullName) }}</span>
                 </v-avatar>
                 {{ item.raw.userFullName }}
               </v-chip>
@@ -91,17 +80,18 @@
 </template>
 
 <script setup>
-import { ref, watchEffect } from 'vue';
+import { ref, watchEffect, computed } from 'vue'; // THÊM COMPUTED
 import { usePlanStore } from '@/stores/plan';
-import { toast } from 'vue-sonner'; // <-- ĐÃ THAY ĐỔI
+import { toast } from 'vue-sonner'; 
 
 const props = defineProps({
   modelValue: Boolean,
-  planId: {
-    type: String,
-    required: true,
-  },
-  members: {
+  // Sửa: Bỏ planId, vì store đã có currentPlan
+  // planId: {
+  //   type: String,
+  //   required: true,
+  // },
+  members: { // Sửa: Nhận members từ prop
     type: Array,
     default: () => [],
   },
@@ -111,7 +101,6 @@ const emit = defineEmits(['update:modelValue', 'transfer-success']);
 
 // --- Store và State ---
 const planStore = usePlanStore();
-// const snackbar = useSnackbar(); // <-- ĐÃ XÓA
 const form = ref(null);
 const isLoading = ref(false);
 const selectedUserId = ref(null);
@@ -122,23 +111,34 @@ const rules = {
 };
 
 // --- Methods ---
+// Hàm lấy initials (giống PlanInfoPanel)
+const getInitials = (fullName) => {
+    if (!fullName) return '?';
+    const names = fullName.trim().split(' ');
+    if (names.length === 0) return '?';
+    const lastName = names[names.length - 1];
+    return lastName.charAt(0).toUpperCase();
+}
+
 const closeDialog = () => {
   emit('update:modelValue', false);
 };
 
 const transferOwnership = async () => {
+  if (!form.value) return;
   const { valid } = await form.value.validate();
   if (!valid) return;
 
   isLoading.value = true;
   try {
-    await planStore.transferOwnership(props.planId, selectedUserId.value);
-    toast.success('Đã chuyển quyền sở hữu thành công'); // <-- ĐÃ THAY ĐỔI
+    // Sửa: Gọi action mới
+    await planStore.transferPlanOwnership(selectedUserId.value);
+    
+    toast.success('Đã gửi yêu cầu chuyển quyền sở hữu'); // Sửa: UI sẽ cập nhật qua WebSocket
     emit('transfer-success');
     closeDialog();
   } catch (error) {
     console.error('Lỗi khi chuyển quyền sở hữu:', error);
-    // <-- ĐÃ THAY ĐỔI
     toast.error('Lỗi', {
       description: error.message || 'Không thể chuyển quyền sở hữu.',
     });
@@ -164,4 +164,4 @@ watchEffect(() => {
   backdrop-filter: blur(10px);
   border: 1px solid rgba(var(--v-border-color), 0.3) !important;
 }
-</style> -->
+</style>

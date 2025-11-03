@@ -120,4 +120,9 @@ export default {
   unarchivePlan(shareableLink) {
     return apiClient.patch(`/plans/${shareableLink}/unarchive`);
   },
+
+  // --- THÊM MỚI: HÀM XÓA VĨNH VIỄN ---
+  deletePlanPermanently(shareableLink) {
+    return apiClient.delete(`/plans/${shareableLink}/permanent-delete`);
+  },
 };
