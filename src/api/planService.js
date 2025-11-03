@@ -23,6 +23,20 @@ export default {
     return apiClient.get('/plans/my-plans', { params });
   },
 
+  // --- THÊM MỚI 1: HÀM SỬA CHI TIẾT KẾ HOẠCH ---
+  updatePlanDetails(shareableLink, planDetails) {
+    // planDetails: { title: "...", description: "...", dailyGoal: "..." }
+    return apiClient.put(`/plans/${shareableLink}/details`, planDetails);
+  },
+  // --- KẾT THÚC THÊM MỚI 1 ---
+
+  // --- THÊM MỚI 2: HÀM RỜI KẾ HOẠCH ---
+  leavePlan(shareableLink) {
+    return apiClient.delete(`/plans/${shareableLink}/leave`);
+  },
+  // --- KẾT THÚC THÊM MỚI 2 ---
+
+
   // --- Task Management (ĐÃ CẬP NHẬT THEO LOGIC MỚI) ---
 
   // --- HÀM MỚI: Lấy danh sách task theo ngày ---

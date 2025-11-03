@@ -2,7 +2,18 @@
   <v-card class="plan-info-panel d-flex flex-column fill-height" elevation="2" rounded="lg">
 
     <v-card-item class="pt-4">
-      <v-card-title class="text-h6 pb-1 font-weight-medium">{{ plan?.title || 'Đang tải...' }}</v-card-title>
+      <div class="d-flex justify-space-between align-center">
+        <v-card-title class="text-h6 pb-1 font-weight-medium">{{ plan?.title || 'Đang tải...' }}</v-card-title>
+        <v-btn
+          v-if="isOwner && plan?.status !== 'ARCHIVED'"
+          icon="mdi-pencil-outline"
+          variant="text"
+          size="small"
+          @click="$emit('open-edit-dialog')"
+          title="Sửa chi tiết kế hoạch"
+          :disabled="isLoadingAction"
+        ></v-btn>
+      </div>
       <v-card-subtitle class="text-wrap">{{ plan?.description }}</v-card-subtitle>
     </v-card-item>
 
@@ -15,9 +26,8 @@
          <v-icon start>mdi-account-group-outline</v-icon>
          Thành viên ({{ plan?.members?.length || 0 }})
       </v-tab>
-      <v-tab value="actions" v-if="isOwner">
-         <v-icon start>mdi-cog-outline</v-icon>
-         Quản lý
+      <v-tab value="actions"> <v-icon start>mdi-cog-outline</v-icon>
+         Hành động
       </v-tab>
     </v-tabs>
     
@@ -61,8 +71,7 @@
                  <v-btn
                     @click="$emit('copy-invite-link')"
                     :prepend-icon="linkCopied ? 'mdi-check' : 'mdi-clipboard-plus-outline'"
-                    :disabled="linkCopied"
-                    variant="tonal"
+                    :disabled="linkCopied || plan?.status === 'ARCHIVED'" variant="tonal"
                     color="success"
                     block
                     class="mb-2"
@@ -99,8 +108,7 @@
                   color="grey"
                   @click="$emit('remove-member', member)"
                   :loading="isLoadingAction && removingMemberId === member.userId"
-                  :disabled="isLoadingAction"
-                  title="Loại bỏ thành viên"
+                  :disabled="isLoadingAction || plan?.status === 'ARCHIVED'" title="Loại bỏ thành viên"
                 ></v-btn>
               </template>
             </v-list-item>
@@ -110,48 +118,68 @@
           </v-list>
         </v-window-item>
 
-        <v-window-item value="actions" v-if="isOwner">
+        <v-window-item value="actions">
             <v-list density="compact" class="pa-2">
-                <v-list-subheader>Quản lý kế hoạch</v-list-subheader>
-                 <div class="px-2">
-                     <v-btn
-                        v-if="isOwner && plan?.status !== 'ARCHIVED'"
-                        @click="$emit('archive-plan', true)"
-                        :loading="isLoadingAction && isArchiving === true"
-                        :disabled="isLoadingAction"
-                        variant="outlined"
-                        color="orange"
-                        block
-                        class="mb-3"
-                        prepend-icon="mdi-archive-arrow-down-outline"
-                    >
-                        Lưu trữ Kế hoạch
-                    </v-btn>
-                    <v-btn
-                        v-if="isOwner && plan?.status === 'ARCHIVED'"
-                        @click="$emit('archive-plan', false)"
-                        :loading="isLoadingAction && isArchiving === false"
-                        :disabled="isLoadingAction"
-                        variant="outlined"
-                        color="blue"
-                        block
-                        class="mb-3"
-                        prepend-icon="mdi-archive-arrow-up-outline"
-                    >
-                        Khôi phục Kế hoạch
-                    </v-btn>
-                    <v-btn
-                        v-if="isOwner && otherMembers.length > 0"
-                        @click="$emit('open-transfer-dialog')"
-                        :disabled="isLoadingAction"
-                        variant="outlined"
-                        color="deep-purple"
-                        block
-                        prepend-icon="mdi-crown-outline"
-                    >
-                        Chuyển quyền sở hữu
-                    </v-btn>
-                 </div>
+                <div v-if="isOwner">
+                  <v-list-subheader>Quản lý kế hoạch</v-list-subheader>
+                   <div class="px-2">
+                       <v-btn
+                          v-if="isOwner && plan?.status !== 'ARCHIVED'"
+                          @click="$emit('archive-plan', true)"
+                          :loading="isLoadingAction && isArchiving === true"
+                          :disabled="isLoadingAction"
+                          variant="outlined"
+                          color="orange"
+                          block
+                          class="mb-3"
+                          prepend-icon="mdi-archive-arrow-down-outline"
+                      >
+                          Lưu trữ Kế hoạch
+                      </v-btn>
+                      <v-btn
+                          v-if="isOwner && plan?.status === 'ARCHIVED'"
+                          @click="$emit('archive-plan', false)"
+                          :loading="isLoadingAction && isArchiving === false"
+                          :disabled="isLoadingAction"
+                          variant="outlined"
+                          color="blue"
+                          block
+                          class="mb-3"
+                          prepend-icon="mdi-archive-arrow-up-outline"
+                      >
+                          Khôi phục Kế hoạch
+                      </v-btn>
+                      <v-btn
+                          v-if="isOwner && otherMembers.length > 0 && plan?.status !== 'ARCHIVED'"
+                          @click="$emit('open-transfer-dialog')"
+                          :disabled="isLoadingAction"
+                          variant="outlined"
+                          color="deep-purple"
+                          block
+                          prepend-icon="mdi-crown-outline"
+                      >
+                          Chuyển quyền sở hữu
+                      </v-btn>
+                   </div>
+                </div>
+
+                <div v-if="!isOwner">
+                   <v-list-subheader>Hành động</v-list-subheader>
+                    <div class="px-2">
+                       <v-btn
+                          @click="$emit('leave-plan')"
+                          :loading="isLoadingAction && isLeaving === true"
+                          :disabled="isLoadingAction"
+                          variant="outlined"
+                          color="error"
+                          block
+                          class="mb-3"
+                          prepend-icon="mdi-logout"
+                      >
+                          Rời khỏi kế hoạch
+                      </v-btn>
+                   </div>
+                </div>
             </v-list>
             <v-alert v-if="error" type="error" density="compact" class_alias="ma-4" rounded="md"> {{ error }} </v-alert>
 
@@ -194,6 +222,11 @@ const props = defineProps({
       type: Boolean,
       default: null // null, true (archiving), false (unarchiving)
   },
+  // SỬA: Thêm prop isLeaving
+  isLeaving: {
+      type: Boolean,
+      default: false
+  },
   removingMemberId: { // ID của member đang bị xóa
       type: Number,
       default: null
@@ -210,7 +243,9 @@ const emit = defineEmits([
     'copy-invite-link',
     'archive-plan', // Gửi kèm payload true (archive) hoặc false (unarchive)
     'open-transfer-dialog',
-    'remove-member' // Gửi kèm thông tin member cần xóa
+    'remove-member', // Gửi kèm thông tin member cần xóa
+    'open-edit-dialog', // THÊM MỚI
+    'leave-plan' // THÊM MỚI
 ]);
 
 // --- Store ---

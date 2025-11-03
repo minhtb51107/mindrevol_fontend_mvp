@@ -83,14 +83,17 @@
               :link-copy-text="linkCopyText"
               :is-loading-action="planStore.isLoading" 
               :is-archiving="isArchiving" 
+              :is-leaving="isLeaving"
               :removing-member-id="memberToDelete?.userId" 
               :error="planStore.error" 
               @copy-invite-link="copyInviteLink"
               @archive-plan="confirmArchiveAction"
               @open-transfer-dialog="openTransferOwnershipDialog"
               @remove-member="confirmRemoveMember"
+              @open-edit-dialog="openEditPlanDialog"
+              @leave-plan="confirmLeavePlan"
             />
-          </div>
+            </div>
 
           <div class="sidebar-row-tasks">
             <DailyTaskList
@@ -112,6 +115,28 @@
       </template>
     </v-snackbar>
 
+    <EditPlanModal 
+      v-model="isEditPlanModalOpen" 
+      @close="isEditPlanModalOpen = false"
+      @plan-updated="showSnackbar('Cập nhật chi tiết kế hoạch thành công.', 'success')"
+    />
+
+    <v-dialog v-model="leaveConfirmDialog" persistent max-width="450px">
+      <v-card class="glass-effect">
+        <v-card-title class="text-h6">Xác nhận rời kế hoạch</v-card-title>
+        <v-card-text>
+          Bạn có chắc chắn muốn rời khỏi kế hoạch 
+          "<span class="font-weight-medium">{{ planStore.currentPlan?.title }}</span>"?
+          <br><br>
+          Toàn bộ lịch sử check-in và thành quả của bạn sẽ được giữ lại, nhưng bạn sẽ không thể tham gia hay xem kế hoạch này nữa (trừ khi được mời lại).
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn color="medium-emphasis" text @click="leaveConfirmDialog = false" :disabled="isLeaving">Hủy</v-btn>
+          <v-btn color="error" text @click="executeLeavePlan" :loading="isLeaving">Rời đi</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
     <v-dialog v-model="taskDialog" persistent max-width="500px">
       <v-card class="glass-effect">
         <v-card-title>{{ editingTask ? 'Chỉnh sửa công việc' : 'Thêm công việc mới' }}</v-card-title>
@@ -176,7 +201,7 @@
     <v-dialog v-model="archiveConfirmDialog" persistent max-width="450px">
        </v-dialog>
     <v-dialog v-model="transferOwnershipDialog" persistent max-width="500px">
-      </V-dialog>
+      </v-dialog>
 
     <ProgressDetailModal 
       v-if="planStore.currentPlan?.shareableLink"
@@ -217,7 +242,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { usePlanStore } from '@/stores/plan';
 import { useAuthStore } from '@/stores/auth';
 import { useProgressStore } from '@/stores/progress';
-import { useCommunityStore } from '@/stores/community'; // <-- (THÊM) Import community store
+import { useCommunityStore } from '@/stores/community'; 
 import websocketService from '@/api/websocketService';
 import dayjs from 'dayjs'; 
 
@@ -225,7 +250,9 @@ import PlanInfoPanel from '@/components/PlanInfoPanel.vue';
 import TimelineDashboard from '@/components/TimelineDashboard.vue';
 import DailyTaskList from '@/components/DailyTaskList.vue';
 import CheckInModal from '@/components/CheckInModal.vue'; 
-import ProgressDetailModal from '@/components/ProgressDetailModal.vue'; // <-- (THÊM) Import modal chi tiết
+import ProgressDetailModal from '@/components/ProgressDetailModal.vue'; 
+// THÊM MỚI: Import dialog sửa plan
+import EditPlanModal from '@/components/dialogs/EditPlanModal.vue'; 
 
 import {
   VContainer, VRow, VCol, VCard, VCardTitle, VCardSubtitle, VCardText, VCardItem, VList, VListItem, VListItemTitle, VListItemSubtitle, VDivider, VBtn, VAlert, VProgressCircular, VIcon, VChip, VSnackbar,
@@ -238,7 +265,7 @@ const router = useRouter();
 const planStore = usePlanStore();
 const authStore = useAuthStore();
 const progressStore = useProgressStore();
-const communityStore = useCommunityStore(); // <-- (THÊM) Khởi tạo community store
+const communityStore = useCommunityStore(); 
 
 // (State gốc giữ nguyên)
 const isJoining = ref(false);
@@ -266,6 +293,12 @@ const isArchiving = ref(null);
 const transferOwnershipDialog = ref(false);
 const selectedNewOwnerId = ref(null);
 const transferOwnershipError = ref('');
+
+// --- (THÊM STATE MỚI) ---
+const isEditPlanModalOpen = ref(false);
+const leaveConfirmDialog = ref(false);
+const isLeaving = ref(false);
+// --- (KẾT THÚC THÊM STATE) ---
 
 // --- (STATE MỚI CHO CHECK-IN) ---
 const isCheckInModalOpen = ref(false);
@@ -391,12 +424,23 @@ const handleTaskUpdate = (message) => {
     planStore.handleTaskWebSocketUpdate(message, progressStore.selectedDate);
 };
 
+// SỬA: Cập nhật hàm này để xử lý các sự kiện WebSocket mới
 const handlePlanDetailsUpdate = (message) => { 
-    // ... (Logic gốc của bạn giữ nguyên)
     console.log("WS Received plan details update:", message);
     if (!planStore.currentPlan) return;
-    const { type, member, userId, status, displayStatus, title, description, durationInDays, dailyGoal, startDate, endDate, oldOwnerUserId, newOwnerUserId } = message;
+    
+    // Sửa: Giải nén các payload mới và cũ
+    const { 
+        type, member, userId, 
+        status, displayStatus, 
+        title, description, dailyGoal, 
+        durationInDays, startDate, endDate, 
+        oldOwnerUserId, newOwnerUserId 
+    } = message;
+
     let needsTimelineRefetch = false;
+    const authStore = useAuthStore(); // Lấy authStore
+
     switch(type) {
         case 'MEMBER_JOINED':
             if (planStore.currentPlan.members && !planStore.currentPlan.members.some(m => m.userId === member?.userId)) {
@@ -406,31 +450,51 @@ const handlePlanDetailsUpdate = (message) => {
                 needsTimelineRefetch = true;
             }
             break;
+        
+        // SỬA: Thêm case 'MEMBER_LEFT' (từ 'leavePlan' backend)
+        case 'MEMBER_LEFT':
+        // SỬA: Thêm case 'MEMBER_REMOVED' (từ 'removeMember' backend)
         case 'MEMBER_REMOVED':
             if (planStore.currentPlan.members) {
                 const index = planStore.currentPlan.members.findIndex(m => m.userId === userId);
                 if (index !== -1) {
                     planStore.currentPlan.members.splice(index, 1);
                     if (typeof planStore.currentPlan.memberCount === 'number' && planStore.currentPlan.memberCount > 0) planStore.currentPlan.memberCount--;
-                    console.log("RT: Removed Member:", userId);
+                    console.log("RT: Removed/Left Member:", userId);
                     needsTimelineRefetch = true;
+                }
+                // Nếu người dùng hiện tại bị "đá" hoặc "rời", điều hướng họ đi
+                if (authStore.currentUser?.id === userId) {
+                    showSnackbar(type === 'MEMBER_LEFT' ? 'Bạn đã rời kế hoạch.' : 'Bạn đã bị loại khỏi kế hoạch.', 'warning');
+                    router.push('/dashboard');
                 }
             }
             break;
+
         case 'STATUS_CHANGED':
             if (status !== undefined) planStore.currentPlan.status = status;
             if (displayStatus !== undefined) planStore.currentPlan.displayStatus = displayStatus;
             console.log("RT: Status Changed:", status);
+            // Nếu plan bị lưu trữ, điều hướng người dùng đi
+            if (status === 'ARCHIVED') {
+                showSnackbar('Kế hoạch này đã được lưu trữ.', 'info');
+                router.push('/dashboard');
+            }
             break;
-        case 'PLAN_INFO_UPDATED':
+
+        // SỬA: Đổi tên event
+        case 'PLAN_DETAILS_UPDATED':
+        case 'PLAN_INFO_UPDATED': // Giữ lại event cũ cho tương thích
             if (title !== undefined) planStore.currentPlan.title = title;
             if (description !== undefined) planStore.currentPlan.description = description;
-            if (durationInDays !== undefined) planStore.currentPlan.durationInDays = durationInDays;
             if (dailyGoal !== undefined) planStore.currentPlan.dailyGoal = dailyGoal;
+            // Các trường này chỉ được gửi từ 'PLAN_INFO_UPDATED' (hàm updatePlan cũ)
+            if (durationInDays !== undefined) planStore.currentPlan.durationInDays = durationInDays;
             if (startDate !== undefined) planStore.currentPlan.startDate = startDate;
             if (endDate !== undefined) planStore.currentPlan.endDate = endDate;
-            console.log("RT: Plan Info Updated.");
+            console.log("RT: Plan Info/Details Updated.");
             break;
+
         case 'OWNERSHIP_TRANSFERRED':
             if (planStore.currentPlan.members && oldOwnerUserId && newOwnerUserId) {
                 const oldOwner = planStore.currentPlan.members.find(m => m.userId === oldOwnerUserId);
@@ -448,6 +512,8 @@ const handlePlanDetailsUpdate = (message) => {
          progressStore.fetchTimeline(planStore.currentPlan.shareableLink, progressStore.selectedDate);
     }
 };
+// --- KẾT THÚC SỬA WEBSOCKET ---
+
 
 const handleJoinPlan = async () => {
     // ... (Logic gốc của bạn giữ nguyên)
@@ -584,7 +650,35 @@ const executeDeleteTask = async () => {
     }
 };
 
-// --- (Logic Quản lý Plan/Member - Giữ nguyên) ---
+// --- (CẬP NHẬT LOGIC QUẢN LÝ PLAN/MEMBER) ---
+
+// THÊM MỚI
+const openEditPlanDialog = () => {
+    isEditPlanModalOpen.value = true;
+};
+
+// THÊM MỚI
+const confirmLeavePlan = () => {
+    isLeaving.value = false; // Reset
+    leaveConfirmDialog.value = true;
+};
+
+// THÊM MỚI
+const executeLeavePlan = async () => {
+    isLeaving.value = true;
+    try {
+        await planStore.leaveCurrentPlan();
+        // Store đã xử lý việc điều hướng
+        showSnackbar('Bạn đã rời kế hoạch.', 'info');
+        leaveConfirmDialog.value = false;
+    } catch (e) {
+        showSnackbar(planStore.error || 'Lỗi khi rời kế hoạch.', 'error');
+        console.error("Leave plan error:", e);
+    } finally {
+        isLeaving.value = false;
+    }
+};
+
 const confirmRemoveMember = (member) => {
     // ... (Logic gốc của bạn giữ nguyên)
     memberToDelete.value = member;
@@ -621,7 +715,7 @@ const executeArchiveAction = async () => {
         let msg = '';
         if (currentlyArchiving) {
             await planStore.archiveCurrentPlan();
-            msg = 'Yêu cầu lưu trữ kế hoạch đã được gửi.';
+            msg = 'Đã lưu trữ kế hoạch. Bạn sẽ được đưa về trang chính.';
             showSnackbar(msg, 'info');
         } else {
             await planStore.unarchiveCurrentPlan();

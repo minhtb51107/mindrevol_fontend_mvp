@@ -48,6 +48,9 @@ export const usePlanStore = defineStore('plan', {
     // Search (cho danh sách userPlans)
     searchTerm: '',
     debouncedFetchUserPlans: null,
+
+    // SỬA: Thêm router vào state để action có thể điều hướng
+    router: router,
   }),
 
   getters: {
@@ -142,7 +145,7 @@ export const usePlanStore = defineStore('plan', {
             // Không cần fetchPlan nữa vì đã có detail
             this.currentPlan = newPlanDetail;
             // Chuyển đến trang chi tiết
-            router.push({ name: 'plan-details', params: { shareableLink } });
+            this.router.push({ name: 'plan-details', params: { shareableLink } });
             // Fetch lại danh sách plan của user để cập nhật
             await this.fetchUserPlans();
         } else {
@@ -470,6 +473,57 @@ export const usePlanStore = defineStore('plan', {
         }
     },
 
+    // --- CÁC ACTION MỚI (SỬA/RỜI) VÀ CẬP NHẬT ACTION CŨ ---
+    
+    // THÊM MỚI
+    async updatePlanDetails(planDetails) {
+        if (!this.currentPlan?.shareableLink) { throw new Error("Missing current plan link"); }
+        if (!this.isCurrentUserOwner) { throw new Error("Permission denied"); }
+        this.isLoading = true; this.error = null;
+        try {
+            const response = await planService.updatePlanDetails(this.currentPlan.shareableLink, planDetails);
+            // Cập nhật state cục bộ ngay lập tức với dữ liệu mới
+            this.currentPlan.title = response.data.title;
+            this.currentPlan.description = response.data.description;
+            this.currentPlan.dailyGoal = response.data.dailyGoal;
+            
+            // Cập nhật danh sách bên trái (sidebar)
+            this.updatePlanInUserList(this.currentPlan);
+            console.log("PlanStore: Plan details updated locally.");
+            // WebSocket sẽ xử lý cho các user khác
+        } catch (error) {
+            console.error("Lỗi khi cập nhật chi tiết kế hoạch:", error);
+            this.error = error.response?.data?.message || "Cập nhật chi tiết thất bại.";
+            throw error;
+        } finally {
+            this.isLoading = false;
+        }
+    },
+
+    // THÊM MỚI
+    async leaveCurrentPlan() {
+        if (!this.currentPlan?.shareableLink) { throw new Error("Missing current plan link"); }
+        if (this.isCurrentUserOwner) { throw new Error("Owner cannot leave"); }
+        this.isLoading = true; this.error = null;
+        try {
+            await planService.leavePlan(this.currentPlan.shareableLink);
+            
+            // Xóa khỏi danh sách bên trái
+            this.userPlans = this.userPlans.filter(p => p.shareableLink !== this.currentPlan.shareableLink);
+            this.currentPlan = null;
+            
+            // Điều hướng về dashboard
+            this.router.push('/dashboard'); 
+            console.log("PlanStore: User left plan, navigating to dashboard.");
+        } catch (error) {
+            console.error('Lỗi khi rời kế hoạch:', error);
+            this.error = error.response?.data?.message || 'Rời kế hoạch thất bại.';
+            throw error;
+        } finally {
+            this.isLoading = false;
+        }
+    },
+
     // --- Các action quản lý Member/Status/Ownership (Giữ nguyên logic gọi API) ---
     async removeMemberFromCurrentPlan(userId) {
         if (!this.currentPlan?.shareableLink) { throw new Error("Missing current plan link"); }
@@ -505,11 +559,13 @@ export const usePlanStore = defineStore('plan', {
         this.isLoading = true; this.error = null;
         try {
             const response = await planService.archivePlan(this.currentPlan.shareableLink);
-            // Cập nhật currentPlan với data mới từ response
-            this.currentPlan = response.data;
-            // Cập nhật plan tương ứng trong danh sách userPlans
-            this.updatePlanInUserList(this.currentPlan);
-            console.log("PlanStore: Plan archived.", this.currentPlan.status);
+            
+            // SỬA: Điều hướng ra khỏi plan đã lưu trữ
+            this.userPlans = this.userPlans.filter(p => p.shareableLink !== this.currentPlan.shareableLink);
+            this.currentPlan = null;
+            this.router.push('/dashboard');
+            
+            console.log("PlanStore: Plan archived. Navigating to dashboard.");
         } catch (error) {
             console.error("Lỗi khi lưu trữ kế hoạch:", error);
             this.error = error.response?.data?.message || "Lưu trữ kế hoạch thất bại.";
@@ -526,8 +582,8 @@ export const usePlanStore = defineStore('plan', {
             const response = await planService.unarchivePlan(this.currentPlan.shareableLink);
             // Cập nhật currentPlan
             this.currentPlan = response.data;
-            // Cập nhật userPlans
-            this.updatePlanInUserList(this.currentPlan);
+            // Cập nhật userPlans (CẬP NHẬT: Thêm lại vào userPlans)
+            await this.fetchUserPlans(); // Cách đơn giản nhất là fetch lại
              console.log("PlanStore: Plan unarchived.", this.currentPlan.status);
         } catch (error) {
             console.error("Lỗi khi khôi phục kế hoạch:", error);
