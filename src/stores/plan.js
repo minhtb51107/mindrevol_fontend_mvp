@@ -463,7 +463,17 @@ export const usePlanStore = defineStore('plan', {
     // --- CẬP NHẬT: Xử lý WebSocket cho Task List ---
     // Action này cần được gọi từ component PlanDetailView khi nhận WebSocket message
     handleTaskWebSocketUpdate(updateData, currentlySelectedDate) {
-        const { type, taskDate } = updateData;
+        // Lấy 'userId' từ updateData, nếu không có thì nó sẽ là 'undefined'
+        const { type, taskDate, userId } = updateData; 
+        // ===================================
+
+        const authStore = useAuthStore();
+        
+        // Logic kiểm tra (giờ sẽ không bị crash)
+        if (userId && authStore.currentUser?.id === userId) {
+            console.log("PlanStore: Ignoring WebSocket update, it was triggered by this user.");
+            return; 
+        }
 
         // Chỉ xử lý các type liên quan đến task list
         const relevantTypes = ['NEW_TASK', 'UPDATE_TASK', 'MOVE_TASK', 'DELETE_TASK', 'REORDER_TASKS'];

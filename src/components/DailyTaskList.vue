@@ -29,14 +29,14 @@
 
       <div v-else class="task-list-scroll pa-2">
         <draggable
-          :list="draggableTaskList"
+          v-model="draggableTaskList"
           item-key="id"
           ghost-class="ghost-item"
           handle=".drag-handle"
           :disabled="!isOwner || planStore.isTaskLoading"
           @end="onDragEnd"
           tag="div"  
-          v-auto-animate="{ duration: 300 }"
+          animation="150"
         >
           <template #item="{ element: task, index }">
             
