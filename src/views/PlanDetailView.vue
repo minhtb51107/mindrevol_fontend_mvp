@@ -106,6 +106,7 @@
                 @open-add-task="openAddTaskDialog"
                 @open-edit-task="openEditTaskDialog"
                 @confirm-delete-task="confirmDeleteTask"
+                @tasks-reordered="handleTasksReordered" 
               />
             </v-card>
           </div>
@@ -301,6 +302,7 @@ const taskForm = reactive({ description: '', deadlineTime: null, taskDate: null 
 const taskDialogError = ref('');
 const deleteTaskConfirmDialog = ref(false);
 const taskToDelete = ref(null);
+const isReordering = ref(false); 
 
 // --- State cho Dialogs Check-in (GIỮ NGUYÊN) ---
 const isCheckInModalOpen = ref(false);
@@ -640,7 +642,7 @@ const onConfirmDialog = async () => {
 };
 
 
-// --- Logic Task (GIỮ NGUYÊN) ---
+// --- Logic Task ---
 const openAddTaskDialog = () => {
     editingTask.value = null;
     taskForm.description = '';
@@ -653,6 +655,15 @@ const openAddTaskDialog = () => {
 
 const openEditTaskDialog = (task) => {
     editingTask.value = { ...task };
+
+    // === FIX (SỬA LỖI): Đảm bảo ngày gốc (originalTaskDate) tồn tại ===
+    // Lỗi "Invalid or missing originalTaskDate" xảy ra vì editingTask.value.taskDate bị thiếu.
+    // Chúng ta biết task này thuộc ngày đang chọn.
+    if (!editingTask.value.taskDate) {
+        editingTask.value.taskDate = progressStore.selectedDate;
+    }
+    // ==========================================================
+
     taskForm.description = task.description;
     taskForm.deadlineTime = task.deadlineTime || null;
     taskForm.taskDate = null; // Để null khi edit, user có thể chọn ngày mới
@@ -695,6 +706,7 @@ const saveTask = async () => {
     taskDialogError.value = '';
     try {
         if (editingTask.value) {
+            // Giờ editingTask.value.taskDate đã được gán ở openEditTaskDialog
             await planStore.updateTaskInCurrentPlan(editingTask.value.id, data, editingTask.value.taskDate);
             showSnackbar('Yêu cầu cập nhật công việc đã được gửi.', 'success');
         } else {
@@ -709,27 +721,71 @@ const saveTask = async () => {
 };
 
 const confirmDeleteTask = (task) => {
-    taskToDelete.value = { id: task.id, description: task.description, taskDate: task.taskDate };
+    // === FIX (SỬA LỖI): Lấy ngày gốc từ task hoặc fallback về ngày đang chọn ===
+    // Tương tự lỗi "Sửa", logic "Xóa" cũng cần ngày gốc của task.
+    const originalTaskDate = task.taskDate || progressStore.selectedDate;
+    // =============================================================
+
+    taskToDelete.value = { id: task.id, description: task.description, taskDate: originalTaskDate };
     deleteTaskConfirmDialog.value = true;
 };
 
 const executeDeleteTask = async () => {
-    if (!taskToDelete.value?.id || !taskToDelete.value?.taskDate) return;
+    // Giờ taskToDelete.value.taskDate đã có (nhờ fix ở confirmDeleteTask)
+    if (!taskToDelete.value?.id || !taskToDelete.value?.taskDate) {
+      // Thêm kiểm tra này để tránh lỗi nếu taskDate vẫn rỗng
+       showSnackbar('Lỗi: Không xác định được ngày của công việc cần xóa.', 'error');
+       deleteTaskConfirmDialog.value = false;
+       return;
+    }
+
     const desc = taskToDelete.value.description;
     const id = taskToDelete.value.id;
     const date = taskToDelete.value.taskDate;
+    
     deleteTaskConfirmDialog.value = false;
     const taskBeingDeleted = { ...taskToDelete.value }; 
     taskToDelete.value = null;
+    
     try {
         await planStore.deleteTaskFromCurrentPlan(id, date);
         showSnackbar(`Yêu cầu xóa "${desc}" đã được gửi.`, 'success');
     } catch (e) {
         showSnackbar(planStore.taskError || `Lỗi khi xóa "${desc}".`, 'error');
         console.error("Delete task error:", e);
-        taskToDelete.value = taskBeingDeleted; 
+        taskToDelete.value = taskBeingDeleted; // Khôi phục lại để thử xóa lần nữa
     }
 };
+
+// === (MỚI) LOGIC XỬ LÝ SẮP XẾP TASK ===
+const handleTasksReordered = async (orderedTasks) => { // DailyTaskList sẽ emit toàn bộ mảng task đã sắp xếp
+    if (isReordering.value) return; // Ngăn chặn gọi đè
+    
+    const taskDate = progressStore.selectedDate;
+    if (!taskDate) {
+        console.error("Reorder failed: No selected date.");
+        return;
+    }
+
+    // Giao diện (DailyTaskList) đã tự cập nhật thứ tự (optimistic)
+    // Giờ ta chỉ cần gọi action của store để lưu và xử lý rollback nếu cần
+    isReordering.value = true;
+    try {
+        // Gọi action trong plan.js, truyền đúng 2 tham số nó cần
+        await planStore.reorderTasksInCurrentPlan(taskDate, orderedTasks);
+        
+        // Không cần snackbar, vì UI đã cập nhật và store đã xử lý
+        
+    } catch (e) {
+        console.error("Reorder task error:", e);
+        // Store sẽ tự động rollback (vì nó có 'originalTasks')
+        // Chỉ cần hiển thị lỗi
+        showSnackbar(planStore.taskError || 'Lỗi khi sắp xếp công việc. Đã hoàn tác.', 'error');
+    } finally {
+        isReordering.value = false;
+    }
+};
+// ========================================
 
 // --- Logic Check-in & Comment (GIỮ NGUYÊN) ---
 const openCheckInModal = () => {

@@ -107,29 +107,34 @@ export const useAuthStore = defineStore('auth', {
         },
 
         // *** HÀM MỚI ĐỂ UPDATE PROFILE ***
-        async updateUserProfile(profileData) {
-             if (!this.accessToken) throw new Error("Chưa đăng nhập.");
-             this.isLoadingProfile = true; // Sử dụng loading riêng cho update
-             this.profileError = null;
-             try {
-                 const response = await userService.updateMyProfile(profileData);
-                 this.profile = response.data; // Cập nhật state profile
+        /**
+     * Cập nhật thông tin profile người dùng
+     * @param {object} profileData Dữ liệu profile mới { fullname, bio, photoUrl }
+     */
+    async updateUserProfile(profileData) {
+      this.isLoadingProfile = true;
+      this.profileError = null;
+      try {
+        // 1. Gọi API, API sẽ trả về profile đã được cập nhật
+        const response = await userService.updateMyProfile(profileData); 
+        
+        // 2. [!!!] ĐÂY LÀ DÒNG BỊ THIẾU [!!!]
+        // Cập nhật state của store với dữ liệu mới từ server
+        this.profile = response.data; 
 
-                 // Cập nhật lại fullname trong user (UserDetailsResponse) nếu có
-                 // Điều này đảm bảo các getter dùng user cũng có fullname mới nhất
-                 if (this.user && this.profile?.fullname) {
-                    this.user.fullname = this.profile.fullname;
-                    localStorage.setItem('user', JSON.stringify(this.user)); // Cập nhật local storage
-                 }
-                 return this.profile; // Trả về profile đã cập nhật
-             } catch (error) {
-                 console.error("Failed to update profile:", error);
-                 this.profileError = error.response?.data?.message || "Cập nhật thông tin thất bại.";
-                 throw error; // Ném lỗi để component xử lý
-             } finally {
-                 this.isLoadingProfile = false;
-             }
-        },
+        // (Nếu bạn có state currentUser, cũng nên cập nhật nó)
+        if (this.currentUser) {
+            this.currentUser.fullname = response.data.fullname;
+            this.currentUser.photoUrl = response.data.photoUrl;
+        }
+
+      } catch (error) {
+        this.profileError = error.response?.data?.message || 'Cập nhật thất bại';
+        throw error; // Ném lỗi ra để component có thể bắt
+      } finally {
+        this.isLoadingProfile = false;
+      }
+    },
 
         async register(userInfo) {
             return authService.register(userInfo);

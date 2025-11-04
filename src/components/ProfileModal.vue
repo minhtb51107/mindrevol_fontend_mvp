@@ -260,12 +260,18 @@ const handleUpdateProfile = async () => {
       // Gọi API upload VỚI CONTEXT 'avatar'
       const response = await fileUploadService.uploadFiles(formData, 'avatar');
       
-      // Lấy URL từ server (response là một mảng)
-      if (response && response.length > 0) {
-        form.photoUrl = response[0].url; 
+      // ----- [BẮT ĐẦU SỬA LỖI LOGIC] -----
+      // SỬA 1: Dữ liệu trả về từ axios nằm trong 'response.data'
+      const fileList = response.data;
+      
+      // SỬA 2: Kiểm tra 'fileList' (là mảng) thay vì 'response' (là object)
+      if (fileList && fileList.length > 0) {
+        // SỬA 3: Lấy url từ 'fileList'
+        form.photoUrl = fileList[0].url; 
       } else {
         throw new Error("Server không trả về URL file.");
       }
+      // ----- [KẾT THÚC SỬA LỖI LOGIC] -----
 
     } catch (uploadError) {
       const message = uploadError.response?.data?.message || 'Tải ảnh lên thất bại.';
@@ -298,7 +304,7 @@ const handleSetPasswordRequest = async () => {
   isSendingEmail.value = true;
   try {
     await authStore.handleForgotPassword(authStore.currentUser.email);
-    showSnackbar(`Đã gửi email tạo mật khẩu đến ${authStore.currentUser.email}.`, 'success', 6000);
+    showSnackbar(`Đã gửi email tạo mậtK_KHA_KHA_KHA_KHA_KHA_KHA khẩu đến ${authStore.currentUser.email}.`, 'success', 6000);
   } catch (error) {
     const message = error.response?.data?.message || 'Gửi email thất bại. Vui lòng thử lại.';
     showSnackbar(message, 'error');
