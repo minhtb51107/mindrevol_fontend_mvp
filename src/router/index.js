@@ -3,6 +3,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import { useAuthStore } from '@/stores/auth'
+import { usePlanCreatorStore } from '@/stores/planCreator';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -60,6 +61,23 @@ const router = createRouter({
       name: 'plan-details',
       component: () => import('../views/PlanDetailView.vue'),
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/create-plan/schedule',
+      name: 'plan-schedule', // Đây là Bước 2
+      component: () => import('@/views/SchedulePlanView.vue'),
+      meta: { requiresAuth: true, layout: 'default' },
+      beforeEnter: (to, from, next) => {
+        // Guard: Chỉ cho phép vào Bước 2 nếu có dữ liệu từ Bước 1
+        const creatorStore = usePlanCreatorStore();
+        if (creatorStore.durationInDays > 0 && creatorStore.startDate) {
+          next(); // Cho phép truy cập
+        } else {
+          // Không có dữ liệu, đá về Bước 1
+          console.warn('Truy cập /schedule không hợp lệ, chuyển về /create-plan');
+          next({ name: 'create-plan' });
+        }
+      }
     },
     // *** THÊM ROUTE PROFILE ***
     {

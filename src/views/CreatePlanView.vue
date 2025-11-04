@@ -3,7 +3,7 @@
     <v-row justify="center">
       <v-col cols="12" md="10" lg="8">
         <v-card class="pa-4 pa-md-6">
-          <v-card-title class="text-center text-h5 mb-6">Tạo Kế hoạch học tập mới</v-card-title>
+          <v-card-title class="text-center text-h5 mb-6">Bước 1: Thông tin chung</v-card-title>
           <v-card-text>
             <v-alert
               v-if="errorMessage"
@@ -17,7 +17,7 @@
               {{ errorMessage }}
             </v-alert>
 
-            <v-form @submit.prevent="handleCreatePlan" ref="createPlanForm">
+            <v-form @submit.prevent="goToStep2" ref="createPlanForm">
               <v-text-field
                 v-model="form.title"
                 label="Tên kế hoạch *"
@@ -63,37 +63,6 @@
                 class="mb-5"
               ></v-text-field>
 
-              <v-divider class="mb-5"></v-divider>
-
-              <div class="mb-5">
-                <p class="text-subtitle-1 font-weight-medium mb-3">Công việc cụ thể cần làm (tùy chọn)</p>
-                <div v-for="(task, index) in form.dailyTasks" :key="index" class="d-flex align-center mb-3">
-                  <v-text-field
-                    v-model="task.description"
-                    :label="`Công việc ${index + 1}`"
-                    hide-details="auto"
-                    class="me-2"
-                    :rules="[rules.taskDescriptionRequired(task.description, index)]"
-                  ></v-text-field>
-                  <v-btn
-                    icon="mdi-delete-outline"
-                    size="small"
-                    variant="text"
-                    color="grey"
-                    @click="removeTask(index)"
-                    :disabled="form.dailyTasks.length <= 1 && !form.dailyTasks[0].description"
-                  ></v-btn>
-                </div>
-                <v-btn
-                  variant="outlined"
-                  size="small"
-                  @click="addTask"
-                  prepend-icon="mdi-plus"
-                  rounded="lg"
-                 >
-                  Thêm công việc
-                </v-btn>
-              </div>
               <v-divider class="mb-6"></v-divider>
 
               <v-btn
@@ -105,8 +74,21 @@
                 :disabled="isLoading"
                 rounded="lg"
                 elevation="2"
+                class="mb-3"
               >
-                Tạo kế hoạch
+                Tiếp theo: Lập lịch công việc
+              </v-btn>
+              
+              <v-btn
+                variant="outlined"
+                block
+                size="large"
+                :loading="isLoading"
+                :disabled="isLoading"
+                rounded="lg"
+                @click="handleQuickCreate"
+              >
+                Tạo nhanh (thêm task sau)
               </v-btn>
             </v-form>
           </v-card-text>
@@ -118,10 +100,14 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
+import { useRouter } from 'vue-router'; // <-- Thêm
 import { usePlanStore } from '@/stores/plan';
-import { VContainer, VRow, VCol, VCard, VCardTitle, VCardText, VForm, VTextField, VTextarea, VBtn, VAlert, VDivider, VIcon } from 'vuetify/components';
+import { usePlanCreatorStore } from '@/stores/planCreator'; // <-- Thêm
+import { VContainer, VRow, VCol, VCard, VCardTitle, VCardText, VForm, VTextField, VTextarea, VBtn, VAlert, VDivider } from 'vuetify/components';
 
 const planStore = usePlanStore();
+const creatorStore = usePlanCreatorStore(); // <-- Thêm
+const router = useRouter(); // <-- Thêm
 const createPlanForm = ref(null);
 
 const form = reactive({
@@ -130,7 +116,7 @@ const form = reactive({
   durationInDays: 7,
   startDate: '',
   dailyGoal: '',
-  dailyTasks: [{ description: '' }]
+  // Xóa dailyTasks khỏi đây
 });
 const isLoading = ref(false);
 const errorMessage = ref('');
@@ -144,6 +130,8 @@ const getTodayDate = () => {
 };
 
 onMounted(() => {
+  // Reset store tạm khi vào Bước 1 (để tránh lỗi khi back)
+  creatorStore.clearPlanDetails();
   form.startDate = getTodayDate();
 });
 
@@ -157,28 +145,12 @@ const rules = {
       today.setHours(0,0,0,0);
       return selectedDate >= today || 'Ngày bắt đầu không được là quá khứ.';
   },
-  taskDescriptionRequired: (value, index) => {
-      const isLastEmptyTask = index === form.dailyTasks.length - 1 && !value?.trim();
-      if (form.dailyTasks.length === 1 && isLastEmptyTask) return true;
-      if (isLastEmptyTask && form.dailyTasks.length > 1) return true;
-      return !!value?.trim() || 'Mô tả công việc không được để trống.';
-  }
 };
 
-const addTask = () => {
-  form.dailyTasks.push({ description: '' });
-};
+// Xóa hàm addTask, removeTask
 
-const removeTask = (index) => {
-  if (form.dailyTasks.length > 1) {
-    form.dailyTasks.splice(index, 1);
-  } else {
-    form.dailyTasks[0].description = '';
-  }
-};
-
-
-const handleCreatePlan = async () => {
+// === HÀM MỚI: Xử lý đi đến Bước 2 ===
+const goToStep2 = async () => {
   if (!createPlanForm.value) return;
   const { valid } = await createPlanForm.value.validate();
   if (!valid) return;
@@ -186,15 +158,39 @@ const handleCreatePlan = async () => {
   isLoading.value = true;
   errorMessage.value = '';
 
+  try {
+    // 1. Lưu state vào store mới
+    creatorStore.setPlanDetails(form);
+    console.log("Details saved to creator store. Navigating to step 2...");
+    // 2. Điều hướng đến Bước 2
+    router.push({ name: 'plan-schedule' });
+  } catch (error) {
+    errorMessage.value = 'Không thể chuyển bước. Vui lòng thử lại.';
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// === HÀM MỚI: Xử lý Tạo Nhanh (Persona 3) ===
+const handleQuickCreate = async () => {
+  if (!createPlanForm.value) return;
+  const { valid } = await createPlanForm.value.validate();
+  if (!valid) return;
+
+  isLoading.value = true;
+  errorMessage.value = '';
+
+  // Gọi API "simple" (endpoint /plans) với task rỗng
   const payload = {
-      ...form,
-      dailyTasks: form.dailyTasks
-                      .map(task => ({ description: task.description.trim() }))
-                      .filter(task => task.description !== '')
+    ...form,
+    dailyTasks: [], // Gửi mảng rỗng
+    repeatTasks: false,
   };
 
   try {
+    // Dùng planStore cũ để tạo
     await planStore.createNewPlan(payload);
+    // planStore sẽ tự điều hướng khi thành công
   } catch (error) {
     errorMessage.value = error.response?.data?.message || 'Không thể tạo kế hoạch, vui lòng thử lại.';
   } finally {
@@ -204,7 +200,5 @@ const handleCreatePlan = async () => {
 </script>
 
 <style scoped>
-.d-flex.align-center.mb-3 {
-  margin-bottom: 1rem !important;
-}
+/* (Không cần CSS gì đặc biệt) */
 </style>

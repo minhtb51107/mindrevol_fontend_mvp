@@ -134,19 +134,17 @@ export const usePlanStore = defineStore('plan', {
     },
 
     // Tạo plan mới
+    // Action này dùng cho "Tạo Nhanh" (Bước 1)
     async createNewPlan(planData) {
       this.isLoading = true;
       this.error = null;
       try {
         const response = await planService.createPlan(planData);
-        const newPlanDetail = response.data; // API trả về PlanDetailResponse
+        const newPlanDetail = response.data;
         const shareableLink = newPlanDetail?.shareableLink;
         if (shareableLink) {
-            // Không cần fetchPlan nữa vì đã có detail
             this.currentPlan = newPlanDetail;
-            // Chuyển đến trang chi tiết
-            this.router.push({ name: 'plan-details', params: { shareableLink } });
-            // Fetch lại danh sách plan của user để cập nhật
+            router.push({ name: 'plan-details', params: { shareableLink } }); // <-- Dùng router import
             await this.fetchUserPlans();
         } else {
             console.error("Create plan response missing shareableLink:", newPlanDetail);
@@ -155,9 +153,38 @@ export const usePlanStore = defineStore('plan', {
       } catch (error) {
           console.error("Lỗi khi tạo kế hoạch:", error);
           this.error = error.response?.data?.message || 'Không thể tạo kế hoạch.';
-          throw error; // Ném lỗi ra để component xử lý
+          throw error;
       } finally {
           this.isLoading = false;
+      }
+    },
+
+    // === ACTION MỚI CHO WIZARD (BƯỚC 2) ===
+    async createPlanWithSchedule(planData) {
+      this.isLoading = true;
+      this.error = null;
+      try {
+        // Gọi service mới
+        const response = await planService.createPlanWithSchedule(planData);
+        const newPlanDetail = response.data;
+        const shareableLink = newPlanDetail?.shareableLink;
+        
+        if (shareableLink) {
+          this.currentPlan = newPlanDetail;
+          // Điều hướng đến plan vừa tạo
+          router.push({ name: 'plan-details', params: { shareableLink } });
+          // Fetch lại danh sách plan
+          await this.fetchUserPlans();
+        } else {
+          this.error = "Tạo kế hoạch thành công nhưng có lỗi khi nhận link.";
+          throw new Error("Tạo kế hoạch thành công nhưng có lỗi khi nhận link.");
+        }
+      } catch (error) {
+        console.error("Lỗi khi tạo kế hoạch chi tiết:", error);
+        this.error = error.response?.data?.message || 'Không thể tạo kế hoạch chi tiết.';
+        throw error; // Ném lỗi ra để view (SchedulePlanView) xử lý
+      } finally {
+        this.isLoading = false;
       }
     },
 

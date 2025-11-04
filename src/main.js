@@ -8,6 +8,7 @@ import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
+import piniaPluginPersistedstate from 'pinia-plugin-persistedstate' // <-- THÊM IMPORT
 import App from './App.vue'
 import router from './router'
 
@@ -291,5 +292,7 @@ const vuetify = createVuetify({
 const app = createApp(App)
 app.use(createPinia())
 app.use(router)
+const pinia = createPinia()
+pinia.use(piniaPluginPersistedstate) // <-- SỬ DỤNG PLUGIN
 app.use(vuetify) // Sử dụng Vuetify đã cấu hình
 app.mount('#app')
