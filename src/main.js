@@ -8,9 +8,11 @@ import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import piniaPluginPersistedstate from 'pinia-plugin-persistedstate' // <-- THÊM IMPORT
+import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import App from './App.vue'
 import router from './router'
+
+import { useAuthStore } from '@/stores/auth' // <-- *** THÊM IMPORT STORE ***
 
 // --- Theme Sáng Tùy Chỉnh (Giữ nguyên) ---
 const myCustomLightTheme = {
@@ -290,9 +292,40 @@ const vuetify = createVuetify({
 // --- Khởi tạo App Vue ---
 
 const app = createApp(App)
-app.use(createPinia())
-app.use(router)
+
+// --- (PHẦN SỬA ĐỔI) ---
+// 1. Khởi tạo Pinia MỘT LẦN
 const pinia = createPinia()
-pinia.use(piniaPluginPersistedstate) // <-- SỬ DỤNG PLUGIN
+// 2. Sử dụng plugin trên instance
+pinia.use(piniaPluginPersistedstate) 
+
+// 3. Sử dụng Pinia (đã cấu hình) cho app
+app.use(pinia)
+// --- (KẾT THÚC SỬA ĐỔI) ---
+
+app.use(router)
 app.use(vuetify) // Sử dụng Vuetify đã cấu hình
+
+
+// --- (PHẦN THÊM MỚI) ---
+// 4. Lấy store SAU KHI app đã use(pinia)
+// (Truyền pinia instance để đảm bảo store được gắn đúng)
+const authStore = useAuthStore(pinia);
+
+// 5. Lắng nghe sự kiện storage từ các tab khác
+window.addEventListener('storage', (event) => {
+  // Nếu key là 'accessToken' (hoặc 'refreshToken') VÀ nó bị xóa (newValue là null)
+  if (event.key === 'accessToken' && event.newValue === null) {
+    console.log('Phát hiện logout từ tab khác. Đồng bộ...');
+    
+    // Chỉ gọi logout nếu state của tab này vẫn đang là "đã đăng nhập"
+    if (authStore.isAuthenticated) {
+      // Gọi hàm logout của store, hàm này sẽ dọn dẹp state và chuyển trang
+      authStore.logout();
+    }
+  }
+});
+// --- (KẾT THÚC THÊM MỚI) ---
+
+
 app.mount('#app')

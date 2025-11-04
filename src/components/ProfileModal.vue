@@ -1,213 +1,318 @@
 <template>
-  <v-dialog :model-value="modelValue" @update:modelValue="$emit('update:modelValue')" persistent max-width="600px">
+  <v-snackbar
+    v-model="snackbar.show"
+    :color="snackbar.color"
+    :timeout="snackbar.timeout"
+    location="top"
+  >
+    {{ snackbar.text }}
+    <template v-slot:actions>
+      <v-btn variant="text" @click="snackbar.show = false">Đóng</v-btn>
+    </template>
+  </v-snackbar>
+
+  <v-dialog :model-value="modelValue" @update:modelValue="$emit('update:modelValue')" persistent max-width="700px">
     <v-card rounded="lg">
       <v-card-title class="pa-4 bg-grey-lighten-3">
-        <span class="text-h6">Thông tin cá nhân</span>
+        <span class="text-h6">Tài khoản của tôi</span>
         <v-spacer></v-spacer>
-        <v-btn icon="mdi-close" variant="text" @click="closeModal"></v-btn>
+        <v-btn icon="mdi-close" variant="text" @click="$emit('update:modelValue', false)"></v-btn>
       </v-card-title>
       <v-divider></v-divider>
 
-      <v-card-text class="pt-4">
-        <div v-if="authStore.isLoadingProfile && !initialProfileLoaded" class="text-center py-10">
-          <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
-          <p class="mt-3 text-medium-emphasis">Đang tải thông tin...</p>
-        </div>
+      <div v-if="authStore.isLoadingProfile && !isUploading" class="pa-10 text-center">
+        <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
+        <p class="mt-4">Đang tải thông tin...</p>
+      </div>
 
-        <v-alert v-else-if="authStore.profileError && !initialProfileLoaded" type="error" density="compact" class="mb-4" rounded="lg">
-          {{ authStore.profileError }}. Vui lòng thử lại sau.
-        </v-alert>
+      <div v-else-if="authStore.profileError" class="pa-10 text-center">
+         <v-icon icon="mdi-alert-circle-outline" color="error" size="64" class="mb-4"></v-icon>
+         <h3 class="text-h6 mb-2">Lỗi tải thông tin</h3>
+         <p class="text-medium-emphasis">{{ authStore.profileError }}</p>
+         <v-btn color="primary" @click="authStore.fetchUserProfile" class="mt-4">Thử lại</v-btn>
+      </div>
+      
+      <div v-else>
+        <v-card-text class="pa-0">
+          <v-tabs v-model="currentTab" bg-color="transparent" color="primary" grow>
+            <v-tab value="info">
+              <v-icon start>mdi-account-circle-outline</v-icon>
+              Thông tin
+            </v-tab>
+            <v-tab value="security">
+              <v-icon start>mdi-lock-outline</v-icon>
+              Bảo mật
+            </v-tab>
+          </v-tabs>
+          <v-divider></v-divider>
 
-        <div v-else-if="profileForm.email">
-          <v-alert
-            v-if="successMessage"
-            type="success" density="compact" class="mb-4" closable @click:close="successMessage = ''" rounded="lg">
-            {{ successMessage }}
-          </v-alert>
-          <v-alert
-            v-if="errorMessage"
-            type="error" density="compact" class="mb-4" closable @click:close="errorMessage = ''" rounded="lg">
-            {{ errorMessage }}
-          </v-alert>
+          <v-window v-model="currentTab">
+            <v-window-item value="info">
+              <v-form @submit.prevent="handleUpdateProfile" ref="profileFormRef">
+                <v-card-text class="pa-5">
+                  
+                  <div class="d-flex align-center mb-5">
+                    <v-avatar size="80" class="mr-4">
+                      <v-img :src="localPreviewUrl || form.photoUrl || defaultAvatar" alt="Avatar"></v-img>
+                    </v-avatar>
+                    <div>
+                       <v-file-input
+                        v-model="selectedFiles"
+                        label="Tải ảnh đại diện mới"
+                        accept="image/png, image/jpeg, image/webp"
+                        variant="outlined"
+                        density="compact"
+                        prepend-icon="mdi-camera-outline"
+                        hide-details
+                        @change="onFileSelect"
+                        @click:clear="clearFileSelection"
+                      ></v-file-input>
+                       <span class="text-caption text-medium-emphasis">Nên dùng ảnh vuông (tối đa 2MB).</span>
+                    </div>
+                  </div>
 
-          <div class="text-center mb-6">
-            <v-avatar :image="avatarPreview || defaultAvatar" size="100" color="grey-lighten-3" class="elevation-1 profile-avatar">
-              <template v-slot:error>
-                <span class="text-h5 text-grey-darken-1">{{ userInitial }}</span>
-              </template>
-              <span v-if="!avatarPreview" class="text-h5 text-grey-darken-1">{{ userInitial }}</span>
-            </v-avatar>
-          </div>
+                  <v-text-field
+                    v-model="form.fullname"
+                    label="Họ và tên *"
+                    prepend-inner-icon="mdi-account-outline"
+                    :rules="[rules.required]"
+                    class="mb-4"
+                  ></v-text-field>
 
-          <v-form @submit.prevent="updateProfile" ref="profileFormRef">
-            <v-text-field
-              :model-value="profileForm.email"
-              label="Email" variant="outlined" density="compact" readonly disabled class="mb-4" prepend-inner-icon="mdi-email-outline" rounded="lg">
-            </v-text-field>
+                  <v-textarea
+                    v-model="form.bio"
+                    label="Giới thiệu"
+                    prepend-inner-icon="mdi-text-account"
+                    rows="3"
+                    auto-grow
+                    counter
+                    maxlength="200"
+                    placeholder="Chia sẻ một chút về bản thân..."
+                  ></v-textarea>
+                </v-card-text>
+                <v-divider></v-divider>
+                <v-card-actions class="pa-4 bg-grey-lighten-4">
+                  <v-spacer></v-spacer>
+                  <v-btn 
+                    color="primary" 
+                    type="submit" 
+                    variant="flat"
+                    :loading="authStore.isLoadingProfile || isUploading"
+                    :disabled="authStore.isLoadingProfile || isUploading"
+                  >
+                    Lưu thay đổi
+                  </v-btn>
+                </v-card-actions>
+              </v-form>
+            </v-window-item>
 
-            <v-text-field
-              v-model="profileForm.fullname"
-              label="Họ và tên *" variant="outlined" density="compact" :rules="[rules.required, rules.minLength(2)]" class="mb-4" prepend-inner-icon="mdi-account-outline" counter="100" maxlength="100" rounded="lg" autofocus>
-            </v-text-field>
-
-            <v-text-field
-              v-model="profileForm.photoUrl"
-              label="URL Ảnh đại diện (tùy chọn)" variant="outlined" density="compact" class="mb-4" prepend-inner-icon="mdi-image-outline" placeholder="https://..." clearable @update:model-value="updateAvatarPreview" rounded="lg">
-            </v-text-field>
-
-            <v-text-field
-              :model-value="profileForm.userTypeDisplay"
-              label="Loại tài khoản" variant="outlined" density="compact" readonly disabled class="mb-4" prepend-inner-icon="mdi-account-tie-outline" rounded="lg">
-            </v-text-field>
-
-            <v-text-field
-              :model-value="profileForm.statusDisplay"
-              label="Trạng thái" variant="outlined" density="compact" readonly disabled class="mb-4" prepend-inner-icon="mdi-check-decagram-outline" rounded="lg">
-            </v-text-field>
-          </v-form>
-        </div>
-        <div v-else class="text-center text-medium-emphasis py-5">
-           Không thể tải thông tin cá nhân.
-         </div>
-      </v-card-text>
-      <v-divider></v-divider>
-       <v-card-actions class="pa-4 bg-grey-lighten-4">
-        <v-spacer></v-spacer>
-        <v-btn color="grey-darken-1" variant="text" @click="closeModal" :disabled="isLoadingUpdate">Hủy</v-btn>
-        <v-btn color="primary" variant="flat" @click="updateProfile" :loading="isLoadingUpdate" :disabled="isLoadingUpdate || !isFormChanged" rounded="lg">
-          Lưu thay đổi
-        </v-btn>
-      </v-card-actions>
+            <v-window-item value="security">
+              <v-card-text class="pa-5">
+                
+                <div v-if="authStore.currentUser?.authProvider === 'LOCAL'">
+                  <p class="text-body-1 mb-4">Bạn có thể thay đổi mật khẩu đăng nhập của mình tại đây.</p>
+                  <v-btn
+                    color="primary"
+                    @click="openChangePasswordModal = true"
+                    prepend-icon="mdi-lock-reset"
+                    variant="flat"
+                  >
+                    Đổi mật khẩu
+                  </v-btn>
+                </div>
+                
+                <div v-else>
+                   <p class="text-body-1 mb-2">Tài khoản của bạn hiện đang đăng nhập thông qua Google.</p>
+                   <p class="text-medium-emphasis mb-4">
+                     Bạn có thể tạo một mật khẩu riêng để đăng nhập bằng email và mật khẩu. 
+                     Chúng tôi sẽ gửi một liên kết đến email <strong class="text-high-emphasis">{{ authStore.currentUser?.email }}</strong> để bạn tạo mật khẩu.
+                   </p>
+                  <v-btn
+                    color="secondary"
+                    @click="handleSetPasswordRequest"
+                    prepend-icon="mdi-lock-plus-outline"
+                    variant="flat"
+                    :loading="isSendingEmail"
+                  >
+                    Gửi email tạo mật khẩu
+                  </v-btn>
+                </div>
+                
+              </v-card-text>
+            </v-window-item>
+          </v-window>
+        </v-card-text>
+      </div>
     </v-card>
+
+    <ChangePasswordModal v-model="openChangePasswordModal" />
   </v-dialog>
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, nextTick } from 'vue';
+import { ref, watch, reactive } from 'vue';
 import { useAuthStore } from '@/stores/auth';
-import { VDialog, VCard, VCardTitle, VCardText, VForm, VTextField, VBtn, VAlert, VProgressCircular, VAvatar, VSpacer, VDivider, VIcon } from 'vuetify/components';
+import defaultAvatar from '@/assets/default-avatar.png';
+import ChangePasswordModal from './ChangePasswordModal.vue';
+import fileUploadService from '@/api/fileUploadService'; // Import dịch vụ upload
 
+// Khai báo props và emits
 const props = defineProps({
   modelValue: Boolean
 });
 const emit = defineEmits(['update:modelValue']);
 
+// Store
 const authStore = useAuthStore();
+
+// State chung
+const currentTab = ref('info');
 const profileFormRef = ref(null);
-const defaultAvatar = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2JkYmRiZCI+PHBhdGggZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bTAgM2MxLjY2IDAgMyAxLjM0IDMgM3MtMS4zNCAzLTMgMy0zLTEuMzQtMy0zIDEuMzQtMyAzLTN6bTAgMTQuMmMtMi41IDAtNC43MS0xLjI4LTYuMjItMy4yMy4wMi0uOTggMS45OC0xLjgyIDQuMjItMi40MSAxLjEzLjM1IDIuMzkuNTYgMy43OC41NnMyLjY1LS4yMSAzLjc4LS41NmMyLjI0LjU5IDQuMiAxLjQ0IDQuMiAyLjQxLTEuNTEgMi45NS0zLjcyIDMuMjMtNi4yMiAzLjIzeiIvPjwvc3ZnPg==';
+const snackbar = reactive({
+  show: false,
+  text: '',
+  color: 'success',
+  timeout: 4000
+});
 
-const profileForm = reactive({
-  email: '',
+// State cho Tab 1: Thông tin
+const form = reactive({
   fullname: '',
-  photoUrl: '',
-  userType: '',
-  status: '',
-  userTypeDisplay: computed(() => profileForm.userType === 'CUSTOMER' ? 'Khách hàng' : (profileForm.userType === 'EMPLOYEE' ? 'Nhân viên' : 'Không xác định')),
-  statusDisplay: computed(() => profileForm.status === 'ACTIVE' ? 'Đang hoạt động' : (profileForm.status === 'PENDING_ACTIVATION' ? 'Chờ kích hoạt' : 'Đã khóa')),
+  bio: '',
+  photoUrl: ''
 });
-
-const originalProfileData = ref({});
-const avatarPreview = ref('');
-const isLoadingUpdate = ref(false);
-const errorMessage = ref('');
-const successMessage = ref('');
-const initialProfileLoaded = ref(false);
-
-const userInitial = computed(() => {
-    const name = profileForm.fullname || authStore.currentUser?.fullname;
-    return name ? name.charAt(0).toUpperCase() : '?';
-});
-
 const rules = {
   required: value => !!value || 'Thông tin bắt buộc.',
-  minLength: (length) => value => (!value || value.length >= length) || `Ít nhất ${length} ký tự.`,
 };
+// Sửa: v-file-input trả về một mảng, nên ta init là mảng rỗng
+const selectedFiles = ref([]); // (SỬA ĐỔI P4) Lưu file(s) người dùng chọn
+const localPreviewUrl = ref(null); 
+const isUploading = ref(false); 
 
-const isFormChanged = computed(() => {
-    const originalPhoto = originalProfileData.value.photoUrl || '';
-    const currentPhoto = profileForm.photoUrl || '';
-    return profileForm.fullname !== originalProfileData.value.fullname ||
-           currentPhoto !== originalPhoto;
-});
+// State cho Tab 2: Bảo mật
+const openChangePasswordModal = ref(false);
+const isSendingEmail = ref(false);
 
-const populateForm = (profileData) => {
-    if (profileData) {
-        profileForm.email = profileData.email || '';
-        profileForm.fullname = profileData.fullname || '';
-        profileForm.photoUrl = profileData.photoUrl || '';
-        profileForm.userType = profileData.userType || '';
-        profileForm.status = profileData.status || '';
-        originalProfileData.value = { fullname: profileForm.fullname, photoUrl: profileForm.photoUrl || '' };
-        avatarPreview.value = profileForm.photoUrl;
-        initialProfileLoaded.value = true;
-    } else {
-        initialProfileLoaded.value = false;
+
+// Đồng bộ form khi modal mở hoặc profile thay đổi
+watch(() => [props.modelValue, authStore.profile], ([newModelValue, newProfile]) => {
+  if (newModelValue) {
+    currentTab.value = 'info'; 
+    
+    // (SỬA ĐỔI P4) Reset trạng thái upload
+    selectedFiles.value = []; // Reset về mảng rỗng
+    localPreviewUrl.value = null;
+    isUploading.value = false;
+
+    if (newProfile) {
+      form.fullname = newProfile.fullname || '';
+      form.bio = newProfile.bio || '';
+      form.photoUrl = newProfile.photoUrl || '';
     }
+  }
+}, { immediate: true, deep: true }); 
+
+
+// (SỬA ĐỔI P4) Xử lý khi người dùng chọn file
+const onFileSelect = (event) => {
+  const file = event.target.files[0]; // Lấy file đầu tiên
+  if (!file) {
+    clearFileSelection();
+    return;
+  }
+
+  if (file.size > 2 * 1024 * 1024) {
+    showSnackbar('File quá lớn. Vui lòng chọn ảnh dưới 2MB.', 'error');
+    selectedFiles.value = []; // Xóa file khỏi v-model
+    return;
+  }
+  
+  // selectedFiles (v-model) đã được cập nhật tự động
+  // Chỉ cần tạo link preview
+  localPreviewUrl.value = URL.createObjectURL(file);
 };
 
-const closeModal = () => {
-  emit('update:modelValue', false);
+// (SỬA ĐỔI P4) Xử lý khi người dùng nhấn nút 'x' của v-file-input
+const clearFileSelection = () => {
+    selectedFiles.value = [];
+    localPreviewUrl.value = null;
 };
 
-const updateAvatarPreview = (newUrl) => {
-    avatarPreview.value = newUrl || '';
-};
 
-const updateProfile = async () => {
-    if (!profileFormRef.value) return;
-    const { valid } = await profileFormRef.value.validate();
-    if (!valid || !isFormChanged.value) {
-        if (!isFormChanged.value) {
-            errorMessage.value = "Bạn chưa thay đổi thông tin nào.";
-        }
-        return;
-    }
+// (SỬA ĐỔI P4) Xử lý cập nhật profile
+const handleUpdateProfile = async () => {
+  if (!profileFormRef.value) return;
+  const { valid } = await profileFormRef.value.validate();
+  if (!valid) return;
 
-    isLoadingUpdate.value = true;
-    errorMessage.value = '';
-    successMessage.value = '';
+  const fileToUpload = selectedFiles.value[0]; // Lấy file từ v-model
+
+  // 1. (MỚI) Xử lý upload ảnh nếu có file mới
+  if (fileToUpload) {
+    isUploading.value = true;
+    
+    // Tạo FormData
+    const formData = new FormData();
+    // Thêm file với key là "files" (số nhiều) để khớp backend
+    formData.append('files', fileToUpload);
 
     try {
-        const dataToUpdate = {
-            fullname: profileForm.fullname,
-            photoUrl: profileForm.photoUrl || null,
-        };
-        const updatedProfile = await authStore.updateUserProfile(dataToUpdate);
-        successMessage.value = "Cập nhật thông tin thành công!";
-        originalProfileData.value = { fullname: updatedProfile.fullname, photoUrl: updatedProfile.photoUrl || '' };
-        setTimeout(closeModal, 1500);
-    } catch (error) {
-        errorMessage.value = authStore.profileError || 'Có lỗi xảy ra, vui lòng thử lại.';
+      // Gọi API upload VỚI CONTEXT 'avatar'
+      const response = await fileUploadService.uploadFiles(formData, 'avatar');
+      
+      // Lấy URL từ server (response là một mảng)
+      if (response && response.length > 0) {
+        form.photoUrl = response[0].url; 
+      } else {
+        throw new Error("Server không trả về URL file.");
+      }
+
+    } catch (uploadError) {
+      const message = uploadError.response?.data?.message || 'Tải ảnh lên thất bại.';
+      showSnackbar(message, 'error');
+      isUploading.value = false;
+      return; // Dừng lại nếu upload lỗi
     } finally {
-        isLoadingUpdate.value = false;
+      isUploading.value = false;
     }
+  }
+
+  // 2. (Như cũ) Cập nhật thông tin profile (với photoUrl cũ hoặc mới)
+  try {
+    await authStore.updateUserProfile(form);
+    showSnackbar('Cập nhật thông tin thành công!', 'success');
+    clearFileSelection();
+  } catch (updateError) {
+     const message = updateError.response?.data?.message || 'Cập nhật thất bại. Vui lòng thử lại.';
+     showSnackbar(message, 'error');
+  }
 };
 
-watch(() => props.modelValue, async (newValue) => {
-  if (newValue) {
-    initialProfileLoaded.value = !!authStore.profile;
-    errorMessage.value = '';
-    successMessage.value = '';
-    if (!authStore.profile && !authStore.isLoadingProfile) {
-      await authStore.fetchUserProfile();
-    }
-    nextTick(() => {
-        populateForm(authStore.profile);
-        profileFormRef.value?.resetValidation();
-    });
+// (HÀM TỪ P3 - Giữ nguyên) Xử lý gửi email tạo mật khẩu
+const handleSetPasswordRequest = async () => {
+  if (!authStore.currentUser?.email) {
+    showSnackbar("Không tìm thấy email người dùng.", "error");
+    return;
   }
-});
 
-watch(() => authStore.profile, (newProfile) => {
-    if (props.modelValue) {
-        populateForm(newProfile);
-    }
-}, { deep: true });
+  isSendingEmail.value = true;
+  try {
+    await authStore.handleForgotPassword(authStore.currentUser.email);
+    showSnackbar(`Đã gửi email tạo mật khẩu đến ${authStore.currentUser.email}.`, 'success', 6000);
+  } catch (error) {
+    const message = error.response?.data?.message || 'Gửi email thất bại. Vui lòng thử lại.';
+    showSnackbar(message, 'error');
+  } finally {
+    isSendingEmail.value = false;
+  }
+};
+
+// (HÀM TỪ P3 - Giữ nguyên) Tiện ích hiển thị thông báo
+const showSnackbar = (text, color = 'success', timeout = 4000) => {
+  snackbar.text = text;
+  snackbar.color = color;
+  snackbar.timeout = timeout;
+  snackbar.show = true;
+};
 
 </script>
-
-<style scoped>
-.profile-avatar {
-    border: 3px solid white;
-}
-</style>

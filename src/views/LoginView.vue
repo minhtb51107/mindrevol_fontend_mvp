@@ -108,7 +108,18 @@ const handleLogin = async () => {
   try {
     await authStore.login(form);
   } catch (error) {
-    errorMessage.value = error.response?.data?.message || 'Email hoặc mật khẩu không chính xác.';
+    // --- (PHẦN SỬA ĐỔI) ---
+    if (error.response) {
+      // Lỗi có phản hồi từ server (sai pass, 401, 500, chưa kích hoạt)
+      errorMessage.value = error.response.data?.message || 'Email hoặc mật khẩu không chính xác.';
+    } else if (error.request) {
+      // Lỗi request (không kết nối được server, timeout)
+      errorMessage.value = 'Không thể kết nối máy chủ. Vui lòng kiểm tra lại kết nối mạng.';
+    } else {
+      // Lỗi khác (lỗi logic JS)
+      errorMessage.value = 'Đã có lỗi xảy ra. Vui lòng thử lại.';
+    }
+    // --- (KẾT THÚC SỬA ĐỔI) ---
   } finally {
     isLoading.value = false;
   }
