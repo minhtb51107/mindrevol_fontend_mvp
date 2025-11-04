@@ -562,12 +562,12 @@ export const usePlanStore = defineStore('plan', {
         if (!this.isCurrentUserOwner) { throw new Error("Permission denied"); }
         this.isLoading = true; this.error = null;
         try {
-            // (SỬA) Gọi API và CẬP NHẬT plan hiện tại, KHÔNG điều hướng
+           // (SỬA) Gọi API và CẬP NHẬT plan hiện tại, KHÔNG điều hướng
             const response = await planService.archivePlan(this.currentPlan.shareableLink);
             this.currentPlan = response.data; // Cập nhật plan (giờ có status: ARCHIVED)
             
-            // (SỬA) Xóa khỏi danh sách userPlans (vì list này chỉ hiện plan ACTIVE)
-            this.userPlans = this.userPlans.filter(p => p.shareableLink !== this.currentPlan.shareableLink);
+            // (SỬA) Cập nhật plan trong danh sách userPlans thay vì xóa
+            this.updatePlanInUserList(this.currentPlan); // <-- THAY THẾ DÒNG CODE
             
             console.log("PlanStore: Plan archived. State updated. Not navigating.");
             // (SỬA) Bỏ điều hướng
@@ -595,7 +595,7 @@ export const usePlanStore = defineStore('plan', {
             // Cập nhật currentPlan
             this.currentPlan = response.data;
             // Cập nhật userPlans (CẬP NHẬT: Thêm lại vào userPlans)
-            await this.fetchUserPlans(); // Cách đơn giản nhất là fetch lại
+            this.updatePlanInUserList(this.currentPlan); // <-- THAY THẾ DÒNG CODE
              console.log("PlanStore: Plan unarchived.", this.currentPlan.status);
         } catch (error) {
             console.error("Lỗi khi khôi phục kế hoạch:", error);

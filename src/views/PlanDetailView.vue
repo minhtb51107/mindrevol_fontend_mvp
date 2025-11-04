@@ -871,9 +871,9 @@ onUnmounted(() => {
     background-color: transparent !important;
 }
 /* (Thêm) Sửa lỗi glass-effect nếu cần */
-.glass-effect {
+/* .glass-effect {
   background-color: rgba(var(--v-theme-surface-variant), 0.7) !important;
   backdrop-filter: blur(10px);
   border: 1px solid rgba(var(--v-border-color), 0.3) !important;
-}
+} */
 </style>

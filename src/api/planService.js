@@ -16,12 +16,14 @@ export default {
     return apiClient.post(`/plans/${shareableLink}/join`);
   },
 
+  // --- ĐÃ CẬP NHẬT ---
   getMyPlans(searchTerm = '') {
     // Trim searchTerm để tránh gửi khoảng trắng thừa
     const trimmedSearchTerm = searchTerm?.trim();
     const params = trimmedSearchTerm ? { search: trimmedSearchTerm } : {};
     return apiClient.get('/plans/my-plans', { params });
-  },
+},
+  // --- KẾT THÚC CẬP NHẬT ---
 
   // --- THÊM MỚI 1: HÀM SỬA CHI TIẾT KẾ HOẠCH ---
   updatePlanDetails(shareableLink, planDetails) {
