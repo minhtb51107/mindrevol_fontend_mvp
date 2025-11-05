@@ -83,5 +83,9 @@ export default {
       taskDate,
       orderedTaskIds
     });
-  }
+  },
+
+  nudgeMember(shareableLink, targetUserId) {
+      return axios.post(`/plans/${shareableLink}/nudge/${targetUserId}`);
+  },
 };

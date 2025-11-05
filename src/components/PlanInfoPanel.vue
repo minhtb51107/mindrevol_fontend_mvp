@@ -99,17 +99,39 @@
               </template>
 
               <template v-slot:append>
-                <v-chip v-if="member.role === 'OWNER'" color="primary" size="x-small" label class="mr-1">Owner</v-chip>
-                <v-btn
-                  v-if="isOwner && member.role !== 'OWNER'"
-                  icon="mdi-account-remove-outline"
-                  size="x-small"
-                  variant="text"
-                  color="grey"
-                  @click="$emit('remove-member', member)"
-                  :loading="isLoadingAction && removingMemberId === member.userId"
-                  :disabled="isLoadingAction || plan?.status === 'ARCHIVED'" title="Loại bỏ thành viên"
-                ></v-btn>
+                <div class="d-flex align-center">
+                    <v-chip v-if="member.role === 'OWNER'" color="primary" size="x-small" label class="mr-2">Owner</v-chip>
+                    
+                    <v-btn
+                        v-if="shouldShowNudge(member)"
+                        icon="mdi-bell-ring-outline"
+                        size="small"
+                        variant="text"
+                        color="warning"
+                        :loading="nudgingMemberId === member.userId"
+                        :disabled="recentlyNudged[member.userId]"
+                        @click="handleNudge(member)"
+                        title="Nhắc nhở check-in"
+                    ></v-btn>
+                    <v-icon
+                        v-else-if="member.userId !== currentUserId && member.hasCheckedInToday"
+                        color="success"
+                        icon="mdi-check-circle"
+                        size="small"
+                        class="mr-2"
+                        title="Đã check-in hôm nay"
+                    ></v-icon>
+                    <v-btn
+                      v-if="isOwner && member.role !== 'OWNER'"
+                      icon="mdi-account-remove-outline"
+                      size="x-small"
+                      variant="text"
+                      color="grey"
+                      @click="$emit('remove-member', member)"
+                      :loading="isLoadingAction && removingMemberId === member.userId"
+                      :disabled="isLoadingAction || plan?.status === 'ARCHIVED'" title="Loại bỏ thành viên"
+                    ></v-btn>
+                </div>
               </template>
             </v-list-item>
             <v-list-item v-if="!plan?.members?.length" class="text-caption text-medium-emphasis pa-4">
@@ -196,7 +218,7 @@
                    </div>
                 </div>
             </v-list>
-            <v-alert v-if="error" type="error" density="compact" class_alias="ma-4" rounded="md"> {{ error }} </v-alert>
+            <v-alert v-if="error" type="error" density="compact" class="ma-4" rounded="md"> {{ error }} </v-alert>
 
         </v-window-item>
 
@@ -207,61 +229,35 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'; // Thêm ref
+import { computed, ref, reactive } from 'vue';
 import { usePlanStore } from '@/stores/plan';
 import { useAuthStore } from '@/stores/auth';
+import planService from '@/api/planService'; // THÊM: Import service để gọi API Nudge
 import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
 
 dayjs.locale('vi');
 
-// --- State for Tabs ---
-const tab = ref('info'); // Mặc định mở tab 'info'
+// --- State for Tabs & Nudge ---
+const tab = ref('info');
+const nudgingMemberId = ref(null); // State loading cho nút nudge đang được bấm
+const recentlyNudged = reactive({}); // State lưu trữ tạm thời các member đã bị nudge để disable nút
 
 // --- Props ---
-// Props để nhận trạng thái copy link và loading từ component cha (PlanDetailView)
 const props = defineProps({
-  linkCopied: {
-    type: Boolean,
-    default: false
-  },
-  linkCopyText: {
-    type: String,
-    default: 'Copy link mời'
-  },
-  isLoadingAction: { // Loading chung cho các action (archive, remove member...)
-      type: Boolean,
-      default: false
-  },
-  isArchiving: { // Trạng thái đang archive hay unarchive
-      type: Boolean,
-      default: null // null, true (archiving), false (unarchiving)
-  },
-  // SỬA: Thêm prop isLeaving
-  isLeaving: {
-      type: Boolean,
-      default: false
-  },
-  removingMemberId: { // ID của member đang bị xóa
-      type: Number,
-      default: null
-  },
-  error: { // Error chung từ PlanDetailView
-      type: String,
-      default: null
-  }
+  linkCopied: { type: Boolean, default: false },
+  linkCopyText: { type: String, default: 'Copy link mời' },
+  isLoadingAction: { type: Boolean, default: false },
+  isArchiving: { type: Boolean, default: null },
+  isLeaving: { type: Boolean, default: false },
+  removingMemberId: { type: Number, default: null },
+  error: { type: String, default: null }
 });
 
 // --- Emits ---
-// Định nghĩa các sự kiện component này sẽ phát ra để PlanDetailView xử lý
 const emit = defineEmits([
-    'copy-invite-link',
-    'archive-plan', // Gửi kèm payload true (archive) hoặc false (unarchive)
-    'open-transfer-dialog',
-    'remove-member', // Gửi kèm thông tin member cần xóa
-    'open-edit-dialog', // THÊM MỚI
-    'leave-plan', // THÊM MỚI
-    'open-delete-dialog' // <-- THÊM EMIT MỚI
+    'copy-invite-link', 'archive-plan', 'open-transfer-dialog',
+    'remove-member', 'open-edit-dialog', 'leave-plan', 'open-delete-dialog'
 ]);
 
 // --- Store ---
@@ -273,16 +269,13 @@ const plan = computed(() => planStore.currentPlan);
 const isOwner = computed(() => planStore.isCurrentUserOwner);
 const currentUserId = computed(() => authStore.currentUser?.id);
 
-// Lấy danh sách thành viên khác để kiểm tra xem có hiển thị nút chuyển quyền không
 const otherMembers = computed(() => {
     if (!plan.value?.members || !currentUserId.value) return [];
     return plan.value.members.filter(member => member.role !== 'OWNER' && member.userId !== currentUserId.value);
 });
 
-// Trạng thái hiển thị và màu sắc (giống PlanDetailView cũ)
 const displayStatusText = computed(() => {
   if (!plan.value?.status) return 'N/A';
-  // Sử dụng displayStatus nếu backend cung cấp, nếu không thì tự tính
   const status = plan.value.displayStatus || plan.value.status;
   switch (status) {
     case 'ACTIVE': return 'Đang diễn ra';
@@ -298,7 +291,7 @@ const statusColor = computed(() => {
    switch (status) {
     case 'ACTIVE': return 'success';
     case 'COMPLETED': return 'primary';
-    case 'ARCHIVED': return 'grey-darken-1'; // Màu xám đậm hơn cho Archived
+    case 'ARCHIVED': return 'grey-darken-1';
     default: return 'grey';
   }
 });
@@ -309,35 +302,55 @@ const formatDate = (dateString) => {
     return dayjs(dateString).format('DD/MM/YYYY');
 }
 
-// Hàm mới để lấy chữ cái đầu cho Avatar
 const getInitials = (fullName) => {
     if (!fullName) return '?';
     const names = fullName.trim().split(' ');
     if (names.length === 0) return '?';
-    // Lấy chữ cái đầu của tên (phần tử cuối cùng)
-    const lastName = names[names.length - 1];
-    return lastName.charAt(0).toUpperCase();
+    return names[names.length - 1].charAt(0).toUpperCase();
 }
+
+// --- NUDGE LOGIC (MỚI) ---
+const shouldShowNudge = (member) => {
+    // 1. Không hiện cho chính mình
+    if (member.userId === currentUserId.value) return false;
+    
+    // 2. Kiểm tra xem họ đã check-in hôm nay chưa.
+    // LƯU Ý: Backend cần trả về field 'hasCheckedInToday' trong thông tin member của API getPlanDetails.
+    // Nếu backend chưa có, nút này có thể sẽ luôn hiện (vì undefined là falsy -> !undefined là true).
+    return !member.hasCheckedInToday; 
+};
+
+const handleNudge = async (member) => {
+    if (!plan.value?.shareableLink) return;
+    
+    nudgingMemberId.value = member.userId; // Bật trạng thái loading cho nút này
+    try {
+        await planService.nudgeMember(plan.value.shareableLink, member.userId);
+        
+        // Hiển thị thông báo thành công (đơn giản dùng alert, hoặc bạn có thể tích hợp toast library)
+        alert(`🔔 Đã gửi lời thúc giục đến ${member.userFullName}!`);
+        
+        // Optimistic update: Đánh dấu là đã nudge để disable nút
+        recentlyNudged[member.userId] = true;
+
+    } catch (error) {
+        console.error("Lỗi khi nudge:", error);
+        const msg = error.response?.data?.message || "Không thể gửi lời nhắc. Vui lòng thử lại sau.";
+        alert(msg);
+    } finally {
+        nudgingMemberId.value = null; // Tắt trạng thái loading
+    }
+};
 
 </script>
 
 <style scoped>
 .plan-info-panel {
-  /* Đảm bảo panel chiếm toàn bộ chiều cao và nội dung cuộn bên trong */
   display: flex;
   flex-direction: column;
-  max-height: 100%; /* Giới hạn chiều cao */
+  max-height: 100%;
 }
-
-/* Style này không còn cần thiết vì v-card-text bên ngoài đã xử lý
-  .member-list {
-    flex-grow: 1; 
-    overflow-y: auto; 
-    max-height: 300px; 
-  }
-*/
-
 .text-wrap {
-    white-space: normal; /* Cho description xuống dòng */
+    white-space: normal;
 }
 </style>

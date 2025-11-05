@@ -518,7 +518,7 @@ const handleJoinPlan = async () => {
 const copyInviteLink = () => {
     if(linkCopied.value || !planStore.currentPlan?.shareableLink) return;
     // (Sửa) Tạo link mời đúng
-    const inviteUrl = `${window.location.origin}/plan/join/${planStore.currentPlan.shareableLink}`; 
+    const inviteUrl = `${window.location.origin}/plan/${planStore.currentPlan.shareableLink}`;
     navigator.clipboard.writeText(inviteUrl).then(() => {
         linkCopyText.value='Đã copy!';
         linkCopied.value=true;
