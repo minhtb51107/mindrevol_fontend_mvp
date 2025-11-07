@@ -3,7 +3,7 @@
     <v-row justify="center">
       <v-col cols="12" md="10" lg="8">
         <v-card class="pa-4 pa-md-6">
-          <v-card-title class="text-center text-h5 mb-6">Bước 1: Thông tin chung</v-card-title>
+          <v-card-title class="text-center text-h5 mb-6">Bắt đầu Hành trình mới</v-card-title>
           <v-card-text>
             <v-alert
               v-if="errorMessage"
@@ -20,20 +20,34 @@
             <v-form @submit.prevent="goToStep2" ref="createPlanForm">
               <v-text-field
                 v-model="form.title"
-                label="Tên kế hoạch *"
+                label="Tên hành trình *"
                 :rules="[rules.required]"
-                placeholder="Ví dụ: Học ReactJS trong 7 ngày"
+                placeholder="Ví dụ: Hành trình chinh phục IELTS 8.0"
                 class="mb-4"
+                variant="outlined"
               ></v-text-field>
 
               <v-textarea
                 v-model="form.description"
                 label="Mô tả ngắn"
-                rows="3"
-                placeholder="Mục tiêu chính của kế hoạch này là gì?"
+                rows="2"
+                placeholder="Mục tiêu chính của hành trình này là gì?"
                 class="mb-4"
+                variant="outlined"
               ></v-textarea>
 
+              <v-textarea
+                v-model="form.motivation"
+                label="Tại sao bạn muốn bắt đầu? (Động lực)"
+                rows="3"
+                placeholder="Hãy viết ra lý do sâu sắc nhất thúc đẩy bạn. Nó sẽ được nhắc lại mỗi khi bạn check-in để giữ lửa cho bạn."
+                class="mb-6 motivation-field"
+                variant="outlined"
+                bg-color="amber-lighten-5"
+                prepend-inner-icon="mdi-lightbulb-on-outline"
+                hint="Đây là 'ngọn hải đăng' giúp bạn không bỏ cuộc khi gặp khó khăn."
+                persistent-hint
+              ></v-textarea>
               <v-row>
                 <v-col cols="12" sm="6">
                   <v-text-field
@@ -43,6 +57,7 @@
                     :rules="[rules.required, rules.minValue(1)]"
                     min="1"
                     class="mb-4"
+                    variant="outlined"
                   ></v-text-field>
                 </v-col>
                 <v-col cols="12" sm="6">
@@ -52,6 +67,7 @@
                      type="date"
                      :rules="[rules.required, rules.dateNotInPast]"
                      class="mb-4"
+                     variant="outlined"
                    ></v-text-field>
                 </v-col>
               </v-row>
@@ -59,8 +75,9 @@
               <v-text-field
                 v-model="form.dailyGoal"
                 label="Mục tiêu chung mỗi ngày (tùy chọn)"
-                placeholder="Ví dụ: Hoàn thành 1 chương, code 1 component..."
+                placeholder="Ví dụ: Hoàn thành task trước 23h"
                 class="mb-5"
+                variant="outlined"
               ></v-text-field>
 
               <v-divider class="mb-6"></v-divider>
@@ -74,7 +91,7 @@
                 :disabled="isLoading"
                 rounded="lg"
                 elevation="2"
-                class="mb-3"
+                class="mb-3 font-weight-bold"
               >
                 Tiếp theo: Lập lịch công việc
               </v-btn>
@@ -87,6 +104,7 @@
                 :disabled="isLoading"
                 rounded="lg"
                 @click="handleQuickCreate"
+                color="secondary"
               >
                 Tạo nhanh (thêm task sau)
               </v-btn>
@@ -100,23 +118,26 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
-import { useRouter } from 'vue-router'; // <-- Thêm
+import { useRouter } from 'vue-router';
 import { usePlanStore } from '@/stores/plan';
-import { usePlanCreatorStore } from '@/stores/planCreator'; // <-- Thêm
-import { VContainer, VRow, VCol, VCard, VCardTitle, VCardText, VForm, VTextField, VTextarea, VBtn, VAlert, VDivider } from 'vuetify/components';
+import { usePlanCreatorStore } from '@/stores/planCreator';
+import { 
+  VContainer, VRow, VCol, VCard, VCardTitle, VCardText, VForm, 
+  VTextField, VTextarea, VBtn, VAlert, VDivider 
+} from 'vuetify/components';
 
 const planStore = usePlanStore();
-const creatorStore = usePlanCreatorStore(); // <-- Thêm
-const router = useRouter(); // <-- Thêm
+const creatorStore = usePlanCreatorStore();
+const router = useRouter();
 const createPlanForm = ref(null);
 
 const form = reactive({
   title: '',
   description: '',
-  durationInDays: 7,
+  motivation: '', // <-- THÊM VÀO STATE
+  durationInDays: 30, // Tăng mặc định lên 30 cho giống "hành trình" hơn
   startDate: '',
   dailyGoal: '',
-  // Xóa dailyTasks khỏi đây
 });
 const isLoading = ref(false);
 const errorMessage = ref('');
@@ -130,7 +151,6 @@ const getTodayDate = () => {
 };
 
 onMounted(() => {
-  // Reset store tạm khi vào Bước 1 (để tránh lỗi khi back)
   creatorStore.clearPlanDetails();
   form.startDate = getTodayDate();
 });
@@ -147,9 +167,6 @@ const rules = {
   },
 };
 
-// Xóa hàm addTask, removeTask
-
-// === HÀM MỚI: Xử lý đi đến Bước 2 ===
 const goToStep2 = async () => {
   if (!createPlanForm.value) return;
   const { valid } = await createPlanForm.value.validate();
@@ -159,10 +176,8 @@ const goToStep2 = async () => {
   errorMessage.value = '';
 
   try {
-    // 1. Lưu state vào store mới
     creatorStore.setPlanDetails(form);
     console.log("Details saved to creator store. Navigating to step 2...");
-    // 2. Điều hướng đến Bước 2
     router.push({ name: 'plan-schedule' });
   } catch (error) {
     errorMessage.value = 'Không thể chuyển bước. Vui lòng thử lại.';
@@ -171,7 +186,6 @@ const goToStep2 = async () => {
   }
 };
 
-// === HÀM MỚI: Xử lý Tạo Nhanh (Persona 3) ===
 const handleQuickCreate = async () => {
   if (!createPlanForm.value) return;
   const { valid } = await createPlanForm.value.validate();
@@ -180,19 +194,16 @@ const handleQuickCreate = async () => {
   isLoading.value = true;
   errorMessage.value = '';
 
-  // Gọi API "simple" (endpoint /plans) với task rỗng
   const payload = {
     ...form,
-    dailyTasks: [], // Gửi mảng rỗng
+    dailyTasks: [],
     repeatTasks: false,
   };
 
   try {
-    // Dùng planStore cũ để tạo
     await planStore.createNewPlan(payload);
-    // planStore sẽ tự điều hướng khi thành công
   } catch (error) {
-    errorMessage.value = error.response?.data?.message || 'Không thể tạo kế hoạch, vui lòng thử lại.';
+    errorMessage.value = error.response?.data?.message || 'Không thể tạo hành trình, vui lòng thử lại.';
   } finally {
     isLoading.value = false;
   }
@@ -200,5 +211,7 @@ const handleQuickCreate = async () => {
 </script>
 
 <style scoped>
-/* (Không cần CSS gì đặc biệt) */
+.motivation-field :deep(.v-field__input) {
+    font-style: italic; /* Làm cho text nhập vào hơi nghiêng để nhấn mạnh */
+}
 </style>

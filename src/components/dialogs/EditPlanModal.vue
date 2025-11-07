@@ -2,7 +2,7 @@
   <v-dialog :model-value="modelValue" @update:modelValue="$emit('update:modelValue', $event)" persistent max-width="600px">
     <v-card class="glass-effect">
       <v-card-title>
-        <span class="text-h5">Chỉnh sửa chi tiết kế hoạch</span>
+        <span class="text-h5">Chỉnh sửa chi tiết Hành trình</span>
       </v-card-title>
       <v-card-text>
         <v-alert v-if="error" type="error" density="compact" class="mb-4" closable @click:close="error = null">
@@ -14,7 +14,7 @@
               <v-col cols="12">
                 <v-text-field
                   v-model="formData.title"
-                  label="Tên kế hoạch *"
+                  label="Tên hành trình *"
                   :rules="[rules.required, rules.maxLength(100)]"
                   counter="100"
                   variant="outlined"
@@ -28,9 +28,24 @@
                   label="Mô tả"
                   :rules="[rules.maxLength(500)]"
                   counter="500"
-                  rows="4"
+                  rows="3"
                   variant="outlined"
                   density="compact"
+                ></v-textarea>
+              </v-col>
+
+              <v-col cols="12">
+                <v-textarea
+                    v-model="formData.motivation"
+                    label="Động lực (Tại sao bạn bắt đầu?)"
+                    :rules="[rules.maxLength(1000)]"
+                    counter="1000"
+                    rows="3"
+                    variant="outlined"
+                    density="compact"
+                    bg-color="amber-lighten-5"
+                    hint="Thay đổi lý do nếu mục tiêu của bạn đã chuyển hướng."
+                    persistent-hint
                 ></v-textarea>
               </v-col>
               <v-col cols="12">
@@ -45,7 +60,7 @@
               </v-col>
             </v-row>
           </v-container>
-          <small>* là trường bắt buộc</small>
+          <small class="text-medium-emphasis">* là trường bắt buộc</small>
         </v-form>
       </v-card-text>
       <v-card-actions>
@@ -70,7 +85,7 @@ import {
 } from 'vuetify/components';
 
 const props = defineProps({
-  modelValue: { // Dùng để v-model dialog
+  modelValue: {
     type: Boolean,
     default: false,
   },
@@ -85,20 +100,21 @@ const error = ref(null);
 const formData = reactive({
   title: '',
   description: '',
+  motivation: '', // <-- THÊM VÀO STATE
   dailyGoal: '',
 });
 
 const rules = {
   required: (v) => !!v || 'Thông tin bắt buộc.',
-  maxLength: (max) => (v) => (v || '').length <= max || `Tối đa ${max} ký tự.`,
+  maxLength: (max) => (v) => (!v || v.length <= max) || `Tối đa ${max} ký tự.`,
 };
 
-// Hàm reset form với dữ liệu từ store
 const resetForm = () => {
   const plan = planStore.currentPlan;
   if (plan) {
     formData.title = plan.title || '';
     formData.description = plan.description || '';
+    formData.motivation = plan.motivation || ''; // <-- ĐIỀN DỮ LIỆU
     formData.dailyGoal = plan.dailyGoal || '';
   }
   error.value = null;
@@ -107,45 +123,42 @@ const resetForm = () => {
   });
 };
 
-// Theo dõi khi dialog mở (props.modelValue = true)
 watch(() => props.modelValue, (isOpen) => {
   if (isOpen) {
-    resetForm(); // Tải dữ liệu vào form khi mở
+    resetForm();
   }
 });
 
 const close = () => {
   emit('update:modelValue', false);
-  emit('close'); // Gửi sự kiện close riêng nếu cần
+  emit('close');
 };
 
 const submit = async () => {
   if (!formRef.value) return;
-
   const { valid } = await formRef.value.validate();
   if (!valid) return;
 
   error.value = null;
   try {
-    // Gọi action mới trong plan store
+    // GỌI ĐÚNG 1 THAM SỐ LÀ OBJECT DỮ LIỆU
     await planStore.updatePlanDetails({
       title: formData.title,
       description: formData.description,
+      motivation: formData.motivation, // <-- GỬI LÊN SERVER
       dailyGoal: formData.dailyGoal,
     });
     
-    emit('plan-updated'); // Báo cho PlanDetailView biết để hiển thị snackbar
+    emit('plan-updated');
     close();
 
   } catch (e) {
-    console.error("Lỗi khi cập nhật chi tiết plan:", e);
+    console.error("Lỗi khi cập nhật chi tiết hành trình:", e);
     error.value = planStore.error || 'Đã xảy ra lỗi không xác định.';
   }
 };
 </script>
 
 <style scoped>
-.glass-effect {
-  /* Bạn có thể thêm style "glassmorphism" ở đây nếu muốn */
-}
+/* .glass-effect { ... } */
 </style>

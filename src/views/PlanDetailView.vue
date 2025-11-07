@@ -2,7 +2,7 @@
   <v-container fluid class="fill-height">
     <div v-if="planStore.isLoading && !planStore.currentPlan" class="text-center mt-10 w-100">
       <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
-      <p class="mt-4 text-medium-emphasis">Đang tải thông tin kế hoạch...</p>
+      <p class="mt-4 text-medium-emphasis">Đang tải thông tin hành trình...</p>
     </div>
 
     <v-alert
@@ -62,8 +62,25 @@
       </v-card>
     </div>
 
-    <div v-else-if="planStore.currentPlan" class="fill-height w-100">
-      <v-row class="main-layout-row">
+    <div v-else-if="planStore.currentPlan" class="fill-height w-100 d-flex flex-column">
+      <v-alert
+        v-if="planStore.currentPlan.motivation"
+        color="amber-lighten-4"
+        icon="mdi-lightbulb-on-outline"
+        border="start"
+        border-color="amber"
+        class="mb-4 flex-grow-0"
+        elevation="1"
+        rounded="lg"
+      >
+        <div class="text-subtitle-2 font-weight-bold text-amber-darken-4 mb-1">
+          Lý do bắt đầu hành trình này:
+        </div>
+        <div class="text-body-1 font-italic text-grey-darken-3">
+          "{{ planStore.currentPlan.motivation }}"
+        </div>
+      </v-alert>
+      <v-row class="main-layout-row flex-grow-1">
         
         <v-col cols="12" md="8" class="main-content-col">
           <v-card class="fill-height" rounded="lg">
@@ -124,8 +141,8 @@
 
     <EditPlanModal 
       v-model="isEditPlanModalOpen" 
-      @close="isEditPlanModalOpen = false"
-      @plan-updated="showSnackbar('Cập nhật chi tiết kế hoạch thành công.', 'success')"
+      :current-plan="planStore.currentPlan"  @close="isEditPlanModalOpen = false"
+      @plan-updated="showSnackbar('Cập nhật chi tiết hành trình thành công.', 'success')"
     />
     <TransferOwnershipDialog
       v-model="showTransferDialog"
@@ -231,7 +248,6 @@
 </template>
 
 <script setup>
-// (Toàn bộ phần <script setup> giữ nguyên y hệt như lần trước, không cần thay đổi)
 import { ref, onMounted, onUnmounted, computed, reactive, nextTick, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { usePlanStore } from '@/stores/plan';
@@ -241,26 +257,22 @@ import { useCommunityStore } from '@/stores/community';
 import websocketService from '@/api/websocketService';
 import dayjs from 'dayjs'; 
 
-// Import components chính
 import PlanInfoPanel from '@/components/PlanInfoPanel.vue';
 import TimelineDashboard from '@/components/TimelineDashboard.vue';
 import DailyTaskList from '@/components/DailyTaskList.vue';
 import CheckInModal from '@/components/CheckInModal.vue'; 
 import ProgressDetailModal from '@/components/ProgressDetailModal.vue'; 
 
-// === (SỬA) IMPORT CÁC DIALOGS MỚI ===
 import EditPlanModal from '@/components/dialogs/EditPlanModal.vue'; 
 import TransferOwnershipDialog from '@/components/dialogs/TransferOwnershipDialog.vue';
 import DeleteConfirmDialog from '@/components/dialogs/DeleteConfirmDialog.vue';
 
-// Import components từ Vuetify (giữ nguyên)
 import {
   VContainer, VRow, VCol, VCard, VCardTitle, VCardSubtitle, VCardText, VCardItem, VList, VListItem, VListItemTitle, VListItemSubtitle, VDivider, VBtn, VAlert, VProgressCircular, VIcon, VChip, VSnackbar,
   VCardActions, VSpacer, VDialog, VForm, VTextarea, VTextField,
   VSelect
 } from 'vuetify/components';
 
-// --- Stores & Router ---
 const route = useRoute();
 const router = useRouter();
 const planStore = usePlanStore();
@@ -268,33 +280,27 @@ const authStore = useAuthStore();
 const progressStore = useProgressStore();
 const communityStore = useCommunityStore(); 
 
-// --- State cho "Join Plan" ---
 const isJoining = ref(false);
 const joinError = ref('');
 
-// --- State cho UI chung ---
 const linkCopyText = ref('Copy link mời');
 const linkCopied = ref(false);
 const snackbar = ref(false);
 const snackbarText = ref('');
 const snackbarColor = ref('success');
 
-// === (SỬA) STATE QUẢN LÝ PLAN (REFACTORED) ===
-const actionError = ref(null); // Lỗi chung cho các hành động
-const isLoadingAction = ref(false); // Loading chung (để disable các nút khác)
-const isEditPlanModalOpen = ref(false); // State cho dialog Sửa
-const showTransferDialog = ref(false); // State cho dialog Chuyển quyền
-const showConfirmDialog = ref(false); // 1 dialog cho tất cả xác nhận
-const confirmDialogType = ref(''); // 'leave-plan', 'archive-plan', 'unarchive-plan', 'remove-member', 'delete-plan'
-const itemToProcess = ref(null); // Dùng để lưu member/task cần xử lý
-// State loading chi tiết cho PlanInfoPanel
-const isArchiving = ref(null); // null, true (archiving), false (unarchiving)
+const actionError = ref(null);
+const isLoadingAction = ref(false);
+const isEditPlanModalOpen = ref(false);
+const showTransferDialog = ref(false);
+const showConfirmDialog = ref(false);
+const confirmDialogType = ref('');
+const itemToProcess = ref(null);
+const isArchiving = ref(null);
 const isLeaving = ref(false);
 const removingMemberId = ref(null);
-const isDeleting = ref(false); // (MỚI) State cho xóa vĩnh viễn
+const isDeleting = ref(false);
 
-
-// --- State cho Dialogs Task (GIỮ NGUYÊN) ---
 const taskDialog = ref(false);
 const editingTask = ref(null);
 const taskFormRef = ref(null);
@@ -304,23 +310,19 @@ const deleteTaskConfirmDialog = ref(false);
 const taskToDelete = ref(null);
 const isReordering = ref(false); 
 
-// --- State cho Dialogs Check-in (GIỮ NGUYÊN) ---
 const isCheckInModalOpen = ref(false);
 const checkInToEdit = ref(null); 
 const deleteCheckInConfirmDialog = ref(false); 
 const checkInToDelete = ref(null); 
 const isDeletingCheckIn = ref(false); 
 
-// --- State cho WebSocket ---
 const progressTopic = ref('');
 const taskTopic = ref('');
 const planDetailsTopic = ref('');
 
-// --- Computed Properties ---
 const selectedDate = computed(() => progressStore.getSelectedDate);
 const otherMembers = computed(() => {
     if (!planStore.currentPlan?.members || !authStore.currentUser?.id) return [];
-    // Chỉ trả về các member khác, KHÔNG PHẢI CHÍNH MÌNH
     return planStore.currentPlan.members.filter(member => member.userId !== authStore.currentUser.id && member.role !== 'OWNER');
 }); 
 
@@ -329,44 +331,31 @@ const rules = {
   date: value => !value || dayjs(value, 'YYYY-MM-DD', true).isValid() || 'Định dạng ngày YYYY-MM-DD.',
 };
 
-// =================================================================
-// ===           (SỬA) DI CHUYỂN HÀM LÊN TRÊN                 ===
-// =================================================================
-
-// --- Logic Tải dữ liệu ---
 const fetchPlanAndInitialData = async (shareableLink) => {
     if (!shareableLink) {
         planStore.error = "URL không hợp lệ.";
         return;
     }
-    // (SỬA) Reset lỗi action chung khi tải lại
     actionError.value = null;
     await planStore.fetchPlan(shareableLink);
     if (planStore.currentPlan && planStore.isCurrentUserMember) {
-        // Mặc định tải dữ liệu cho ngày hôm nay (hoặc ngày đã chọn từ store)
         await fetchDataForSelectedDate(shareableLink, progressStore.selectedDate);
-        // Cài đặt WebSocket
         setupWebSocket(shareableLink);
     } else if (planStore.currentPlan && !planStore.isCurrentUserMember) {
         console.log("PlanDetailView: User is not a member yet.");
-        // (Không làm gì cả, màn hình "Join" sẽ hiển thị)
     }
 };
 
 const fetchDataForSelectedDate = async (shareableLink, date) => {
     if (!shareableLink || !date) return;
-    console.log(`PlanDetailView: Fetching timeline and tasks for ${date}...`);
     progressStore.timelineError = null;
     planStore.dailyTasksError = null;
-    // Tải song song timeline và task list
     await Promise.allSettled([ 
         progressStore.fetchTimeline(shareableLink, date),
         planStore.fetchDailyTasks(shareableLink, date)
     ]);
-     console.log(`PlanDetailView: Finished fetching data for ${date}.`);
 };
 
-// --- Logic WebSocket ---
 const setupWebSocket = (shareableLink) => { 
     if (!shareableLink || !planStore.isCurrentUserMember) return;
 
@@ -378,12 +367,10 @@ const setupWebSocket = (shareableLink) => {
         websocketService.subscribe(topicPath, handler)
             .then(() => {
                 topicRef.value = topicPath;
-                console.log(`WS Subscribed: ${topicPath}`);
             })
             .catch(err => console.error(`WS Subscribe Error ${topicPath}:`, err));
     };
 
-    // 3 Kênh chính
     subscribeAndLog(progressTopic, `/topic/plan/${shareableLink}/progress`, handleProgressUpdate);
     subscribeAndLog(taskTopic, `/topic/plan/${shareableLink}/tasks`, handleTaskUpdate);
     subscribeAndLog(planDetailsTopic, `/topic/plan/${shareableLink}/details`, handlePlanDetailsUpdate);
@@ -396,27 +383,23 @@ const unsubscribeWebSocketTopics = () => {
     progressTopic.value = '';
     taskTopic.value = '';
     planDetailsTopic.value = '';
-    console.log(`WS: Unsubscribed from plan topics.`);
 };
 
 const handleProgressUpdate = (message) => { 
-    console.log("WS Received progress update:", message);
     progressStore.handleWebSocketUpdate(message);
 };
 
 const handleTaskUpdate = (message) => { 
-    console.log("WS Received task update:", message);
     planStore.handleTaskWebSocketUpdate(message, progressStore.selectedDate);
 };
 
 const handlePlanDetailsUpdate = (message) => { 
-    console.log("WS Received plan details update:", message);
     if (!planStore.currentPlan) return;
     
     const { 
       type, member, userId, 
       status, displayStatus, 
-      title, description, dailyGoal, 
+      title, description, dailyGoal, motivation, // <-- THÊM motivation VÀO ĐÂY
       durationInDays, startDate, endDate, 
       oldOwnerUserId, newOwnerUserId 
     } = message;
@@ -429,7 +412,6 @@ const handlePlanDetailsUpdate = (message) => {
             if (planStore.currentPlan.members && !planStore.currentPlan.members.some(m => m.userId === member?.userId)) {
                 planStore.currentPlan.members.push(member);
                 if (typeof planStore.currentPlan.memberCount === 'number') planStore.currentPlan.memberCount++;
-                console.log("RT: Added Member:", member?.userEmail);
                 needsTimelineRefetch = true;
             }
             break;
@@ -441,12 +423,10 @@ const handlePlanDetailsUpdate = (message) => {
                 if (index !== -1) {
                     planStore.currentPlan.members.splice(index, 1);
                     if (typeof planStore.currentPlan.memberCount === 'number' && planStore.currentPlan.memberCount > 0) planStore.currentPlan.memberCount--;
-                    console.log("RT: Removed/Left Member:", userId);
                     needsTimelineRefetch = true;
                 }
-                // Nếu người dùng hiện tại bị "đá" hoặc "rời", điều hướng họ đi
                 if (authStore.currentUser?.id === userId) {
-                    showSnackbar(type === 'MEMBER_LEFT' ? 'Bạn đã rời kế hoạch.' : 'Bạn đã bị loại khỏi kế hoạch.', 'warning');
+                    showSnackbar(type === 'MEMBER_LEFT' ? 'Bạn đã rời hành trình.' : 'Bạn đã bị loại khỏi hành trình.', 'warning');
                     router.push('/dashboard');
                 }
             }
@@ -455,14 +435,10 @@ const handlePlanDetailsUpdate = (message) => {
         case 'STATUS_CHANGED':
             if (status !== undefined) planStore.currentPlan.status = status;
             if (displayStatus !== undefined) planStore.currentPlan.displayStatus = displayStatus;
-            console.log("RT: Status Changed:", status);
-            // Nếu plan bị lưu trữ, *và* người dùng hiện tại *không phải* là owner,
-            // thì mới điều hướng đi. Owner cần ở lại để thấy nút "Khôi phục" / "Xóa".
             if (status === 'ARCHIVED' && !planStore.isCurrentUserOwner) {
-                showSnackbar('Kế hoạch này đã được lưu trữ.', 'info');
+                showSnackbar('Hành trình này đã được lưu trữ.', 'info');
                 router.push('/dashboard');
             }
-            // (SỬA) Nếu plan được khôi phục, tải lại dữ liệu
             else if (status === 'ACTIVE' || status === 'COMPLETED') {
                  fetchDataForSelectedDate(planStore.currentPlan.shareableLink, progressStore.selectedDate);
             }
@@ -472,11 +448,11 @@ const handlePlanDetailsUpdate = (message) => {
         case 'PLAN_INFO_UPDATED': 
             if (title !== undefined) planStore.currentPlan.title = title;
             if (description !== undefined) planStore.currentPlan.description = description;
+            if (motivation !== undefined) planStore.currentPlan.motivation = motivation; // <-- CẬP NHẬT MOTIVATION
             if (dailyGoal !== undefined) planStore.currentPlan.dailyGoal = dailyGoal;
             if (durationInDays !== undefined) planStore.currentPlan.durationInDays = durationInDays;
             if (startDate !== undefined) planStore.currentPlan.startDate = startDate;
             if (endDate !== undefined) planStore.currentPlan.endDate = endDate;
-            console.log("RT: Plan Info/Details Updated.");
             break;
 
         case 'OWNERSHIP_TRANSFERRED':
@@ -485,19 +461,14 @@ const handlePlanDetailsUpdate = (message) => {
                 const newOwner = planStore.currentPlan.members.find(m => m.userId === newOwnerUserId);
                 if (oldOwner) oldOwner.role = 'MEMBER';
                 if (newOwner) newOwner.role = 'OWNER';
-                console.log(`RT: Ownership Transferred: ${oldOwnerUserId} -> ${newOwnerUserId}`);
             }
             break;
-        default:
-            console.log("RT: Unhandled plan details update type:", type);
     }
     if (needsTimelineRefetch && planStore.currentPlan?.shareableLink) {
-         console.log("RT: Refetching timeline due to member change...");
-         progressStore.fetchTimeline(planStore.currentPlan.shareableLink, progressStore.selectedDate);
+          progressStore.fetchTimeline(planStore.currentPlan.shareableLink, progressStore.selectedDate);
     }
 };
 
-// --- Logic Hành động (Join, Copy) ---
 const handleJoinPlan = async () => {
     const link = route.params.shareableLink;
     if (!link) { joinError.value="Mã mời không hợp lệ."; return; }
@@ -505,11 +476,9 @@ const handleJoinPlan = async () => {
     joinError.value='';
     try {
         await planStore.joinCurrentPlan(link);
-        // Sau khi join thành công, tải lại toàn bộ dữ liệu
         await fetchPlanAndInitialData(link);
     } catch (e) {
         joinError.value = planStore.error || 'Lỗi tham gia.';
-        console.error("Join plan error:", e);
     } finally {
         isJoining.value=false;
     }
@@ -517,7 +486,6 @@ const handleJoinPlan = async () => {
 
 const copyInviteLink = () => {
     if(linkCopied.value || !planStore.currentPlan?.shareableLink) return;
-    // (Sửa) Tạo link mời đúng
     const inviteUrl = `${window.location.origin}/plan/${planStore.currentPlan.shareableLink}`;
     navigator.clipboard.writeText(inviteUrl).then(() => {
         linkCopyText.value='Đã copy!';
@@ -525,7 +493,6 @@ const copyInviteLink = () => {
         showSnackbar('Đã copy link mời vào clipboard!', 'success');
         setTimeout(() => { linkCopyText.value='Copy link mời'; linkCopied.value=false; }, 2500);
     }).catch(err => {
-        console.error("Clipboard copy failed:", err);
         showSnackbar('Lỗi khi copy link.', 'error');
     });
 };
@@ -536,53 +503,42 @@ const showSnackbar = (text, color = 'success') => {
     snackbar.value = true;
 };
 
-// --- Logic Hành động Quản lý Plan (REFACTORED) ---
-
-// Mở dialog Sửa (Từ PlanInfoPanel)
 const openEditPlanDialog = () => {
     isEditPlanModalOpen.value = true;
 };
 
-// Mở dialog Chuyển quyền (Từ PlanInfoPanel)
 const openTransferOwnershipDialog = () => {
     showTransferDialog.value = true;
 };
 
-// Mở dialog Rời Plan (Từ PlanInfoPanel)
 const confirmLeavePlan = () => {
     openConfirmDialog('leave-plan');
 };
 
-// Mở dialog Lưu trữ/Khôi phục (Từ PlanInfoPanel)
 const confirmArchiveAction = (isArchivingFlag) => {
     openConfirmDialog(isArchivingFlag ? 'archive-plan' : 'unarchive-plan');
 };
 
-// Mở dialog Xóa Member (Từ PlanInfoPanel)
 const confirmRemoveMember = (member) => {
     openConfirmDialog('remove-member', member);
 };
 
-// (MỚI) Mở dialog Xóa Vĩnh viễn (Từ PlanInfoPanel)
 const openDeletePlanDialog = () => {
     openConfirmDialog('delete-plan');
 };
 
-// Hàm trợ giúp: Mở Dialog Xác nhận chung
 const openConfirmDialog = (type, item = null) => {
     confirmDialogType.value = type;
-    itemToProcess.value = item; // Lưu member hoặc item khác nếu cần
-    actionError.value = null; // Reset lỗi
+    itemToProcess.value = item;
+    actionError.value = null;
     showConfirmDialog.value = true;
 };
 
-// Hàm Thực thi Xác nhận (Từ DeleteConfirmDialog)
 const onConfirmDialog = async () => {
   const type = confirmDialogType.value;
   const item = itemToProcess.value;
   showConfirmDialog.value = false;
   
-  // Bật loading chung
   isLoadingAction.value = true;
   actionError.value = null;
 
@@ -591,22 +547,19 @@ const onConfirmDialog = async () => {
       case 'leave-plan':
         isLeaving.value = true;
         await planStore.leaveCurrentPlan();
-        showSnackbar('Bạn đã rời khỏi kế hoạch.');
-        // Store đã xử lý điều hướng
+        showSnackbar('Bạn đã rời khỏi hành trình.');
         break;
         
       case 'archive-plan':
         isArchiving.value = true;
         await planStore.archiveCurrentPlan();
-        showSnackbar('Kế hoạch đã được lưu trữ.');
-        // (SỬA) KHÔNG ĐIỀU HƯỚNG, plan state sẽ tự cập nhật
+        showSnackbar('Hành trình đã được lưu trữ.');
         break;
 
       case 'unarchive-plan':
         isArchiving.value = false;
         await planStore.unarchiveCurrentPlan();
-        showSnackbar('Kế hoạch đã được khôi phục.');
-        // Tải lại toàn bộ dữ liệu (vì userPlans list cũng thay đổi)
+        showSnackbar('Hành trình đã được khôi phục.');
         await fetchPlanAndInitialData(route.params.shareableLink);
         break;
         
@@ -618,19 +571,17 @@ const onConfirmDialog = async () => {
         }
         break;
         
-      case 'delete-plan': // (MỚI)
+      case 'delete-plan':
         isDeleting.value = true;
         await planStore.deletePlanPermanently();
-        showSnackbar('Kế hoạch đã được xóa vĩnh viễn.');
-        // Store đã xử lý điều hướng
+        showSnackbar('Hành trình đã được xóa vĩnh viễn.');
         break;
     }
   } catch (err) {
     const errorMessage = err.message || 'Hành động thất bại. Vui lòng thử lại.';
-    actionError.value = errorMessage; // Hiển thị lỗi trên PlanInfoPanel
+    actionError.value = errorMessage;
     showSnackbar(errorMessage, 'error');
   } finally {
-    // Reset tất cả các state loading
     isLoadingAction.value = false;
     isArchiving.value = null;
     isLeaving.value = false;
@@ -641,13 +592,11 @@ const onConfirmDialog = async () => {
   }
 };
 
-
-// --- Logic Task ---
 const openAddTaskDialog = () => {
     editingTask.value = null;
     taskForm.description = '';
     taskForm.deadlineTime = null;
-    taskForm.taskDate = progressStore.selectedDate; // Tự động điền ngày đang chọn
+    taskForm.taskDate = progressStore.selectedDate;
     taskDialogError.value = '';
     taskDialog.value = true;
     nextTick(() => taskFormRef.value?.resetValidation());
@@ -655,18 +604,12 @@ const openAddTaskDialog = () => {
 
 const openEditTaskDialog = (task) => {
     editingTask.value = { ...task };
-
-    // === FIX (SỬA LỖI): Đảm bảo ngày gốc (originalTaskDate) tồn tại ===
-    // Lỗi "Invalid or missing originalTaskDate" xảy ra vì editingTask.value.taskDate bị thiếu.
-    // Chúng ta biết task này thuộc ngày đang chọn.
     if (!editingTask.value.taskDate) {
         editingTask.value.taskDate = progressStore.selectedDate;
     }
-    // ==========================================================
-
     taskForm.description = task.description;
     taskForm.deadlineTime = task.deadlineTime || null;
-    taskForm.taskDate = null; // Để null khi edit, user có thể chọn ngày mới
+    taskForm.taskDate = null;
     taskDialogError.value = '';
     taskDialog.value = true;
     nextTick(() => taskFormRef.value?.resetValidation());
@@ -701,12 +644,11 @@ const saveTask = async () => {
     const data = {
         description: taskForm.description,
         deadlineTime: time,
-        taskDate: taskForm.taskDate || undefined // Chỉ gửi nếu có
+        taskDate: taskForm.taskDate || undefined
     };
     taskDialogError.value = '';
     try {
         if (editingTask.value) {
-            // Giờ editingTask.value.taskDate đã được gán ở openEditTaskDialog
             await planStore.updateTaskInCurrentPlan(editingTask.value.id, data, editingTask.value.taskDate);
             showSnackbar('Yêu cầu cập nhật công việc đã được gửi.', 'success');
         } else {
@@ -716,24 +658,17 @@ const saveTask = async () => {
         closeTaskDialog();
     } catch (e) {
         taskDialogError.value = planStore.taskError || 'Lỗi khi lưu công việc.';
-        console.error("Save task error:", e)
     }
 };
 
 const confirmDeleteTask = (task) => {
-    // === FIX (SỬA LỖI): Lấy ngày gốc từ task hoặc fallback về ngày đang chọn ===
-    // Tương tự lỗi "Sửa", logic "Xóa" cũng cần ngày gốc của task.
     const originalTaskDate = task.taskDate || progressStore.selectedDate;
-    // =============================================================
-
     taskToDelete.value = { id: task.id, description: task.description, taskDate: originalTaskDate };
     deleteTaskConfirmDialog.value = true;
 };
 
 const executeDeleteTask = async () => {
-    // Giờ taskToDelete.value.taskDate đã có (nhờ fix ở confirmDeleteTask)
     if (!taskToDelete.value?.id || !taskToDelete.value?.taskDate) {
-      // Thêm kiểm tra này để tránh lỗi nếu taskDate vẫn rỗng
        showSnackbar('Lỗi: Không xác định được ngày của công việc cần xóa.', 'error');
        deleteTaskConfirmDialog.value = false;
        return;
@@ -752,14 +687,12 @@ const executeDeleteTask = async () => {
         showSnackbar(`Yêu cầu xóa "${desc}" đã được gửi.`, 'success');
     } catch (e) {
         showSnackbar(planStore.taskError || `Lỗi khi xóa "${desc}".`, 'error');
-        console.error("Delete task error:", e);
-        taskToDelete.value = taskBeingDeleted; // Khôi phục lại để thử xóa lần nữa
+        taskToDelete.value = taskBeingDeleted;
     }
 };
 
-// === (MỚI) LOGIC XỬ LÝ SẮP XẾP TASK ===
-const handleTasksReordered = async (orderedTasks) => { // DailyTaskList sẽ emit toàn bộ mảng task đã sắp xếp
-    if (isReordering.value) return; // Ngăn chặn gọi đè
+const handleTasksReordered = async (orderedTasks) => {
+    if (isReordering.value) return;
     
     const taskDate = progressStore.selectedDate;
     if (!taskDate) {
@@ -767,30 +700,19 @@ const handleTasksReordered = async (orderedTasks) => { // DailyTaskList sẽ emi
         return;
     }
 
-    // Giao diện (DailyTaskList) đã tự cập nhật thứ tự (optimistic)
-    // Giờ ta chỉ cần gọi action của store để lưu và xử lý rollback nếu cần
     isReordering.value = true;
     try {
-        // Gọi action trong plan.js, truyền đúng 2 tham số nó cần
         await planStore.reorderTasksInCurrentPlan(taskDate, orderedTasks);
-        
-        // Không cần snackbar, vì UI đã cập nhật và store đã xử lý
-        
     } catch (e) {
-        console.error("Reorder task error:", e);
-        // Store sẽ tự động rollback (vì nó có 'originalTasks')
-        // Chỉ cần hiển thị lỗi
         showSnackbar(planStore.taskError || 'Lỗi khi sắp xếp công việc. Đã hoàn tác.', 'error');
     } finally {
         isReordering.value = false;
     }
 };
-// ========================================
 
-// --- Logic Check-in & Comment (GIỮ NGUYÊN) ---
 const openCheckInModal = () => {
     if (planStore.isCurrentUserMember) {
-         checkInToEdit.value = null; // Mở ở chế độ TẠO MỚI
+         checkInToEdit.value = null;
          isCheckInModalOpen.value = true;
     } else {
          showSnackbar("Bạn phải là thành viên để check-in.", "error");
@@ -800,14 +722,13 @@ const openCheckInModal = () => {
 const onCheckInModalClose = (value) => {
     if (!value) {
         isCheckInModalOpen.value = false;
-        checkInToEdit.value = null; // Luôn reset khi modal đóng
+        checkInToEdit.value = null;
     }
 };
 
 const openEditCheckInDialog = (checkInEvent) => {
-    console.log("PlanDetailView: Opening dialog to EDIT check-in:", checkInEvent.id);
-    checkInToEdit.value = checkInEvent; // Gán dữ liệu check-in cần sửa
-    isCheckInModalOpen.value = true; // Mở cùng một modal
+    checkInToEdit.value = checkInEvent;
+    isCheckInModalOpen.value = true;
 };
 
 const openDeleteCheckInConfirm = (checkInEvent) => {
@@ -836,19 +757,11 @@ const executeDeleteCheckIn = async () => {
 };
 
 const openCommentDialog = (checkInEvent) => {
-    console.log("PlanDetailView: Opening Progress Detail Modal for check-in:", checkInEvent.id);
-    // Mở modal chi tiết/comment
     communityStore.selectProgress(checkInEvent);
 };
 
-// =================================================================
-// ===           (SỬA) HOOKS ĐƯỢC DI CHUYỂN XUỐNG DƯỚI           ===
-// =================================================================
-
-// --- Watchers (Theo dõi route và ngày) ---
 watch(() => route.params.shareableLink, (newLink, oldLink) => {
   if (newLink && newLink !== oldLink) {
-    console.log(`PlanDetailView: Route changed to ${newLink}. Refetching data...`);
     unsubscribeWebSocketTopics(); 
     fetchPlanAndInitialData(newLink); 
   }
@@ -856,12 +769,10 @@ watch(() => route.params.shareableLink, (newLink, oldLink) => {
 
 watch(selectedDate, (newDate, oldDate) => {
     if (newDate && newDate !== oldDate && planStore.currentPlan?.shareableLink) {
-        console.log(`PlanDetailView: Selected date changed to ${newDate}. Fetching data for this date...`);
         fetchDataForSelectedDate(planStore.currentPlan.shareableLink, newDate); 
     }
 });
 
-// --- Hooks Vòng đời (onMounted, onUnmounted) ---
 onMounted(() => {
     if (!websocketService.isConnected()) {
         websocketService.connect();
@@ -869,28 +780,34 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-    console.log("PlanDetailView: Unmounting. Cleaning up stores and unsubscribing WebSocket.");
     planStore.clearCurrentPlanData();
     progressStore.clearPlanProgressData();
     unsubscribeWebSocketTopics();
 });
-
 </script>
 
 <style scoped>
-/* (Giữ nguyên CSS) */
 .fill-height {
   height: 100%;
-  display: flex;
-  flex-direction: column;
 }
 .w-100 {
   width: 100%;
 }
+/* Sửa lại layout flex để alert không bị đè */
+.d-flex.flex-column {
+    display: flex;
+    flex-direction: column;
+}
+.flex-grow-0 {
+    flex-grow: 0 !important;
+}
+.flex-grow-1 {
+    flex-grow: 1 !important;
+}
+
 .main-layout-row {
-  max-height: 100%;
-  height: 100%;
-  flex-grow: 1; /* (MỚI) Đảm bảo row chiếm không gian */
+  height: 100%; /* Vẫn giữ height 100% cho row chính */
+  min-height: 0; /* Quan trọng để scroll hoạt động đúng trong flex child */
 }
 .main-layout-row > .v-col {
   height: 100%;
@@ -926,10 +843,4 @@ onUnmounted(() => {
 .bg-transparent {
     background-color: transparent !important;
 }
-/* (Thêm) Sửa lỗi glass-effect nếu cần */
-/* .glass-effect {
-  background-color: rgba(var(--v-theme-surface-variant), 0.7) !important;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(var(--v-border-color), 0.3) !important;
-} */
 </style>

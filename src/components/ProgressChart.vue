@@ -133,7 +133,7 @@ onMounted(() => {
 
 <style scoped>
 .progress-chart-card { display: flex; flex-direction: column; }
-.chart-container { flex-grow: 1; min-height: 220px; /* Tăng chiều cao tối thiểu */ position: relative; }
+.chart-container { flex-grow: 1; min-height: 210px; /* Tăng chiều cao tối thiểu */ position: relative; }
 .v-skeleton-loader { position: absolute; top: 0; left: 0; width: 100%; height: 100%; padding: 8px; /* Thêm padding */}
 /* Căn chỉnh lại Alert */
 .v-alert { font-size: 0.8rem; }

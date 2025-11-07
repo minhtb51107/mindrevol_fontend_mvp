@@ -514,28 +514,42 @@ export const usePlanStore = defineStore('plan', {
     
     // THÊM MỚI
     async updatePlanDetails(planDetails) {
-        if (!this.currentPlan?.shareableLink) { throw new Error("Missing current plan link"); }
-        if (!this.isCurrentUserOwner) { throw new Error("Permission denied"); }
-        this.isLoading = true; this.error = null;
+        if (!this.currentPlan?.shareableLink) { 
+            this.error = "Không tìm thấy mã hành trình (shareableLink).";
+            throw new Error("Missing current plan link"); 
+        }
+        if (!this.isCurrentUserOwner) { 
+            this.error = "Bạn không có quyền chỉnh sửa.";
+            throw new Error("Permission denied"); 
+        }
+        
+        this.isLoading = true; 
+        this.error = null;
+        
         try {
+            // 'planDetails' (tham số đầu vào) chính là object JSON gửi đi
             const response = await planService.updatePlanDetails(this.currentPlan.shareableLink, planDetails);
-            // Cập nhật state cục bộ ngay lập tức với dữ liệu mới
+            
+            // Cập nhật state cục bộ ngay lập tức
             this.currentPlan.title = response.data.title;
             this.currentPlan.description = response.data.description;
+            this.currentPlan.motivation = response.data.motivation; // <-- CẬP NHẬT MOTIVATION
             this.currentPlan.dailyGoal = response.data.dailyGoal;
             
             // Cập nhật danh sách bên trái (sidebar)
             this.updatePlanInUserList(this.currentPlan);
             console.log("PlanStore: Plan details updated locally.");
-            // WebSocket sẽ xử lý cho các user khác
+            
         } catch (error) {
             console.error("Lỗi khi cập nhật chi tiết kế hoạch:", error);
-            this.error = error.response?.data?.message || "Cập nhật chi tiết thất bại.";
-            throw error;
+            const errorMsg = error.response?.data?.message || "Cập nhật chi tiết thất bại.";
+            this.error = errorMsg;
+            throw new Error(errorMsg); // Ném lỗi ra để modal bắt
         } finally {
             this.isLoading = false;
         }
     },
+
 
     // THÊM MỚI
     async leaveCurrentPlan() {

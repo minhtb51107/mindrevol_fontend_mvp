@@ -74,7 +74,7 @@ onUnmounted(() => {
 
 <style scoped>
 .community-feed-card {
-  max-height: 400px; /* Giới hạn chiều cao */
+  max-height: 250px; /* Giới hạn chiều cao */
   display: flex;
   flex-direction: column;
 }

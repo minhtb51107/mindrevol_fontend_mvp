@@ -123,41 +123,58 @@
                  <v-icon start size="small">mdi-magnify-close</v-icon>
                  <span>Không có kế hoạch nào khớp.</span>
                </v-alert>
-              <v-row v-else dense>
-                 <v-col v-for="plan in filteredPlans" :key="plan.id" cols="12" md="6">
-                   <v-card :to="`/plan/${plan.shareableLink}`" link hover class="fill-height d-flex flex-column plan-card-modern mb-3" variant="outlined" rounded="xl">
-                     <v-card-item class="pb-2 pt-4 px-4">
-                        <div class="d-flex justify-space-between align-start mb-2">
-                           <v-chip :color="getStatusColor(plan.displayStatus)" size="small" label class="font-weight-medium" rounded="lg" variant="tonal">
-                              <v-icon start size="small">{{ getStatusIcon(plan.displayStatus) }}</v-icon>
-                              {{ getStatusText(plan.displayStatus) }}
-                           </v-chip>
-                            <v-chip v-if="plan.role === 'OWNER'" color="primary" variant="text" size="x-small" label prepend-icon="mdi-crown-outline" rounded="lg" class="ms-auto">Owner</v-chip>
-                        </div>
-                       <v-card-title class="text-wrap text-h6 font-weight-medium mb-1 plan-title">{{ plan.title }}</v-card-title>
-                       <v-card-subtitle class="text-wrap text-body-2 text-medium-emphasis">{{ plan.description || 'Chưa có mô tả' }}</v-card-subtitle>
-                     </v-card-item>
-                     <v-spacer></v-spacer>
-                     <v-divider></v-divider>
-                     <v-card-actions class="px-4 py-2">
-                           <v-chip size="small" label prepend-icon="mdi-calendar-range-outline" variant="text" color="grey-darken-1" rounded="lg">
-                              {{ formatDateRangeShort(plan.startDate, plan.endDate) }}
-                           </v-chip>
-                           <v-chip size="small" label prepend-icon="mdi-account-multiple-outline" variant="text" color="grey-darken-1" rounded="lg">
-                              {{ plan.memberCount }} thành viên
-                           </v-chip>
-                           <v-spacer></v-spacer>
-                           <v-icon color="grey-lighten-1">mdi-chevron-right</v-icon>
-                     </v-card-actions>
-                   </v-card>
-                 </v-col>
-               </v-row>
-        </v-col>
+               
+               <div v-else>
+                 <v-row dense>
+                   <v-col v-for="plan in paginatedPlans" :key="plan.id" cols="12" md="6">
+                     <v-card :to="`/plan/${plan.shareableLink}`" link hover class="fill-height d-flex flex-column plan-card-modern mb-3" variant="outlined" rounded="xl">
+                       <v-card-item class="pb-2 pt-4 px-4">
+                          <div class="d-flex justify-space-between align-start mb-2">
+                             <v-chip :color="getStatusColor(plan.displayStatus)" size="small" label class="font-weight-medium" rounded="lg" variant="tonal">
+                                <v-icon start size="small">{{ getStatusIcon(plan.displayStatus) }}</v-icon>
+                                {{ getStatusText(plan.displayStatus) }}
+                             </v-chip>
+                              <v-chip v-if="plan.role === 'OWNER'" color="primary" variant="text" size="x-small" label prepend-icon="mdi-crown-outline" rounded="lg" class="ms-auto">Owner</v-chip>
+                          </div>
+                         <v-card-title class="text-wrap text-h6 font-weight-medium mb-1 plan-title">{{ plan.title }}</v-card-title>
+                         <v-card-subtitle class="text-wrap text-body-2 text-medium-emphasis">{{ plan.description || 'Chưa có mô tả' }}</v-card-subtitle>
+                       </v-card-item>
+                       <v-spacer></v-spacer>
+                       <v-divider></v-divider>
+                       <v-card-actions class="px-4 py-2">
+                             <v-chip size="small" label prepend-icon="mdi-calendar-range-outline" variant="text" color="grey-darken-1" rounded="lg">
+                                {{ formatDateRangeShort(plan.startDate, plan.endDate) }}
+                             </v-chip>
+                             <v-chip size="small" label prepend-icon="mdi-account-multiple-outline" variant="text" color="grey-darken-1" rounded="lg">
+                                {{ plan.memberCount }} thành viên
+                             </v-chip>
+                             <v-spacer></v-spacer>
+                             <v-icon color="grey-lighten-1">mdi-chevron-right</v-icon>
+                       </v-card-actions>
+                     </v-card>
+                   </v-col>
+                 </v-row>
+
+                 <v-row v-if="totalPages > 1" class="mt-4" justify="center">
+                    <v-col cols="auto">
+                      <v-pagination
+                        v-model="currentPage"
+                        :length="totalPages"
+                        :total-visible="5"
+                        density="comfortable"
+                        rounded="circle"
+                        active-color="primary"
+                        variant="flat"
+                      ></v-pagination>
+                    </v-col>
+                 </v-row>
+              </div>
+              </v-col>
 
         <v-col cols="12" lg="4">
              <ProgressChart class="mb-4" />
              <CommunityFeed class="mb-4" />
-             <QuoteOfTheDay />
+             <!-- <QuoteOfTheDay /> -->
         </v-col>
     </v-row>
   </v-container>
@@ -177,7 +194,8 @@ import { useProgressStore } from '@/stores/progress';
 // Imports Vuetify components used in template
 import {
   VContainer, VRow, VCol, VCard, VCardTitle, VCardSubtitle, VCardText, VCardItem, VCardActions, VChip, VIcon, VSpacer, VProgressCircular, VAlert,
-  VChipGroup, VTextField, VBtn, VDivider, VList, VListItem, VListItemTitle, VListItemSubtitle, VAvatar
+  VChipGroup, VTextField, VBtn, VDivider, VList, VListItem, VListItemTitle, VListItemSubtitle, VAvatar,
+  VPagination // <-- Đã thêm VPagination
 } from 'vuetify/components';
 
 const router = useRouter();
@@ -188,6 +206,10 @@ const progressStore = useProgressStore();
 const selectedStatusFilter = ref('ACTIVE');
 const statsLoadedInitially = ref(false);
 
+// --- State cho phân trang ---
+const currentPage = ref(1);
+const itemsPerPage = ref(4); // Số kế hoạch hiển thị mỗi trang
+
 // --- Computed Properties Lấy Dữ liệu từ Stores ---
 const userFullName = computed(() => authStore.userProfile?.fullname || authStore.currentUser?.fullname || 'bạn');
 
@@ -197,7 +219,7 @@ const activePlanCount = computed(() => {
     : 0;
 });
 
-// --- Computed Properties MỚI cho Thẻ Check-in ---
+// --- Computed Properties cho Thẻ Check-in ---
 const allTasksCompletedToday = computed(() => {
   return progressStore.userStats?.checkedInTodayComplete ?? false;
 });
@@ -281,6 +303,22 @@ const filteredPlans = computed(() => {
   });
 });
 
+// --- Computed cho phân trang ---
+const totalPages = computed(() => {
+  return Math.ceil(filteredPlans.value.length / itemsPerPage.value) || 1;
+});
+
+const paginatedPlans = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value;
+  const end = start + itemsPerPage.value;
+  return filteredPlans.value.slice(start, end);
+});
+
+// --- Watcher reset trang khi filter thay đổi ---
+watch([() => planStore.searchTerm, selectedStatusFilter], () => {
+  currentPage.value = 1;
+});
+
 // --- Lifecycle Hook ---
 onMounted(async () => {
   planStore.initDebouncedFetch();
@@ -342,7 +380,7 @@ const goToFirstActivePlan = () => {
 
 <style scoped>
 .home-view-container {
-  max-width: 1400px; /* Giới hạn chiều rộng tối đa */
+  max-width: 1500px; /* Giới hạn chiều rộng tối đa */
   margin: 0 auto;
 }
 
