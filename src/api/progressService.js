@@ -16,6 +16,11 @@ export default {
     });
   },
 
+  getTodayCompletedTasks(shareableLink) {
+        // Lỗi ReferenceError xảy ra ở dòng dưới nếu thiếu import axiosClient bên trên
+        return apiClient.get(`/plans/${shareableLink}/progress/check-in/today`);
+    },
+
   // --- (HÀM GỐC) SỬA CHECK-IN ---
   updateCheckIn(shareableLink, checkInEventId, updateData) {
     return apiClient.put(`/plans/${shareableLink}/progress/check-in/${checkInEventId}`, updateData);

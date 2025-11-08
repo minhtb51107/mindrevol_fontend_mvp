@@ -179,9 +179,6 @@ const formRef = ref(null);
 const isLoading = ref(false); 
 const error = ref(''); 
 
-// Biến local để giữ danh sách task tại thời điểm mở modal
-const localTasks = ref([]); 
-
 const form = reactive({
   notes: '',
   completedTaskIds: [],
@@ -196,26 +193,33 @@ const dialog = computed({
 
 // Computed để lọc ra các task CÓ THỂ check-in
 const availableTasks = computed(() => {
-  const allTasks = localTasks.value; 
+  // Lấy trực tiếp từ store cho reactive như yêu cầu
+  const allTasks = planTaskStore.sortedDailyTasks; 
+  
   if (props.isEditing && props.existingCheckIn) {
-     // Khi sửa: Hiện các task chưa hoàn thành HOẶC các task đã chọn trong chính lần check-in này
-     // (Lưu ý: backend có thể trả về completedTasks (object) hoặc completedTaskIds (array số))
+     // Khi sửa: Hiện các task CHƯA hoàn thành HOẶC các task đã chọn trong chính lần check-in này
      const currentEventTaskIds = props.existingCheckIn.completedTaskIds || 
                                  props.existingCheckIn.completedTasks?.map(t => t.taskId) || 
                                  [];
-     return allTasks.filter(task => !task.isCompleted || currentEventTaskIds.includes(task.id));
+                                 
+     // Sử dụng progressStore.todayCompletedTaskIds để kiểm tra trạng thái hoàn thành chính xác nhất
+     return allTasks.filter(task => !progressStore.todayCompletedTaskIds.has(task.id) || currentEventTaskIds.includes(task.id));
   } else {
-     // Khi tạo mới: CHỈ hiện các task CHƯA hoàn thành
-     return allTasks.filter(task => !task.isCompleted);
+     // Khi tạo mới: CHỈ hiện các task CHƯA hoàn thành (không nằm trong Set completedTaskIdsToday)
+     return allTasks.filter(task => !progressStore.todayCompletedTaskIds.has(task.id));
   }
 });
 
-watch(() => props.modelValue, (newValue) => {
+// Watcher đã được cập nhật để gọi API mới
+watch(() => props.modelValue, async (newValue) => {
   if (newValue) {
     resetForm();
-    // --- QUAN TRỌNG: Lấy ngay dữ liệu từ store khi mở modal ---
-    // Store đã có thông tin isCompleted chính xác nhờ progressStore sync
-    localTasks.value = JSON.parse(JSON.stringify(planTaskStore.sortedDailyTasks));
+    
+    // --- QUAN TRỌNG: Tải mới nhất danh sách đã hoàn thành từ server ---
+    if (progressStore.currentPlanShareableLink) {
+        // Gọi API để lấy danh sách ID task đã hoàn thành hôm nay
+        await progressStore.fetchTodayCompletedTasks(progressStore.currentPlanShareableLink);
+    }
 
     if (props.isEditing && props.existingCheckIn) {
       form.notes = props.existingCheckIn.notes || '';

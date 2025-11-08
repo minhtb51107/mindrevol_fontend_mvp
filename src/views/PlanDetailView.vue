@@ -95,10 +95,16 @@
             <v-card class="fill-height" rounded="lg">
               <DailyTaskList
                 class="fill-height"
+                :tasks="planTaskStore.sortedDailyTasks"
+                :is-loading="planTaskStore.isLoading"
+                :is-action-loading="planTaskStore.isTaskActionLoading"
+                :error="planTaskStore.error"
+                :is-owner="planStore.isCurrentUserOwner"
+                :date-formatted="dayjs(selectedDateRef).format('DD/MM/YYYY')"
                 @open-add-task="uiStore.openAddTask"
                 @open-edit-task="uiStore.openEditTask"
                 @confirm-delete-task="uiStore.openDeleteTask"
-                @tasks-reordered="handleTasksReordered" 
+                @reorder-tasks="handleTasksReordered"
               />
             </v-card>
           </div>
@@ -116,7 +122,7 @@
 
     <PlanDialogs 
         @show-snackbar="showSnackbar"
-        @confirm-action="handleGenericConfirm"
+        @confirm-action="onConfirmAction"
     />
 
   </v-container>
@@ -124,20 +130,23 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import { usePlanStore } from '@/stores/plan';
 import { usePlanTaskStore } from '@/stores/planTaskStore';
-import { usePlanUiStore } from '@/stores/planUi'; // <-- NEW IMPORT
-import { useAuthStore } from '@/stores/auth';
+import { usePlanUiStore } from '@/stores/planUi';
 import { useProgressStore } from '@/stores/progress';
 import { useCommunityStore } from '@/stores/community'; 
 import websocketService from '@/api/websocketService';
 import { usePlanWebSocket } from '@/composables/usePlanWebSocket';
+// [MỚI] Import composable actions
+import { usePlanActions } from '@/composables/usePlanActions';
 
 import PlanInfoPanel from '@/components/PlanInfoPanel.vue';
 import TimelineDashboard from '@/components/TimelineDashboard.vue';
 import DailyTaskList from '@/components/DailyTaskList.vue';
-import PlanDialogs from '@/components/PlanDialogs.vue'; // <-- NEW CONTAINER
+import PlanDialogs from '@/components/PlanDialogs.vue'; 
+
+import dayjs from 'dayjs'; // <-- THÊM DÒNG NÀY
 
 import {
   VContainer, VRow, VCol, VCard, VCardItem, VCardTitle, VCardText, VList, VListItem, VListItemTitle, VListItemSubtitle, 
@@ -145,18 +154,27 @@ import {
 } from 'vuetify/components';
 
 const route = useRoute();
-const router = useRouter();
 const planStore = usePlanStore();
 const planTaskStore = usePlanTaskStore();
-const uiStore = usePlanUiStore(); // <-- INITIALIZE UI STORE
-const authStore = useAuthStore();
+const uiStore = usePlanUiStore();
 const progressStore = useProgressStore();
 const communityStore = useCommunityStore(); 
+
+// [MỚI] Khởi tạo Composable Actions
+// Destructure các state và hàm xử lý từ usePlanActions
+const { 
+    isLoadingAction, 
+    actionError, 
+    isArchiving, 
+    isLeaving, 
+    removingMemberId, 
+    handleGenericConfirm 
+} = usePlanActions();
 
 const selectedDateRef = computed(() => progressStore.getSelectedDate);
 const { connect: connectWS } = usePlanWebSocket(selectedDateRef);
 
-// Local UI state (things that are truly local to this view's main layout)
+// Local UI state
 const isJoining = ref(false);
 const joinError = ref('');
 const linkCopyText = ref('Copy link mời');
@@ -164,11 +182,6 @@ const linkCopied = ref(false);
 const snackbar = ref(false);
 const snackbarText = ref('');
 const snackbarColor = ref('success');
-const actionError = ref(null);
-const isLoadingAction = ref(false);
-const isArchiving = ref(null);
-const isLeaving = ref(false);
-const removingMemberId = ref(null);
 const isReordering = ref(false); 
 
 // --- INITIAL DATA FETCHING ---
@@ -177,7 +190,8 @@ const fetchPlanAndInitialData = async (shareableLink) => {
         planStore.error = "URL không hợp lệ.";
         return;
     }
-    actionError.value = null;
+    // Reset action error từ composable (nếu có thể gán được, nhưng tốt nhất để composable tự quản lý)
+    // actionError.value = null; 
     await planStore.fetchPlan(shareableLink);
     if (planStore.currentPlan && planStore.isCurrentUserMember) {
         await fetchDataForSelectedDate(shareableLink, progressStore.selectedDate);
@@ -231,52 +245,10 @@ const showSnackbar = (text, color = 'success') => {
     snackbar.value = true;
 };
 
-// Xử lý các hành động confirm từ dialog chung
-const handleGenericConfirm = async ({ type, item }) => {
-    uiStore.closeConfirmDialog();
-    isLoadingAction.value = true;
-    actionError.value = null;
-
-    try {
-        switch (type) {
-            case 'leave-plan':
-                isLeaving.value = true;
-                await planStore.leaveCurrentPlan();
-                showSnackbar('Bạn đã rời khỏi hành trình.');
-                break;
-            case 'archive-plan':
-                isArchiving.value = true;
-                await planStore.archiveCurrentPlan();
-                showSnackbar('Hành trình đã được lưu trữ.');
-                break;
-            case 'unarchive-plan':
-                isArchiving.value = false;
-                await planStore.unarchiveCurrentPlan();
-                showSnackbar('Hành trình đã được khôi phục.');
-                break;
-            case 'remove-member':
-                removingMemberId.value = item.userId;
-                await planStore.removeMemberFromCurrentPlan(item.userId);
-                showSnackbar(`Đã xóa thành viên: ${item.userFullName}`, 'success');
-                break;
-            case 'delete-plan':
-                await planStore.deletePlanPermanently();
-                showSnackbar('Hành trình đã được xóa vĩnh viễn.');
-                break;
-            case 'delete-checkin':
-                 await progressStore.deleteCheckInAction(item.id);
-                 showSnackbar('Đã xóa check-in.');
-                 break;
-        }
-    } catch (err) {
-        actionError.value = err.message || 'Thất bại.';
-        showSnackbar(actionError.value, 'error');
-    } finally {
-        isLoadingAction.value = false;
-        isArchiving.value = null;
-        isLeaving.value = false;
-        removingMemberId.value = null;
-    }
+// [MỚI] Hàm xử lý sự kiện confirm từ PlanDialogs
+// Nó sẽ gọi đến handleGenericConfirm của composable và truyền vào callback showSnackbar
+const onConfirmAction = (payload) => {
+    handleGenericConfirm(payload, showSnackbar);
 };
 
 const handleTasksReordered = async (orderedTasks) => {
@@ -315,11 +287,12 @@ onUnmounted(() => {
     planStore.clearCurrentPlanData();
     planTaskStore.clearDailyTasks();
     progressStore.clearPlanProgressData();
-    uiStore.resetAll(); // Reset UI state khi rời trang
+    uiStore.resetAll(); 
 });
 </script>
 
 <style scoped>
+/* Giữ nguyên style cũ */
 .fill-height { height: 100%; }
 .w-100 { width: 100%; }
 .d-flex.flex-column { display: flex; flex-direction: column; }

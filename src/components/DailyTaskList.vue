@@ -4,19 +4,19 @@
       <v-card-title class="d-flex align-center justify-space-between">
         <span class="text-h6 font-weight-medium">Công việc trong ngày</span>
         <v-chip size="small" variant="text" color="secondary" prepend-icon="mdi-calendar-blank">
-          {{ selectedDateFormatted }}
+          {{ dateFormatted }}
         </v-chip>
       </v-card-title>
     </v-card-item>
     <v-divider></v-divider>
 
     <div class="task-list-container">
-      <div v-if="planTaskStore.isLoading" class="d-flex justify-center align-center fill-height pa-5 flex-column">
+      <div v-if="isLoading" class="d-flex justify-center align-center fill-height pa-5 flex-column">
          <v-progress-circular indeterminate color="primary" size="28"></v-progress-circular>
          <span class="ml-2 text-caption text-medium-emphasis mt-3">Đang tải công việc...</span>
       </div>
       <v-alert
-        v-else-if="planTaskStore.error"
+        v-else-if="error"
         type="warning"
         variant="tonal"
         class="ma-3"
@@ -24,16 +24,16 @@
         border="start"
         rounded="md"
       >
-        {{ planTaskStore.error }}
+        {{ error }}
       </v-alert>
 
       <div v-else class="task-list-scroll pa-2">
         <draggable
-          v-model="draggableTaskList"
+          v-model="localDraggableList"
           item-key="id"
           ghost-class="ghost-item"
           handle=".drag-handle"
-          :disabled="!isOwner || planTaskStore.isTaskActionLoading"
+          :disabled="!isOwner || isActionLoading"
           @end="onDragEnd"
           tag="div"  
           animation="150"
@@ -84,7 +84,7 @@
                             color="medium-emphasis"
                             @click="emit('open-edit-task', task)"
                             class="ml-1"
-                            :disabled="planTaskStore.isTaskActionLoading"
+                            :disabled="isActionLoading"
                           ></v-btn>
                       </template>
                     </v-tooltip>
@@ -97,7 +97,7 @@
                             variant="text"
                             color="medium-emphasis"
                             @click="emit('confirm-delete-task', task)"
-                            :disabled="planTaskStore.isTaskActionLoading"
+                            :disabled="isActionLoading"
                           ></v-btn>
                         </template>
                     </v-tooltip>
@@ -105,7 +105,7 @@
             </v-list-item>
           </template>
 
-          <template #header v-if="!planTaskStore.isLoading && !tasks.length">
+          <template #header v-if="!isLoading && !tasks.length">
                <v-card-text class="text-center text-caption text-medium-emphasis py-6">
                   <v-icon size="large" class="mb-2">mdi-format-list-checks</v-icon><br>
                   Chưa có công việc nào cho ngày này.
@@ -122,57 +122,55 @@
         variant="text"
         @click="emit('open-add-task')"
         prepend-icon="mdi-plus"
-        :disabled="planTaskStore.isTaskActionLoading"
+        :disabled="isActionLoading"
         block
         class="add-task-btn"
       >
         Thêm công việc
       </v-btn>
     </v-card-actions>
-     <v-alert v-if="planTaskStore.taskActionError" type="error" density="compact" class="ma-2" rounded="md"> 
-        {{ planTaskStore.taskActionError }} 
-     </v-alert>
   </v-card>
 </template>
 
 <script setup>
-import { computed } from 'vue';
-import { usePlanStore } from '@/stores/plan';
-import { usePlanTaskStore } from '@/stores/planTaskStore'; // <-- IMPORT STORE MỚI
-import { useProgressStore } from '@/stores/progress';
+import { ref, watch } from 'vue';
 import draggable from 'vuedraggable';
-import dayjs from 'dayjs';
 
-const planStore = usePlanStore();
-const planTaskStore = usePlanTaskStore(); // <-- KHỞI TẠO
-const progressStore = useProgressStore();
+// --- 1. Định nghĩa Props (Input) ---
+const props = defineProps({
+    tasks: { type: Array, default: () => [] },
+    isLoading: { type: Boolean, default: false },
+    isActionLoading: { type: Boolean, default: false },
+    error: { type: String, default: null },
+    isOwner: { type: Boolean, default: false },
+    dateFormatted: { type: String, default: '' }
+});
 
-// Thêm sự kiện 'tasks-reordered'
-const emit = defineEmits(['open-add-task', 'open-edit-task', 'confirm-delete-task', 'tasks-reordered']);
+// --- 2. Định nghĩa Emits (Output) ---
+const emit = defineEmits([
+    'open-add-task', 
+    'open-edit-task', 
+    'confirm-delete-task', 
+    'reorder-tasks' // Sự kiện báo cáo danh sách mới sau khi kéo thả
+]);
 
-// Lấy danh sách task từ store mới
-const tasks = computed(() => planTaskStore.sortedDailyTasks);
-const isOwner = computed(() => planStore.isCurrentUserOwner);
-const selectedDate = computed(() => progressStore.getSelectedDate);
-const selectedDateFormatted = computed(() => dayjs(selectedDate.value).format('DD/MM/YYYY'));
+// --- 3. Local State cho UI Kéo thả ---
+const localDraggableList = ref([...props.tasks]);
 
+// Đồng bộ hóa local state khi props.tasks thay đổi từ cha (vd: sau khi fetch lại API)
+watch(() => props.tasks, (newTasks) => {
+    localDraggableList.value = [...newTasks];
+}, { deep: true });
+
+// Khi kết thúc kéo thả, bắn sự kiện lên cha với danh sách mới
+const onDragEnd = () => {
+    emit('reorder-tasks', localDraggableList.value);
+};
+
+// --- 4. UI Helpers ---
 const cardColors = ['#F7DC6F', '#F47BBD', '#70F8F8', '#A076F9', '#F7DC6F', '#82E0AA']; 
 const getTaskCardColor = (index) => {
   return cardColors[index % cardColors.length];
-};
-
-const draggableTaskList = computed({
-  get() {
-    return tasks.value; 
-  },
-  set(newOrderedTasks) {
-    // Emit sự kiện lên cha (PlanDetailView) để xử lý gọi API, giữ component này "dumb" hơn
-    emit('tasks-reordered', newOrderedTasks);
-  }
-});
-
-const onDragEnd = (event) => {
-  console.log('Drag ended event:', event);
 };
 </script>
 

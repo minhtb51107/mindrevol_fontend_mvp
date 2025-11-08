@@ -44,6 +44,7 @@ export const useProgressStore = defineStore('progress', {
     interactionError: null,
     editingCheckInCommentId: null,
     editingCheckInCommentContent: '',
+    todayCompletedTaskIds: new Set(), // <-- BẮT BUỘC PHẢI CÓ DÒNG NÀY
   }),
 
   getters: {
@@ -264,11 +265,38 @@ export const useProgressStore = defineStore('progress', {
         }
     },
 
+    async fetchTodayCompletedTasks(shareableLink) {
+    if (!shareableLink) return;
+    try {
+        // Gọi API vừa thêm ở Bước 1
+        const response = await progressService.getTodayCompletedTasks(shareableLink);
+
+        // Đảm bảo luôn tạo ra Set, kể cả khi data null/undefined
+        this.todayCompletedTaskIds = new Set(response.data || []);
+
+    } catch (error) {
+        console.error("Lỗi tải task đã hoàn thành hôm nay:", error);
+        // Fallback an toàn: nếu lỗi thì coi như chưa hoàn thành task nào, 
+        // nhưng vẫn phải là một Set để không crash UI
+        this.todayCompletedTaskIds = new Set(); 
+    } finally {
+         // Đồng bộ sang planTaskStore (nếu bạn đang dùng nó để hiển thị ở DailyTaskList)
+         try {
+             const planTaskStore = usePlanTaskStore();
+             planTaskStore.syncCompletedTaskIds(this.todayCompletedTaskIds);
+         } catch (e) {
+             console.warn("Không thể đồng bộ sang planTaskStore:", e);
+         }
+    }
+},
+
     async submitCheckIn(shareableLink, checkInData) {
         if (!shareableLink) throw new Error("Thiếu mã kế hoạch.");
         const planTaskStore = usePlanTaskStore(); 
         try {
             const response = await progressService.createCheckIn(shareableLink, checkInData);
+
+            await this.fetchTodayCompletedTasks(shareableLink);
             
             // 1. Cập nhật lạc quan cho Task List (gạch ngang ngay lập tức)
             const checkInDate = dayjs().format('YYYY-MM-DD');
