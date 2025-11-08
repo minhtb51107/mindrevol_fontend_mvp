@@ -1,8 +1,8 @@
 <template>
   <v-container fluid class="fill-height">
     <div v-if="planStore.isLoading && !planStore.currentPlan" class="text-center mt-10 w-100">
-      <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
-      <p class="mt-4 text-medium-emphasis">Đang tải thông tin hành trình...</p>
+       <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
+       <p class="mt-4 text-medium-emphasis">Đang tải thông tin hành trình...</p>
     </div>
 
     <v-alert
@@ -47,15 +47,7 @@
             >
                 Tham gia ngay
             </v-btn>
-            <v-alert
-                v-if="joinError"
-                type="error"
-                density="compact"
-                class="mt-4 mx-auto"
-                max-width="400"
-                closable
-                @click:close="joinError = ''"
-            >
+            <v-alert v-if="joinError" type="error" density="compact" class="mt-4 mx-auto" max-width="400" closable @click:close="joinError = ''">
                 {{ joinError }}
             </v-alert>
         </v-card-text>
@@ -63,33 +55,16 @@
     </div>
 
     <div v-else-if="planStore.currentPlan" class="fill-height w-100 d-flex flex-column">
-      <!-- <v-alert
-        v-if="planStore.currentPlan.motivation"
-        color="amber-lighten-4"
-        icon="mdi-lightbulb-on-outline"
-        border="start"
-        border-color="amber"
-        class="mb-4 flex-grow-0"
-        elevation="1"
-        rounded="lg"
-      >
-        <div class="text-subtitle-2 font-weight-bold text-amber-darken-4 mb-1">
-          Lý do bắt đầu hành trình này:
-        </div>
-        <div class="text-body-1 font-italic text-grey-darken-3">
-          "{{ planStore.currentPlan.motivation }}"
-        </div>
-      </v-alert> -->
       <v-row class="main-layout-row flex-grow-1">
         
         <v-col cols="12" md="8" class="main-content-col">
           <v-card class="fill-height" rounded="lg">
             <TimelineDashboard 
               class="fill-height" 
-              @open-check-in="openCheckInModal"
-              @edit-check-in="openEditCheckInDialog"
-              @delete-check-in="openDeleteCheckInConfirm"
-              @comment-on-check-in="openCommentDialog"
+              @open-check-in="uiStore.openNewCheckIn"
+              @edit-check-in="uiStore.openEditCheckIn"
+              @delete-check-in="(event) => uiStore.openConfirmDialog('delete-checkin', event)"
+              @comment-on-check-in="(event) => communityStore.selectProgress(event)"
             />
           </v-card>
         </v-col>
@@ -107,12 +82,12 @@
               :removing-member-id="removingMemberId" 
               :error="actionError" 
               @copy-invite-link="copyInviteLink"
-              @archive-plan="confirmArchiveAction"
-              @open-transfer-dialog="openTransferOwnershipDialog"
-              @remove-member="confirmRemoveMember"
-              @open-edit-dialog="openEditPlanDialog"
-              @leave-plan="confirmLeavePlan"
-              @open-delete-dialog="openDeletePlanDialog"
+              @archive-plan="(val) => uiStore.openConfirmDialog(val ? 'archive-plan' : 'unarchive-plan')"
+              @open-transfer-dialog="uiStore.openTransferOwnership"
+              @remove-member="(member) => uiStore.openConfirmDialog('remove-member', member)"
+              @open-edit-dialog="uiStore.openEditPlan"
+              @leave-plan="uiStore.openConfirmDialog('leave-plan')"
+              @open-delete-dialog="uiStore.openConfirmDialog('delete-plan')"
             />
             </div>
 
@@ -120,9 +95,9 @@
             <v-card class="fill-height" rounded="lg">
               <DailyTaskList
                 class="fill-height"
-                @open-add-task="openAddTaskDialog"
-                @open-edit-task="openEditTaskDialog"
-                @confirm-delete-task="confirmDeleteTask"
+                @open-add-task="uiStore.openAddTask"
+                @open-edit-task="uiStore.openEditTask"
+                @confirm-delete-task="uiStore.openDeleteTask"
                 @tasks-reordered="handleTasksReordered" 
               />
             </v-card>
@@ -139,203 +114,64 @@
       </template>
     </v-snackbar>
 
-    <EditPlanModal 
-      v-model="isEditPlanModalOpen" 
-      :current-plan="planStore.currentPlan"  @close="isEditPlanModalOpen = false"
-      @plan-updated="showSnackbar('Cập nhật chi tiết hành trình thành công.', 'success')"
+    <PlanDialogs 
+        @show-snackbar="showSnackbar"
+        @confirm-action="handleGenericConfirm"
     />
-    <TransferOwnershipDialog
-      v-model="showTransferDialog"
-      :members="otherMembers"
-      @transfer-success="showSnackbar('Đã gửi yêu cầu chuyển quyền sở hữu.', 'success')"
-    />
-    <DeleteConfirmDialog
-      v-model="showConfirmDialog"
-      :itemType="confirmDialogType"
-      @confirm="onConfirmDialog"
-    />
-
-
-    <v-dialog v-model="taskDialog" persistent max-width="500px">
-      <v-card class="glass-effect">
-        <v-card-title>{{ editingTask ? 'Chỉnh sửa công việc' : 'Thêm công việc mới' }}</v-card-title>
-        <v-card-text>
-          <v-alert v-if="taskDialogError" type="error" density="compact" class="mb-3" closable @click:close="taskDialogError = ''">
-            {{ taskDialogError }}
-          </v-alert>
-          <v-form ref="taskFormRef" @submit.prevent="saveTask">
-            <v-textarea
-              v-model="taskForm.description"
-              label="Mô tả công việc *"
-              rows="3" variant="outlined" density="compact"
-              :rules="[rules.required]" class="mb-3" autofocus>
-            </v-textarea>
-            <v-text-field
-              v-model="taskForm.deadlineTime"
-              label="Deadline (HH:mm - tùy chọn)"
-              type="time" variant="outlined" density="compact" clearable>
-            </v-text-field>
-             <v-text-field
-                v-if="!editingTask"
-                v-model="taskForm.taskDate"
-                label="Ngày thực hiện *"
-                type="date" variant="outlined" density="compact"
-                :rules="[rules.required, rules.date]"
-                class="mt-3"
-             ></v-text-field>
-             <v-text-field
-                v-if="editingTask"
-                v-model="taskForm.taskDate"
-                label="Chuyển sang ngày (tùy chọn)"
-                type="date" variant="outlined" density="compact"
-                :rules="[rules.date]"
-                class="mt-3"
-                clearable
-             ></v-text-field>
-
-          </v-form>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn color="medium-emphasis" variant="text" @click="closeTaskDialog" :disabled="planStore.isTaskLoading">Hủy</v-btn>
-          <v-btn color="primary" variant="flat" @click="saveTask" :loading="planStore.isTaskLoading">Lưu</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <v-dialog v-model="deleteTaskConfirmDialog" persistent max-width="400px">
-      <v-card class="glass-effect">
-        <v-card-title class="text-h6">Xác nhận xóa</v-card-title>
-        <v-card-text>Bạn có chắc chắn muốn xóa công việc "<span class="font-weight-medium">{{ taskToDelete?.description }}</span>" của ngày {{ taskToDelete?.taskDate }}? Hành động này không thể hoàn tác.</v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn color="medium-emphasis" text @click="deleteTaskConfirmDialog = false" :disabled="planStore.isTaskLoading">Hủy</v-btn>
-          <v-btn color="error" text @click="executeDeleteTask" :loading="planStore.isTaskLoading">Xóa</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <ProgressDetailModal 
-      v-if="communityStore.selectedProgress"
-      :shareable-link="planStore.currentPlan?.shareableLink"
-    />
-    <CheckInModal 
-      v-model="isCheckInModalOpen"
-      :is-editing="!!checkInToEdit"
-      :existing-check-in="checkInToEdit"
-      @update:modelValue="onCheckInModalClose"
-    />
-    <v-dialog v-model="deleteCheckInConfirmDialog" persistent max-width="450px">
-      <v-card class="glass-effect">
-        <v-card-title class="text-h6">Xác nhận xóa Check-in</v-card-title>
-        <v-card-text>
-          Bạn có chắc chắn muốn xóa vĩnh viễn check-in này không?
-          <span v-if="checkInToDelete?.notes" class="d-block mt-2 font-italic text-medium-emphasis">
-            "{{ checkInToDelete.notes.substring(0, 100) }}{{ checkInToDelete.notes.length > 100 ? '...' : '' }}"
-          </span>
-          <br>
-          <span class="text-error font-weight-medium">Hành động này sẽ tính toán lại trạng thái hoàn thành của các task liên quan.</span>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn color="medium-emphasis" text @click="closeDeleteCheckInConfirm" :disabled="isDeletingCheckIn">Hủy</v-btn>
-          <v-btn color="error" text @click="executeDeleteCheckIn" :loading="isDeletingCheckIn">Xóa</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
 
   </v-container>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed, reactive, nextTick, watch } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { usePlanStore } from '@/stores/plan';
+import { usePlanTaskStore } from '@/stores/planTaskStore';
+import { usePlanUiStore } from '@/stores/planUi'; // <-- NEW IMPORT
 import { useAuthStore } from '@/stores/auth';
 import { useProgressStore } from '@/stores/progress';
 import { useCommunityStore } from '@/stores/community'; 
 import websocketService from '@/api/websocketService';
-import dayjs from 'dayjs'; 
-
-// --- IMPORT COMPOSABLE MỚI ---
 import { usePlanWebSocket } from '@/composables/usePlanWebSocket';
 
 import PlanInfoPanel from '@/components/PlanInfoPanel.vue';
 import TimelineDashboard from '@/components/TimelineDashboard.vue';
 import DailyTaskList from '@/components/DailyTaskList.vue';
-import CheckInModal from '@/components/CheckInModal.vue'; 
-import ProgressDetailModal from '@/components/ProgressDetailModal.vue'; 
-
-import EditPlanModal from '@/components/dialogs/EditPlanModal.vue'; 
-import TransferOwnershipDialog from '@/components/dialogs/TransferOwnershipDialog.vue';
-import DeleteConfirmDialog from '@/components/dialogs/DeleteConfirmDialog.vue';
+import PlanDialogs from '@/components/PlanDialogs.vue'; // <-- NEW CONTAINER
 
 import {
-  VContainer, VRow, VCol, VCard, VCardTitle, VCardSubtitle, VCardText, VCardItem, VList, VListItem, VListItemTitle, VListItemSubtitle, VDivider, VBtn, VAlert, VProgressCircular, VIcon, VChip, VSnackbar,
-  VCardActions, VSpacer, VDialog, VForm, VTextarea, VTextField,
-  VSelect
+  VContainer, VRow, VCol, VCard, VCardItem, VCardTitle, VCardText, VList, VListItem, VListItemTitle, VListItemSubtitle, 
+  VDivider, VBtn, VAlert, VProgressCircular, VIcon, VSnackbar
 } from 'vuetify/components';
 
 const route = useRoute();
 const router = useRouter();
 const planStore = usePlanStore();
+const planTaskStore = usePlanTaskStore();
+const uiStore = usePlanUiStore(); // <-- INITIALIZE UI STORE
 const authStore = useAuthStore();
 const progressStore = useProgressStore();
 const communityStore = useCommunityStore(); 
 
-// --- SỬ DỤNG COMPOSABLE ---
-// Tạo computed ref cho selectedDate để composable luôn có giá trị mới nhất
 const selectedDateRef = computed(() => progressStore.getSelectedDate);
-// Khởi tạo composable
-const { connect: connectWS, disconnect: disconnectWS } = usePlanWebSocket(selectedDateRef);
+const { connect: connectWS } = usePlanWebSocket(selectedDateRef);
 
+// Local UI state (things that are truly local to this view's main layout)
 const isJoining = ref(false);
 const joinError = ref('');
-
 const linkCopyText = ref('Copy link mời');
 const linkCopied = ref(false);
 const snackbar = ref(false);
 const snackbarText = ref('');
 const snackbarColor = ref('success');
-
 const actionError = ref(null);
 const isLoadingAction = ref(false);
-const isEditPlanModalOpen = ref(false);
-const showTransferDialog = ref(false);
-const showConfirmDialog = ref(false);
-const confirmDialogType = ref('');
-const itemToProcess = ref(null);
 const isArchiving = ref(null);
 const isLeaving = ref(false);
 const removingMemberId = ref(null);
-const isDeleting = ref(false);
-
-const taskDialog = ref(false);
-const editingTask = ref(null);
-const taskFormRef = ref(null);
-const taskForm = reactive({ description: '', deadlineTime: null, taskDate: null });
-const taskDialogError = ref('');
-const deleteTaskConfirmDialog = ref(false);
-const taskToDelete = ref(null);
 const isReordering = ref(false); 
 
-const isCheckInModalOpen = ref(false);
-const checkInToEdit = ref(null); 
-const deleteCheckInConfirmDialog = ref(false); 
-const checkInToDelete = ref(null); 
-const isDeletingCheckIn = ref(false); 
-
-const selectedDate = computed(() => progressStore.getSelectedDate);
-const otherMembers = computed(() => {
-    if (!planStore.currentPlan?.members || !authStore.currentUser?.id) return [];
-    return planStore.currentPlan.members.filter(member => member.userId !== authStore.currentUser.id && member.role !== 'OWNER');
-}); 
-
-const rules = {
-  required: value => !!value || 'Thông tin bắt buộc.',
-  date: value => !value || dayjs(value, 'YYYY-MM-DD', true).isValid() || 'Định dạng ngày YYYY-MM-DD.',
-};
-
+// --- INITIAL DATA FETCHING ---
 const fetchPlanAndInitialData = async (shareableLink) => {
     if (!shareableLink) {
         planStore.error = "URL không hợp lệ.";
@@ -345,24 +181,21 @@ const fetchPlanAndInitialData = async (shareableLink) => {
     await planStore.fetchPlan(shareableLink);
     if (planStore.currentPlan && planStore.isCurrentUserMember) {
         await fetchDataForSelectedDate(shareableLink, progressStore.selectedDate);
-        // KẾT NỐI WEBSOCKET THÔNG QUA COMPOSABLE
         connectWS(shareableLink);
-    } else if (planStore.currentPlan && !planStore.isCurrentUserMember) {
-        console.log("PlanDetailView: User is not a member yet.");
     }
 };
 
 const fetchDataForSelectedDate = async (shareableLink, date) => {
     if (!shareableLink || !date) return;
     progressStore.timelineError = null;
-    planStore.dailyTasksError = null;
+    planTaskStore.error = null;
     await Promise.allSettled([ 
         progressStore.fetchTimeline(shareableLink, date),
-        planStore.fetchDailyTasks(shareableLink, date)
+        planTaskStore.fetchDailyTasks(shareableLink, date)
     ]);
 };
 
-// --- CÁC HÀM SETUP/HANDLE WEBSOCKET CŨ ĐÃ BỊ XÓA VÀ THAY BẰNG COMPOSABLE ---
+// --- ACTION HANDLERS ---
 
 const handleJoinPlan = async () => {
     const link = route.params.shareableLink;
@@ -398,271 +231,75 @@ const showSnackbar = (text, color = 'success') => {
     snackbar.value = true;
 };
 
-const openEditPlanDialog = () => {
-    isEditPlanModalOpen.value = true;
-};
-
-const openTransferOwnershipDialog = () => {
-    showTransferDialog.value = true;
-};
-
-const confirmLeavePlan = () => {
-    openConfirmDialog('leave-plan');
-};
-
-const confirmArchiveAction = (isArchivingFlag) => {
-    openConfirmDialog(isArchivingFlag ? 'archive-plan' : 'unarchive-plan');
-};
-
-const confirmRemoveMember = (member) => {
-    openConfirmDialog('remove-member', member);
-};
-
-const openDeletePlanDialog = () => {
-    openConfirmDialog('delete-plan');
-};
-
-const openConfirmDialog = (type, item = null) => {
-    confirmDialogType.value = type;
-    itemToProcess.value = item;
+// Xử lý các hành động confirm từ dialog chung
+const handleGenericConfirm = async ({ type, item }) => {
+    uiStore.closeConfirmDialog();
+    isLoadingAction.value = true;
     actionError.value = null;
-    showConfirmDialog.value = true;
-};
 
-const onConfirmDialog = async () => {
-  const type = confirmDialogType.value;
-  const item = itemToProcess.value;
-  showConfirmDialog.value = false;
-  
-  isLoadingAction.value = true;
-  actionError.value = null;
-
-  try {
-    switch (type) {
-      case 'leave-plan':
-        isLeaving.value = true;
-        await planStore.leaveCurrentPlan();
-        showSnackbar('Bạn đã rời khỏi hành trình.');
-        break;
-        
-      case 'archive-plan':
-        isArchiving.value = true;
-        await planStore.archiveCurrentPlan();
-        showSnackbar('Hành trình đã được lưu trữ.');
-        break;
-
-      case 'unarchive-plan':
-        isArchiving.value = false;
-        await planStore.unarchiveCurrentPlan();
-        showSnackbar('Hành trình đã được khôi phục.');
-        await fetchPlanAndInitialData(route.params.shareableLink);
-        break;
-        
-      case 'remove-member':
-        if (item) {
-          removingMemberId.value = item.userId;
-          await planStore.removeMemberFromCurrentPlan(removingMemberId.value);
-          showSnackbar(`Đã xóa thành viên: ${item.userFullName}`, 'success');
-        }
-        break;
-        
-      case 'delete-plan':
-        isDeleting.value = true;
-        await planStore.deletePlanPermanently();
-        showSnackbar('Hành trình đã được xóa vĩnh viễn.');
-        break;
-    }
-  } catch (err) {
-    const errorMessage = err.message || 'Hành động thất bại. Vui lòng thử lại.';
-    actionError.value = errorMessage;
-    showSnackbar(errorMessage, 'error');
-  } finally {
-    isLoadingAction.value = false;
-    isArchiving.value = null;
-    isLeaving.value = false;
-    removingMemberId.value = null;
-    isDeleting.value = false;
-    itemToProcess.value = null;
-    confirmDialogType.value = '';
-  }
-};
-
-const openAddTaskDialog = () => {
-    editingTask.value = null;
-    taskForm.description = '';
-    taskForm.deadlineTime = null;
-    taskForm.taskDate = progressStore.selectedDate;
-    taskDialogError.value = '';
-    taskDialog.value = true;
-    nextTick(() => taskFormRef.value?.resetValidation());
-};
-
-const openEditTaskDialog = (task) => {
-    editingTask.value = { ...task };
-    if (!editingTask.value.taskDate) {
-        editingTask.value.taskDate = progressStore.selectedDate;
-    }
-    taskForm.description = task.description;
-    taskForm.deadlineTime = task.deadlineTime || null;
-    taskForm.taskDate = null;
-    taskDialogError.value = '';
-    taskDialog.value = true;
-    nextTick(() => taskFormRef.value?.resetValidation());
-};
-
-const closeTaskDialog = () => {
-    taskDialog.value = false;
-    editingTask.value = null; 
-};
-
-const saveTask = async () => {
-    if (!taskFormRef.value) return;
-    const { valid } = await taskFormRef.value.validate();
-    if (!valid) return;
-    let time = null;
-    if (taskForm.deadlineTime) {
-        if (dayjs(taskForm.deadlineTime, 'HH:mm', true).isValid()) {
-             time = dayjs(taskForm.deadlineTime, 'HH:mm').format('HH:mm');
-        } else {
-             taskDialogError.value = 'Định dạng Deadline không hợp lệ (HH:mm).';
-             return;
-        }
-    }
-     if (!editingTask.value && !taskForm.taskDate) {
-         taskDialogError.value = 'Vui lòng chọn ngày thực hiện công việc.';
-         return;
-     }
-     if (taskForm.taskDate && !dayjs(taskForm.taskDate, 'YYYY-MM-DD', true).isValid()) {
-         taskDialogError.value = 'Định dạng ngày không hợp lệ (YYYY-MM-DD).';
-         return;
-     }
-    const data = {
-        description: taskForm.description,
-        deadlineTime: time,
-        taskDate: taskForm.taskDate || undefined
-    };
-    taskDialogError.value = '';
     try {
-        if (editingTask.value) {
-            await planStore.updateTaskInCurrentPlan(editingTask.value.id, data, editingTask.value.taskDate);
-            showSnackbar('Yêu cầu cập nhật công việc đã được gửi.', 'success');
-        } else {
-            await planStore.addTaskToCurrentPlan(data);
-            showSnackbar('Yêu cầu thêm công việc đã được gửi.', 'success');
+        switch (type) {
+            case 'leave-plan':
+                isLeaving.value = true;
+                await planStore.leaveCurrentPlan();
+                showSnackbar('Bạn đã rời khỏi hành trình.');
+                break;
+            case 'archive-plan':
+                isArchiving.value = true;
+                await planStore.archiveCurrentPlan();
+                showSnackbar('Hành trình đã được lưu trữ.');
+                break;
+            case 'unarchive-plan':
+                isArchiving.value = false;
+                await planStore.unarchiveCurrentPlan();
+                showSnackbar('Hành trình đã được khôi phục.');
+                break;
+            case 'remove-member':
+                removingMemberId.value = item.userId;
+                await planStore.removeMemberFromCurrentPlan(item.userId);
+                showSnackbar(`Đã xóa thành viên: ${item.userFullName}`, 'success');
+                break;
+            case 'delete-plan':
+                await planStore.deletePlanPermanently();
+                showSnackbar('Hành trình đã được xóa vĩnh viễn.');
+                break;
+            case 'delete-checkin':
+                 await progressStore.deleteCheckInAction(item.id);
+                 showSnackbar('Đã xóa check-in.');
+                 break;
         }
-        closeTaskDialog();
-    } catch (e) {
-        taskDialogError.value = planStore.taskError || 'Lỗi khi lưu công việc.';
-    }
-};
-
-const confirmDeleteTask = (task) => {
-    const originalTaskDate = task.taskDate || progressStore.selectedDate;
-    taskToDelete.value = { id: task.id, description: task.description, taskDate: originalTaskDate };
-    deleteTaskConfirmDialog.value = true;
-};
-
-const executeDeleteTask = async () => {
-    if (!taskToDelete.value?.id || !taskToDelete.value?.taskDate) {
-       showSnackbar('Lỗi: Không xác định được ngày của công việc cần xóa.', 'error');
-       deleteTaskConfirmDialog.value = false;
-       return;
-    }
-
-    const desc = taskToDelete.value.description;
-    const id = taskToDelete.value.id;
-    const date = taskToDelete.value.taskDate;
-    
-    deleteTaskConfirmDialog.value = false;
-    const taskBeingDeleted = { ...taskToDelete.value }; 
-    taskToDelete.value = null;
-    
-    try {
-        await planStore.deleteTaskFromCurrentPlan(id, date);
-        showSnackbar(`Yêu cầu xóa "${desc}" đã được gửi.`, 'success');
-    } catch (e) {
-        showSnackbar(planStore.taskError || `Lỗi khi xóa "${desc}".`, 'error');
-        taskToDelete.value = taskBeingDeleted;
+    } catch (err) {
+        actionError.value = err.message || 'Thất bại.';
+        showSnackbar(actionError.value, 'error');
+    } finally {
+        isLoadingAction.value = false;
+        isArchiving.value = null;
+        isLeaving.value = false;
+        removingMemberId.value = null;
     }
 };
 
 const handleTasksReordered = async (orderedTasks) => {
     if (isReordering.value) return;
-    
     const taskDate = progressStore.selectedDate;
-    if (!taskDate) {
-        console.error("Reorder failed: No selected date.");
-        return;
-    }
-
     isReordering.value = true;
     try {
-        await planStore.reorderTasksInCurrentPlan(taskDate, orderedTasks);
+        await planTaskStore.reorderTasks(planStore.currentPlan.shareableLink, taskDate, orderedTasks);
     } catch (e) {
-        showSnackbar(planStore.taskError || 'Lỗi khi sắp xếp công việc. Đã hoàn tác.', 'error');
+        showSnackbar(planTaskStore.taskActionError || 'Lỗi khi sắp xếp công việc.', 'error');
     } finally {
         isReordering.value = false;
     }
 };
 
-const openCheckInModal = () => {
-    if (planStore.isCurrentUserMember) {
-         checkInToEdit.value = null;
-         isCheckInModalOpen.value = true;
-    } else {
-         showSnackbar("Bạn phải là thành viên để check-in.", "error");
-    }
-};
-
-const onCheckInModalClose = (value) => {
-    if (!value) {
-        isCheckInModalOpen.value = false;
-        checkInToEdit.value = null;
-    }
-};
-
-const openEditCheckInDialog = (checkInEvent) => {
-    checkInToEdit.value = checkInEvent;
-    isCheckInModalOpen.value = true;
-};
-
-const openDeleteCheckInConfirm = (checkInEvent) => {
-    checkInToDelete.value = checkInEvent;
-    deleteCheckInConfirmDialog.value = true;
-};
-
-const closeDeleteCheckInConfirm = () => {
-    checkInToDelete.value = null;
-    deleteCheckInConfirmDialog.value = false;
-};
-
-const executeDeleteCheckIn = async () => {
-    if (!checkInToDelete.value) return;
-    
-    isDeletingCheckIn.value = true;
-    try {
-        await progressStore.deleteCheckInAction(checkInToDelete.value.id);
-        showSnackbar('Đã gửi yêu cầu xóa check-in.', 'success');
-        closeDeleteCheckInConfirm();
-    } catch (error) {
-        showSnackbar(error.message || 'Lỗi khi xóa check-in.', 'error');
-    } finally {
-        isDeletingCheckIn.value = false;
-    }
-};
-
-const openCommentDialog = (checkInEvent) => {
-    communityStore.selectProgress(checkInEvent);
-};
-
+// --- WATCHERS & LIFECYCLE ---
 watch(() => route.params.shareableLink, (newLink, oldLink) => {
   if (newLink && newLink !== oldLink) {
-    // disconnectWS(); // Composable tự lo việc này khi gọi connect mới
     fetchPlanAndInitialData(newLink); 
   }
 }, { immediate: true });
 
-watch(selectedDate, (newDate, oldDate) => {
+watch(selectedDateRef, (newDate, oldDate) => {
     if (newDate && newDate !== oldDate && planStore.currentPlan?.shareableLink) {
         fetchDataForSelectedDate(planStore.currentPlan.shareableLink, newDate); 
     }
@@ -676,33 +313,21 @@ onMounted(() => {
 
 onUnmounted(() => {
     planStore.clearCurrentPlanData();
+    planTaskStore.clearDailyTasks();
     progressStore.clearPlanProgressData();
-    // disconnectWS(); // Composable tự lo việc này trong onUnmounted của nó
+    uiStore.resetAll(); // Reset UI state khi rời trang
 });
 </script>
 
 <style scoped>
-.fill-height {
-  height: 100%;
-}
-.w-100 {
-  width: 100%;
-}
-/* Sửa lại layout flex để alert không bị đè */
-.d-flex.flex-column {
-    display: flex;
-    flex-direction: column;
-}
-.flex-grow-0 {
-    flex-grow: 0 !important;
-}
-.flex-grow-1 {
-    flex-grow: 1 !important;
-}
+.fill-height { height: 100%; }
+.w-100 { width: 100%; }
+.d-flex.flex-column { display: flex; flex-direction: column; }
+.flex-grow-1 { flex-grow: 1 !important; }
 
 .main-layout-row {
-  height: 100%; /* Vẫn giữ height 100% cho row chính */
-  min-height: 0; /* Quan trọng để scroll hoạt động đúng trong flex child */
+  height: 100%; 
+  min-height: 0; 
 }
 .main-layout-row > .v-col {
   height: 100%;
@@ -735,7 +360,5 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
 }
-.bg-transparent {
-    background-color: transparent !important;
-}
+.bg-transparent { background-color: transparent !important; }
 </style>

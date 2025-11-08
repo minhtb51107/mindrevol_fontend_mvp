@@ -2,59 +2,51 @@
 import apiClient from './axios';
 
 export default {
-  // === Comments ===
+  // === Task CRUD (Chuyển từ planService sang) ===
+  getTasksByDate(shareableLink, date) {
+    return apiClient.get(`/plans/${shareableLink}/tasks`, {
+      params: { date }
+    });
+  },
 
-  /**
-   * Thêm bình luận vào Task
-   * @param {number} taskId ID của Task
-   * @param {string} content Nội dung bình luận
-   * @returns Promise<AxiosResponse<TaskCommentResponse>>
-   */
+  createTask(shareableLink, taskData) {
+    return apiClient.post(`/plans/${shareableLink}/tasks`, taskData);
+  },
+
+  updateTask(shareableLink, taskId, taskData) {
+    return apiClient.put(`/plans/${shareableLink}/tasks/${taskId}`, taskData);
+  },
+
+  deleteTask(shareableLink, taskId) {
+    return apiClient.delete(`/plans/${shareableLink}/tasks/${taskId}`);
+  },
+
+  reorderTasks(shareableLink, taskDate, orderedTaskIds) {
+    return apiClient.patch(`/plans/${shareableLink}/tasks/reorder`, {
+      taskDate,
+      orderedTaskIds
+    });
+  },
+
+  // === Comments (Giữ nguyên) ===
   addTaskComment(taskId, content) {
-    // POST /api/v1/tasks/{taskId}/comments
     return apiClient.post(`/tasks/${taskId}/comments`, { content });
   },
 
-  /**
-   * Xóa bình luận của Task
-   * @param {number} commentId ID của bình luận
-   * @returns Promise<AxiosResponse<void>>
-   */
   deleteTaskComment(commentId) {
-    // DELETE /api/v1/tasks/comments/{commentId}
     return apiClient.delete(`/tasks/comments/${commentId}`);
   },
 
-  // === THÊM HÀM NÀY ===
-  /**
-   * Cập nhật bình luận của Task
-   * @param {number} commentId ID của bình luận
-   * @param {string} content Nội dung mới
-   * @returns Promise<AxiosResponse<TaskCommentResponse>>
-   */
   updateTaskComment(commentId, content) {
-     // PUT /api/v1/tasks/comments/{commentId}
      return apiClient.put(`/tasks/comments/${commentId}`, { content });
   },
-  // === KẾT THÚC THÊM ===
 
-  // (Tùy chọn) Lấy danh sách bình luận cho Task (nếu cần load riêng)
-  // getTaskComments(taskId) {
-  //   // GET /api/v1/tasks/{taskId}/comments
-  //   return apiClient.get(`/tasks/${taskId}/comments`);
-  // },
-
-
-  // === Attachments === (Giữ nguyên)
-
+  // === Attachments (Giữ nguyên) ===
   addTaskAttachment(taskId, fileInfo) {
-    // POST /api/v1/tasks/{taskId}/attachments
     return apiClient.post(`/tasks/${taskId}/attachments`, fileInfo);
   },
 
   deleteTaskAttachment(attachmentId) {
-    // DELETE /api/v1/tasks/attachments/{attachmentId}
     return apiClient.delete(`/tasks/attachments/${attachmentId}`);
   },
-
 };

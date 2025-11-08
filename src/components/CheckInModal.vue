@@ -38,38 +38,30 @@
 
         <v-form ref="formRef" @submit.prevent="handleSubmit">
           <div class="mb-4">
-             <p class="text-subtitle-1 mb-2 font-weight-bold d-flex align-center">
-               <v-icon icon="mdi-format-list-checks" size="small" class="mr-2 text-medium-emphasis"></v-icon>
-               Bạn đã hoàn thành những gì hôm nay? *
-             </p>
-             
-             <div v-if="isLoadingTasks" class="d-flex align-center pa-4 bg-grey-lighten-4 rounded">
-               <v-progress-circular indeterminate size="24" color="primary" class="mr-3"></v-progress-circular>
-               <span class="text-body-2 text-medium-emphasis">Đang tải danh sách công việc...</span>
-             </div>
-             
-             <v-alert v-else-if="tasksError" type="warning" density="compact" class="mb-3" variant="tonal">
-               {{ tasksError }}
-             </v-alert>
-             
-             <div v-else-if="availableTasks.length === 0" class="pa-4 bg-grey-lighten-4 rounded text-center text-medium-emphasis">
-               Không có công việc nào cần check-in cho hôm nay.
-             </div>
+              <p class="text-subtitle-1 mb-2 font-weight-bold d-flex align-center">
+                <v-icon icon="mdi-format-list-checks" size="small" class="mr-2 text-medium-emphasis"></v-icon>
+                Bạn đã hoàn thành những gì hôm nay? *
+              </p>
+              
+              <div v-if="availableTasks.length === 0" class="pa-4 bg-grey-lighten-4 rounded text-center text-medium-emphasis">
+                <span v-if="isEditing">Không có công việc nào khác để chọn.</span>
+                <span v-else>Bạn đã hoàn thành hết công việc hôm nay, hoặc chưa có công việc nào!</span>
+              </div>
 
-             <v-chip-group v-else v-model="form.completedTaskIds" column multiple class="task-chip-group">
-               <v-chip
-                 v-for="task in availableTasks"
-                 :key="task.id"
-                 :value="task.id"
-                 filter
-                 variant="elevated"
-                 :color="form.completedTaskIds.includes(task.id) ? 'success' : 'default'"
-                 class="task-chip"
-               >
-                 {{ task.description }}
-               </v-chip>
-             </v-chip-group>
-             <v-input :rules="[rules.requiredTasks]" :model-value="form.completedTaskIds" class="d-none"></v-input>
+              <v-chip-group v-else v-model="form.completedTaskIds" column multiple class="task-chip-group">
+                <v-chip
+                  v-for="task in availableTasks"
+                  :key="task.id"
+                  :value="task.id"
+                  filter
+                  variant="elevated"
+                  :color="form.completedTaskIds.includes(task.id) ? 'success' : 'default'"
+                  class="task-chip"
+                >
+                  {{ task.description }}
+                </v-chip>
+              </v-chip-group>
+              <v-input :rules="[rules.requiredTasks]" :model-value="form.completedTaskIds" class="d-none"></v-input>
           </div>
 
           <div class="mb-4">
@@ -89,36 +81,29 @@
           </div>
           
           <div class="mb-4">
-             <p class="text-subtitle-1 mb-2 font-weight-bold d-flex align-center">
-               <v-icon icon="mdi-link-variant" size="small" class="mr-2 text-medium-emphasis"></v-icon>
-               Liên kết minh chứng (Tùy chọn)
-             </p>
-             <div v-for="(link, index) in form.links" :key="index" class="d-flex align-center mb-2">
-               <v-text-field
-                 v-model="form.links[index]"
-                 placeholder="https://example.com/proof"
-                 variant="outlined"
-                 density="compact"
-                 hide-details
-                 bg-color="grey-lighten-5"
-                 class="flex-grow-1 mr-2"
-               >
-                 <template v-slot:prepend-inner>
-                   <v-icon icon="mdi-link" size="small" class="text-medium-emphasis"></v-icon>
-                 </template>
-               </v-text-field>
-               <v-btn icon="mdi-close-circle-outline" variant="text" color="error" density="comfortable" @click="removeLink(index)" title="Xóa link"></v-btn>
-             </div>
-             <v-btn
-               size="small"
-               variant="tonal"
-               color="primary"
-               prepend-icon="mdi-plus"
-               @click="addLink"
-               :disabled="form.links.length >= 5"
-             >
-               Thêm liên kết
-             </v-btn>
+              <p class="text-subtitle-1 mb-2 font-weight-bold d-flex align-center">
+                <v-icon icon="mdi-link-variant" size="small" class="mr-2 text-medium-emphasis"></v-icon>
+                Liên kết minh chứng (Tùy chọn)
+              </p>
+              <div v-for="(link, index) in form.links" :key="index" class="d-flex align-center mb-2">
+                <v-text-field
+                  v-model="form.links[index]"
+                  placeholder="https://example.com/proof"
+                  variant="outlined"
+                  density="compact"
+                  hide-details
+                  bg-color="grey-lighten-5"
+                  class="flex-grow-1 mr-2"
+                >
+                  <template v-slot:prepend-inner>
+                    <v-icon icon="mdi-link" size="small" class="text-medium-emphasis"></v-icon>
+                  </template>
+                </v-text-field>
+                <v-btn icon="mdi-close-circle-outline" variant="text" color="error" density="comfortable" @click="removeLink(index)" title="Xóa link"></v-btn>
+              </div>
+              <v-btn size="small" variant="tonal" color="primary" prepend-icon="mdi-plus" @click="addLink" :disabled="form.links.length >= 5">
+                Thêm liên kết
+              </v-btn>
           </div>
 
           <template v-if="!isEditing">
@@ -152,23 +137,10 @@
 
       <v-card-actions class="pa-4">
         <v-spacer></v-spacer>
-        <v-btn
-           variant="outlined"
-           color="medium-emphasis"
-           @click="closeDialog"
-           :disabled="isLoading"
-           class="mr-2"
-        >
+        <v-btn variant="outlined" color="medium-emphasis" @click="closeDialog" :disabled="isLoading" class="mr-2">
           Hủy bỏ
         </v-btn>
-        <v-btn
-          color="primary"
-          variant="flat"
-          @click="handleSubmit"
-          :loading="isLoading"
-          :disabled="isLoading"
-          class="px-6"
-        >
+        <v-btn color="primary" variant="flat" @click="handleSubmit" :loading="isLoading" :disabled="isLoading" class="px-6">
           {{ isEditing ? 'Lưu thay đổi' : 'Hoàn thành Check-in' }}
         </v-btn>
       </v-card-actions>
@@ -180,34 +152,26 @@
 import { ref, reactive, computed, watch } from 'vue';
 import { useProgressStore } from '@/stores/progress';
 import { usePlanStore } from '@/stores/plan';
-import { useAuthStore } from '@/stores/auth'; 
-import planService from '@/api/planService'; 
-import progressService from '@/api/progressService'; 
+import { usePlanTaskStore } from '@/stores/planTaskStore';
 import fileUploadService from '@/api/fileUploadService'; 
 import { 
   VDialog, VCard, VCardTitle, VCardText, VCardActions, VAlert, VForm, 
-  VProgressCircular, VChipGroup, VChip, VInput, VTextarea, VFileInput,
+  VChipGroup, VChip, VInput, VTextarea, VFileInput,
   VBtn, VSpacer, VTextField, VIcon, VDivider
 } from 'vuetify/components';
 import dayjs from 'dayjs';
 
 const props = defineProps({
   modelValue: Boolean,
-  isEditing: {
-    type: Boolean,
-    default: false
-  },
-  existingCheckIn: {
-    type: Object,
-    default: null
-  }
+  isEditing: { type: Boolean, default: false },
+  existingCheckIn: { type: Object, default: null }
 });
 
 const emit = defineEmits(['update:modelValue']);
 
 const progressStore = useProgressStore();
 const planStore = usePlanStore();
-const authStore = useAuthStore(); 
+const planTaskStore = usePlanTaskStore();
 
 const planMotivation = computed(() => planStore.currentPlan?.motivation);
 
@@ -215,8 +179,7 @@ const formRef = ref(null);
 const isLoading = ref(false); 
 const error = ref(''); 
 
-const isLoadingTasks = ref(false); 
-const tasksError = ref(''); 
+// Biến local để giữ danh sách task tại thời điểm mở modal
 const localTasks = ref([]); 
 
 const form = reactive({
@@ -231,121 +194,42 @@ const dialog = computed({
   set: (value) => emit('update:modelValue', value)
 });
 
+// Computed để lọc ra các task CÓ THỂ check-in
 const availableTasks = computed(() => {
   const allTasks = localTasks.value; 
-  
   if (props.isEditing && props.existingCheckIn) {
-    const checkedIdsInThisEvent = props.existingCheckIn.completedTasks?.map(t => t.taskId) || [];
-    return allTasks.filter(task => 
-      !task.isCompleted || checkedIdsInThisEvent.includes(task.id)
-    );
+     // Khi sửa: Hiện các task chưa hoàn thành HOẶC các task đã chọn trong chính lần check-in này
+     // (Lưu ý: backend có thể trả về completedTasks (object) hoặc completedTaskIds (array số))
+     const currentEventTaskIds = props.existingCheckIn.completedTaskIds || 
+                                 props.existingCheckIn.completedTasks?.map(t => t.taskId) || 
+                                 [];
+     return allTasks.filter(task => !task.isCompleted || currentEventTaskIds.includes(task.id));
   } else {
-    // CHỈ hiển thị những task chưa hoàn thành
-    return allTasks.filter(task => !task.isCompleted);
+     // Khi tạo mới: CHỈ hiện các task CHƯA hoàn thành
+     return allTasks.filter(task => !task.isCompleted);
   }
 });
 
 watch(() => props.modelValue, (newValue) => {
   if (newValue) {
-    resetForm(); 
+    resetForm();
+    // --- QUAN TRỌNG: Lấy ngay dữ liệu từ store khi mở modal ---
+    // Store đã có thông tin isCompleted chính xác nhờ progressStore sync
+    localTasks.value = JSON.parse(JSON.stringify(planTaskStore.sortedDailyTasks));
+
     if (props.isEditing && props.existingCheckIn) {
-      // LOGIC SỬA
       form.notes = props.existingCheckIn.notes || '';
-      form.links = props.existingCheckIn.links ? [...props.existingCheckIn.links] : []; 
-      form.files = []; 
-      form.completedTaskIds = props.existingCheckIn.completedTasks?.map(t => t.taskId) || [];
-      
-      // Tạm thời dùng dữ liệu local để hiển thị nhanh
-      localTasks.value = planStore.getCurrentDailyTasksSorted.map(task => ({...task, isCompleted: false}));
-      isLoadingTasks.value = false;
-      tasksError.value = '';
-      
-      // Gọi API để cập nhật trạng thái chính xác nhất
-      fetchTasksForToday();
-    } else {
-      // LOGIC TẠO MỚI
-      fetchTasksForToday();
+      form.links = props.existingCheckIn.links ? [...props.existingCheckIn.links] : [];
+      form.files = [];
+      // Map dữ liệu cũ vào form (ưu tiên completedTaskIds nếu có)
+      if (props.existingCheckIn.completedTaskIds) {
+          form.completedTaskIds = [...props.existingCheckIn.completedTaskIds];
+      } else if (props.existingCheckIn.completedTasks) {
+          form.completedTaskIds = props.existingCheckIn.completedTasks.map(t => t.taskId);
+      }
     }
   }
 });
-
-// --- HÀM QUAN TRỌNG NHẤT ĐỂ SỬA LỖI ---
-const fetchTasksForToday = async () => {
-  isLoadingTasks.value = true;
-  tasksError.value = '';
-  localTasks.value = [];
-  
-  const shareableLink = progressStore.currentPlanShareableLink; 
-  if (!shareableLink) {
-    tasksError.value = "Lỗi: Không tìm thấy hành trình.";
-    isLoadingTasks.value = false;
-    return;
-  }
-  
-  const selectedDate = progressStore.getSelectedDate || dayjs().format('YYYY-MM-DD');
-  
-  try {
-    const [tasksResponse, timelineResponse] = await Promise.allSettled([
-      planService.getTasksByDate(shareableLink, selectedDate),
-      progressService.getDailyTimeline(shareableLink, selectedDate)
-    ]);
-
-    if (tasksResponse.status === 'rejected') {
-      throw new Error("Không thể tải danh sách công việc.");
-    }
-    
-    const tasks = tasksResponse.value.data || [];
-    let completedIds = new Set();
-
-    if (timelineResponse.status === 'fulfilled') {
-      // Ép kiểu User ID về Number để so sánh chính xác
-      const currentUserId = Number(authStore.currentUser?.id);
-      const timelineData = timelineResponse.value.data || [];
-      
-      // Tìm timeline của user hiện tại (ép kiểu khi so sánh)
-      const currentUserTimeline = timelineData.find(t => Number(t.userId) === currentUserId);
-      
-      console.log("[DEBUG] Current User ID:", currentUserId);
-      console.log("[DEBUG] Timeline Data Raw:", timelineData);
-
-      if (currentUserTimeline && Array.isArray(currentUserTimeline.checkInEvents)) {
-        currentUserTimeline.checkInEvents.forEach(event => {
-           // Nếu đang sửa chính event này thì không tính là "đã hoàn thành" để nó hiện ra lại
-           if (props.isEditing && props.existingCheckIn && event.id === props.existingCheckIn.id) return;
-
-           // Duyệt qua completedTasks (ưu tiên cái này nếu backend trả về object)
-           if (Array.isArray(event.completedTasks)) {
-               event.completedTasks.forEach(task => {
-                   if (task.taskId) completedIds.add(Number(task.taskId));
-               });
-           }
-           // Duyệt qua completedTaskIds (dự phòng)
-           if (Array.isArray(event.completedTaskIds)) {
-               event.completedTaskIds.forEach(id => completedIds.add(Number(id)));
-           }
-        });
-      } else {
-          console.warn("[DEBUG] Không tìm thấy timeline cho user này hôm nay (có thể do lệch múi giờ Backend).");
-      }
-    }
-    
-    console.log("[DEBUG] Final Completed Task IDs found:", Array.from(completedIds));
-
-    // Đánh dấu task đã hoàn thành
-    localTasks.value = tasks
-      .map(task => ({
-        ...task,
-        isCompleted: completedIds.has(Number(task.id)) 
-      }))
-      .sort((a, b) => (a.order ?? Infinity) - (b.order ?? Infinity));
-    
-  } catch (err) {
-    console.error("CheckInModal: Error fetching tasks:", err);
-    tasksError.value = err.message || "Không thể tải công việc.";
-  } finally {
-    isLoadingTasks.value = false;
-  }
-};
 
 const resetForm = () => {
   form.notes = '';
@@ -423,8 +307,8 @@ const handleSubmit = async () => {
     }
     closeDialog();
   } catch (err) {
-    console.error("Check-in/Update error:", err);
-    error.value = err.message || err.response?.data?.message || 'Thao tác thất bại. Vui lòng thử lại.';
+    console.error("Check-in error:", err);
+    error.value = err.message || err.response?.data?.message || 'Thao tác thất bại.';
   } finally {
     isLoading.value = false;
   }

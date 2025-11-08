@@ -287,7 +287,7 @@ const getInitials = (name) => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid rgba(var(--v-theme-border), 0.4); /* Viền tinh tế hơn */
+  border: 1px solid rgba(var(--v-theme-border), 0.4); 
 }
 .timeline-container {
   flex-grow: 1;

@@ -1,170 +1,180 @@
-<!-- <template>
+<template>
   <v-dialog
     :model-value="modelValue"
-    @update:model-value="$emit('update:modelValue', $event)"
-    max-width="500px"
+    @update:model-value="closeDialog"
     persistent
+    max-width="500px"
   >
-    <v-card class="neo-dialog-card" rounded="lg">
-      <v-form ref="form" @submit.prevent="saveTask">
-        <v-card-title class="font-weight-medium">
-          <v-icon start color="grey-lighten-1">{{
-            isEditMode ? 'mdi-pencil-outline' : 'mdi-plus-circle-outline'
-          }}</v-icon>
-          {{ formTitle }}
-        </v-card-title>
-
-        <v-divider></v-divider>
-
-        <v-card-text class="pa-4">
-          <v-text-field
-            v-model="taskData.description"
-            label="Mô tả công việc"
+    <v-card class="glass-effect">
+      <v-card-title>
+        {{ isEditing ? 'Chỉnh sửa công việc' : 'Thêm công việc mới' }}
+      </v-card-title>
+      <v-card-text>
+        <v-alert
+          v-if="planTaskStore.taskActionError"
+          type="error"
+          density="compact"
+          class="mb-3"
+          closable
+        >
+          {{ planTaskStore.taskActionError }}
+        </v-alert>
+        
+        <v-form ref="formRef" @submit.prevent="onSave">
+          <v-textarea
+            v-model="form.description"
+            label="Mô tả công việc *"
+            rows="3"
             variant="outlined"
             density="compact"
-            :rules="[rules.required]"
-            autofocus
+            :rules="[v => !!v || 'Bắt buộc']"
             class="mb-3"
+            autofocus
+          ></v-textarea>
+          
+          <v-text-field
+            v-model="form.deadlineTime"
+            label="Deadline (HH:mm - tùy chọn)"
+            type="time"
+            variant="outlined"
+            density="compact"
+            clearable
           ></v-text-field>
 
           <v-text-field
-            v-model="taskData.deadlineTime"
-            label="Deadline (ví dụ: 09:00)"
-            placeholder="HH:mm"
-            variant="outlined"
-            density="compact"
-            :rules="[rules.timeFormat]"
-            hint="Để trống nếu không có deadline cụ thể"
-            persistent-hint
+             v-if="!isEditing"
+             v-model="form.taskDate"
+             label="Ngày thực hiện *"
+             type="date"
+             variant="outlined"
+             density="compact"
+             :rules="[v => !!v || 'Bắt buộc']"
+             class="mt-3"
           ></v-text-field>
-        </v-card-text>
 
-        <v-divider></v-divider>
-
-        <v-card-actions class="pa-3">
-          <v-spacer></v-spacer>
-          <v-btn variant="text" @click="closeDialog" :disabled="isLoading">
-            Hủy
-          </v-btn>
-          <v-btn
-            color="primary"
-            variant="elevated"
-            type="submit"
-            :loading="isLoading"
-          >
-            Lưu
-          </v-btn>
-        </v-card-actions>
-      </v-form>
+          <v-text-field
+             v-if="isEditing"
+             v-model="form.taskDate"
+             label="Chuyển sang ngày (tùy chọn)"
+             type="date"
+             variant="outlined"
+             density="compact"
+             class="mt-3"
+             clearable
+             hint="Để trống nếu giữ nguyên ngày cũ"
+             persistent-hint
+          ></v-text-field>
+        </v-form>
+      </v-card-text>
+      
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn
+          color="medium-emphasis"
+          variant="text"
+          @click="closeDialog"
+          :disabled="planTaskStore.isTaskActionLoading"
+        >
+          Hủy
+        </v-btn>
+        <v-btn
+          color="primary"
+          variant="flat"
+          @click="onSave"
+          :loading="planTaskStore.isTaskActionLoading"
+        >
+          Lưu
+        </v-btn>
+      </v-card-actions>
     </v-card>
   </v-dialog>
 </template>
 
 <script setup>
-import { ref, computed, watchEffect } from 'vue';
-import { useTaskStore } from '@/stores/taskStore';
-import { toast } from 'vue-sonner'; // <-- ĐÃ THAY ĐỔI
+import { ref, reactive, computed, watch, nextTick } from 'vue';
+import { usePlanTaskStore } from '@/stores/planTaskStore';
+import { usePlanStore } from '@/stores/plan';
+import { useProgressStore } from '@/stores/progress';
+import dayjs from 'dayjs';
 
 const props = defineProps({
   modelValue: Boolean,
-  planId: {
-    type: String,
-    required: true,
-  },
-  task: {
-    type: Object,
-    default: null,
-  },
+  task: { type: Object, default: null }, // Nếu có task nghĩa là đang edit
 });
+const emit = defineEmits(['update:modelValue', 'saved']);
 
-const emit = defineEmits(['update:modelValue', 'task-saved']);
+const planTaskStore = usePlanTaskStore();
+const planStore = usePlanStore();
+const progressStore = useProgressStore();
 
-// --- Store và State ---
-const taskStore = useTaskStore();
-// const snackbar = useSnackbar(); // <-- ĐÃ XÓA
-const form = ref(null);
-const isLoading = ref(false);
-
-const taskData = ref({
+const formRef = ref(null);
+const form = reactive({
   description: '',
-  deadlineTime: '',
+  deadlineTime: null,
+  taskDate: null,
 });
 
-// --- Computed ---
-const isEditMode = computed(() => !!props.task?.id);
-const formTitle = computed(() =>
-  isEditMode.value ? 'Chỉnh sửa công việc' : 'Công việc mới'
-);
+const isEditing = computed(() => !!props.task);
 
-// --- Validation Rules ---
-const rules = {
-  required: (value) => !!value || 'Không được để trống.',
-  timeFormat: (value) => {
-    if (!value) return true;
-    return (
-      /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/.test(value) ||
-      'Định dạng thời gian không đúng (HH:mm)'
-    );
-  },
-};
+// Reset form khi mở dialog
+watch(() => props.modelValue, (val) => {
+  if (val) {
+    if (props.task) {
+      // Mode Edit
+      form.description = props.task.description;
+      form.deadlineTime = props.task.deadlineTime || null;
+      form.taskDate = props.task.taskDate; // Có thể null nếu không muốn đổi ngày
+    } else {
+      // Mode Add
+      form.description = '';
+      form.deadlineTime = null;
+      // Mặc định lấy ngày đang chọn bên ngoài
+      form.taskDate = progressStore.getSelectedDate;
+    }
+    nextTick(() => formRef.value?.resetValidation());
+  }
+});
 
-// --- Methods ---
 const closeDialog = () => {
   emit('update:modelValue', false);
 };
 
-const saveTask = async () => {
-  const { valid } = await form.value.validate();
+const onSave = async () => {
+  const { valid } = await formRef.value.validate();
   if (!valid) return;
 
-  isLoading.value = true;
-  try {
-    const payload = {
-      description: taskData.value.description,
-      deadlineTime: taskData.value.deadlineTime || null,
-    };
+  // Validate & Format Time
+  let formattedTime = null;
+  if (form.deadlineTime) {
+      const timeRegex = /^([0-1]?\d|2[0-3]):([0-5]\d)(:([0-5]\d))?$/;
+      if (timeRegex.test(form.deadlineTime)) {
+           formattedTime = form.deadlineTime.substring(0, 5);
+      } else {
+           alert('Định dạng giờ không hợp lệ'); return;
+      }
+  }
 
-    if (isEditMode.value) {
-      await taskStore.updateTask(props.task.id, payload);
-      toast.success('Đã cập nhật công việc'); // <-- ĐÃ THAY ĐỔI
-    } else {
-      await taskStore.createTask(props.planId, payload);
-      toast.success('Đã tạo công việc mới'); // <-- ĐÃ THAY ĐỔI
-    }
-    emit('task-saved');
-    closeDialog();
-  } catch (error) {
-    console.error('Lỗi khi lưu công việc:', error);
-    // <-- ĐÃ THAY ĐỔI
-    toast.error('Lỗi', {
-      description: error.message || 'Không thể lưu công việc.',
-    });
-  } finally {
-    isLoading.value = false;
+  const payload = {
+      description: form.description,
+      deadlineTime: formattedTime,
+      taskDate: form.taskDate || undefined
+  };
+
+  try {
+      const link = planStore.currentPlan?.shareableLink;
+      if (!link) throw new Error("Missing plan link");
+
+      if (isEditing.value) {
+          // Gọi update
+          await planTaskStore.updateTask(link, props.task.id, payload, props.task.taskDate);
+      } else {
+          // Gọi create
+          await planTaskStore.addTask(link, payload);
+      }
+      emit('saved'); // Báo ra ngoài nếu cần hiển thị snackbar
+      closeDialog();
+  } catch (e) {
+      // Lỗi đã được xử lý trong store và hiển thị lên alert
   }
 };
-
-// --- Watcher ---
-watchEffect(() => {
-  if (props.modelValue) {
-    if (isEditMode.value) {
-      taskData.value.description = props.task.description;
-      taskData.value.deadlineTime = props.task.deadlineTime || '';
-    } else {
-      taskData.value.description = '';
-      taskData.value.deadlineTime = '';
-    }
-    if (form.value) {
-      form.value.resetValidation();
-    }
-  }
-});
 </script>
-
-<style scoped>
-.neo-dialog-card {
-  background-color: rgba(var(--v-theme-surface-variant), 0.7) !important;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(var(--v-border-color), 0.3) !important;
-}
-</style> -->
