@@ -63,7 +63,7 @@
     </div>
 
     <div v-else-if="planStore.currentPlan" class="fill-height w-100 d-flex flex-column">
-      <v-alert
+      <!-- <v-alert
         v-if="planStore.currentPlan.motivation"
         color="amber-lighten-4"
         icon="mdi-lightbulb-on-outline"
@@ -79,7 +79,7 @@
         <div class="text-body-1 font-italic text-grey-darken-3">
           "{{ planStore.currentPlan.motivation }}"
         </div>
-      </v-alert>
+      </v-alert> -->
       <v-row class="main-layout-row flex-grow-1">
         
         <v-col cols="12" md="8" class="main-content-col">
@@ -216,8 +216,8 @@
     </v-dialog>
 
     <ProgressDetailModal 
-      v-if="planStore.currentPlan?.shareableLink"
-      :shareable-link="planStore.currentPlan.shareableLink"
+      v-if="communityStore.selectedProgress"
+      :shareable-link="planStore.currentPlan?.shareableLink"
     />
     <CheckInModal 
       v-model="isCheckInModalOpen"
@@ -257,6 +257,9 @@ import { useCommunityStore } from '@/stores/community';
 import websocketService from '@/api/websocketService';
 import dayjs from 'dayjs'; 
 
+// --- IMPORT COMPOSABLE MỚI ---
+import { usePlanWebSocket } from '@/composables/usePlanWebSocket';
+
 import PlanInfoPanel from '@/components/PlanInfoPanel.vue';
 import TimelineDashboard from '@/components/TimelineDashboard.vue';
 import DailyTaskList from '@/components/DailyTaskList.vue';
@@ -279,6 +282,12 @@ const planStore = usePlanStore();
 const authStore = useAuthStore();
 const progressStore = useProgressStore();
 const communityStore = useCommunityStore(); 
+
+// --- SỬ DỤNG COMPOSABLE ---
+// Tạo computed ref cho selectedDate để composable luôn có giá trị mới nhất
+const selectedDateRef = computed(() => progressStore.getSelectedDate);
+// Khởi tạo composable
+const { connect: connectWS, disconnect: disconnectWS } = usePlanWebSocket(selectedDateRef);
 
 const isJoining = ref(false);
 const joinError = ref('');
@@ -316,10 +325,6 @@ const deleteCheckInConfirmDialog = ref(false);
 const checkInToDelete = ref(null); 
 const isDeletingCheckIn = ref(false); 
 
-const progressTopic = ref('');
-const taskTopic = ref('');
-const planDetailsTopic = ref('');
-
 const selectedDate = computed(() => progressStore.getSelectedDate);
 const otherMembers = computed(() => {
     if (!planStore.currentPlan?.members || !authStore.currentUser?.id) return [];
@@ -340,7 +345,8 @@ const fetchPlanAndInitialData = async (shareableLink) => {
     await planStore.fetchPlan(shareableLink);
     if (planStore.currentPlan && planStore.isCurrentUserMember) {
         await fetchDataForSelectedDate(shareableLink, progressStore.selectedDate);
-        setupWebSocket(shareableLink);
+        // KẾT NỐI WEBSOCKET THÔNG QUA COMPOSABLE
+        connectWS(shareableLink);
     } else if (planStore.currentPlan && !planStore.isCurrentUserMember) {
         console.log("PlanDetailView: User is not a member yet.");
     }
@@ -356,118 +362,7 @@ const fetchDataForSelectedDate = async (shareableLink, date) => {
     ]);
 };
 
-const setupWebSocket = (shareableLink) => { 
-    if (!shareableLink || !planStore.isCurrentUserMember) return;
-
-    const subscribeAndLog = (topicRef, topicPath, handler) => {
-        if (topicRef.value) {
-             websocketService.unsubscribe(topicRef.value);
-             topicRef.value = '';
-        }
-        websocketService.subscribe(topicPath, handler)
-            .then(() => {
-                topicRef.value = topicPath;
-            })
-            .catch(err => console.error(`WS Subscribe Error ${topicPath}:`, err));
-    };
-
-    subscribeAndLog(progressTopic, `/topic/plan/${shareableLink}/progress`, handleProgressUpdate);
-    subscribeAndLog(taskTopic, `/topic/plan/${shareableLink}/tasks`, handleTaskUpdate);
-    subscribeAndLog(planDetailsTopic, `/topic/plan/${shareableLink}/details`, handlePlanDetailsUpdate);
-};
-
-const unsubscribeWebSocketTopics = () => {
-    if (progressTopic.value) websocketService.unsubscribe(progressTopic.value);
-    if (taskTopic.value) websocketService.unsubscribe(taskTopic.value);
-    if (planDetailsTopic.value) websocketService.unsubscribe(planDetailsTopic.value);
-    progressTopic.value = '';
-    taskTopic.value = '';
-    planDetailsTopic.value = '';
-};
-
-const handleProgressUpdate = (message) => { 
-    progressStore.handleWebSocketUpdate(message);
-};
-
-const handleTaskUpdate = (message) => { 
-    planStore.handleTaskWebSocketUpdate(message, progressStore.selectedDate);
-};
-
-const handlePlanDetailsUpdate = (message) => { 
-    if (!planStore.currentPlan) return;
-    
-    const { 
-      type, member, userId, 
-      status, displayStatus, 
-      title, description, dailyGoal, motivation, // <-- THÊM motivation VÀO ĐÂY
-      durationInDays, startDate, endDate, 
-      oldOwnerUserId, newOwnerUserId 
-    } = message;
-
-    let needsTimelineRefetch = false;
-    const authStore = useAuthStore(); 
-
-    switch(type) {
-        case 'MEMBER_JOINED':
-            if (planStore.currentPlan.members && !planStore.currentPlan.members.some(m => m.userId === member?.userId)) {
-                planStore.currentPlan.members.push(member);
-                if (typeof planStore.currentPlan.memberCount === 'number') planStore.currentPlan.memberCount++;
-                needsTimelineRefetch = true;
-            }
-            break;
-        
-        case 'MEMBER_LEFT':
-        case 'MEMBER_REMOVED':
-            if (planStore.currentPlan.members) {
-                const index = planStore.currentPlan.members.findIndex(m => m.userId === userId);
-                if (index !== -1) {
-                    planStore.currentPlan.members.splice(index, 1);
-                    if (typeof planStore.currentPlan.memberCount === 'number' && planStore.currentPlan.memberCount > 0) planStore.currentPlan.memberCount--;
-                    needsTimelineRefetch = true;
-                }
-                if (authStore.currentUser?.id === userId) {
-                    showSnackbar(type === 'MEMBER_LEFT' ? 'Bạn đã rời hành trình.' : 'Bạn đã bị loại khỏi hành trình.', 'warning');
-                    router.push('/dashboard');
-                }
-            }
-            break;
-
-        case 'STATUS_CHANGED':
-            if (status !== undefined) planStore.currentPlan.status = status;
-            if (displayStatus !== undefined) planStore.currentPlan.displayStatus = displayStatus;
-            if (status === 'ARCHIVED' && !planStore.isCurrentUserOwner) {
-                showSnackbar('Hành trình này đã được lưu trữ.', 'info');
-                router.push('/dashboard');
-            }
-            else if (status === 'ACTIVE' || status === 'COMPLETED') {
-                 fetchDataForSelectedDate(planStore.currentPlan.shareableLink, progressStore.selectedDate);
-            }
-            break;
-
-        case 'PLAN_DETAILS_UPDATED':
-        case 'PLAN_INFO_UPDATED': 
-            if (title !== undefined) planStore.currentPlan.title = title;
-            if (description !== undefined) planStore.currentPlan.description = description;
-            if (motivation !== undefined) planStore.currentPlan.motivation = motivation; // <-- CẬP NHẬT MOTIVATION
-            if (dailyGoal !== undefined) planStore.currentPlan.dailyGoal = dailyGoal;
-            if (durationInDays !== undefined) planStore.currentPlan.durationInDays = durationInDays;
-            if (startDate !== undefined) planStore.currentPlan.startDate = startDate;
-            if (endDate !== undefined) planStore.currentPlan.endDate = endDate;
-            break;
-
-        case 'OWNERSHIP_TRANSFERRED':
-            if (planStore.currentPlan.members && oldOwnerUserId && newOwnerUserId) {
-                const oldOwner = planStore.currentPlan.members.find(m => m.userId === oldOwnerUserId);
-                const newOwner = planStore.currentPlan.members.find(m => m.userId === newOwnerUserId);
-                if (oldOwner) oldOwner.role = 'MEMBER';
-                if (newOwner) newOwner.role = 'OWNER';
-            }
-            break;
-    }
-    if (needsTimelineRefetch && planStore.currentPlan?.shareableLink) {
-          progressStore.fetchTimeline(planStore.currentPlan.shareableLink, progressStore.selectedDate);
-    }
-};
+// --- CÁC HÀM SETUP/HANDLE WEBSOCKET CŨ ĐÃ BỊ XÓA VÀ THAY BẰNG COMPOSABLE ---
 
 const handleJoinPlan = async () => {
     const link = route.params.shareableLink;
@@ -762,7 +657,7 @@ const openCommentDialog = (checkInEvent) => {
 
 watch(() => route.params.shareableLink, (newLink, oldLink) => {
   if (newLink && newLink !== oldLink) {
-    unsubscribeWebSocketTopics(); 
+    // disconnectWS(); // Composable tự lo việc này khi gọi connect mới
     fetchPlanAndInitialData(newLink); 
   }
 }, { immediate: true });
@@ -782,7 +677,7 @@ onMounted(() => {
 onUnmounted(() => {
     planStore.clearCurrentPlanData();
     progressStore.clearPlanProgressData();
-    unsubscribeWebSocketTopics();
+    // disconnectWS(); // Composable tự lo việc này trong onUnmounted của nó
 });
 </script>
 
