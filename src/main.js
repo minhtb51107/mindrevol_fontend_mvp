@@ -12,7 +12,8 @@ import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import App from './App.vue'
 import router from './router'
 
-import { useAuthStore } from '@/stores/auth' // <-- *** THÊM IMPORT STORE ***
+// Cập nhật đường dẫn store
+import { useAuthStore } from '@/features/auth/stores/authStore'
 
 // --- Theme Sáng Tùy Chỉnh (Giữ nguyên) ---
 const myCustomLightTheme = {
@@ -104,54 +105,36 @@ const myCustomDarkTheme = {
   }
 }
 
-// --- *** THÊM MỚI: THEME NEO FUTURISTIC *** ---
+// --- THEME NEO FUTURISTIC ---
 const neoFuturisticDark = {
   dark: true,
   colors: {
-    // Màu nền chủ đạo (Đen xám đậm)
     background: '#1A1B25',
-    // Màu nền cho Card, nổi khối nhẹ
-    surface: '#1F202B', 
-    
-    // Màu nhấn Neon Pastel (chọn 1 màu làm primary/secondary)
-    primary: '#A076F9',    // Tím Lavender
-    secondary: '#70F8F8',  // Xanh Cyan
-
-    // Bổ sung các màu neon khác để dùng tùy chỉnh
+    surface: '#1F202B',
+    primary: '#A076F9',
+    secondary: '#70F8F8',
     'neon-yellow': '#F7DC6F',
     'neon-pink': '#F47BBD',
-    'neon-purple': '#A076F9', // Giống primary
-    'neon-cyan': '#70F8F8',   // Giống secondary
+    'neon-purple': '#A076F9',
+    'neon-cyan': '#70F8F8',
     'neon-green': '#63F28F',
-    
-    // Màu chữ & trạng thái
     'on-background': '#E0E0E0',
-    'on-surface': '#FFFFFF',  // Chữ trên card nổi bật hơn
+    'on-surface': '#FFFFFF',
     'on-primary': '#FFFFFF',
     'on-secondary': '#1A1B25',
     'medium-emphasis': 'rgba(255, 255, 255, 0.7)',
     'disabled': 'rgba(255, 255, 255, 0.38)',
-    
-    // Màu viền
-    'border': '#3A3C4A', // Viền tối, tinh tế
-
-    // Các màu mặc định khác
+    'border': '#3A3C4A',
     error: '#CF6679',
     info: '#64B5F6',
-    success: '#63F28F', // Dùng màu neon green
-    warning: '#F7DC6F', // Dùng màu neon yellow
-    
-    // Màu riêng (nếu cần)
-    'app-bar': 'rgba(26, 27, 37, 0.8)', // App bar có thể hơi trong
+    success: '#63F28F',
+    warning: '#F7DC6F',
+    'app-bar': 'rgba(26, 27, 37, 0.8)',
   },
   variables: {
-    // --- Thay đổi độ bo tròn ---
-    // 'rounded-borders': 'xl', // xl = 16px
     'border-color': '#3A3C4A',
     'border-opacity': 0.8,
-    
-    // Opacity
-    'high-emphasis-opacity': 1.0,   // Chữ rõ hơn
+    'high-emphasis-opacity': 1.0,
     'medium-emphasis-opacity': 0.70,
     'disabled-opacity': 0.38,
     'idle-opacity': 0.05,
@@ -161,8 +144,6 @@ const neoFuturisticDark = {
     'activated-opacity': 0.12,
     'pressed-opacity': 0.16,
     'dragged-opacity': 0.08,
-    
-    // Khác
     'theme-kbd': '#212529',
     'theme-on-kbd': '#FFFFFF',
     'theme-code': '#343434',
@@ -171,9 +152,7 @@ const neoFuturisticDark = {
   }
 }
 
-
 // --- Khởi tạo Vuetify ---
-
 const vuetify = createVuetify({
   components,
   directives,
@@ -181,151 +160,107 @@ const vuetify = createVuetify({
     defaultSet: 'mdi',
   },
   theme: {
-    // *** SỬA Ở ĐÂY: Đặt theme mới làm mặc định ***
-    defaultTheme: 'neoFuturisticDark', 
+    defaultTheme: 'neoFuturisticDark',
     themes: {
-      myCustomLightTheme, 
-      myCustomDarkTheme,  
-      neoFuturisticDark, // *** Đăng ký theme mới
+      myCustomLightTheme,
+      myCustomDarkTheme,
+      neoFuturisticDark,
     },
   },
-  // --- Định nghĩa các giá trị mặc định cho components ---
   defaults: {
     global: {
       ripple: true,
     },
-    // *** SỬA Ở ĐÂY: Bo góc lớn hơn cho Card ***
     VCard: {
-      elevation: 4,       // Tăng shadow để có hiệu ứng "nổi" mềm
-      rounded: 'xl',      // 'xl' = 16px (lớn hơn 'lg' = 8px)
-      variant: 'elevated',  // Dùng elevated thay vì flat/border
+      elevation: 4,
+      rounded: 'xl',
+      variant: 'elevated',
     },
     VSheet: {
-       elevation: 0,
-       rounded: 'xl', // 'xl' = 16px
-       // border: true, // Bỏ border mặc định, dùng shadow hoặc glass
-       color: 'surface' 
+      elevation: 0,
+      rounded: 'xl',
+      color: 'surface'
     },
-    // *** SỬA Ở ĐÂY: Bo góc lớn hơn cho Button ***
     VBtn: {
-      rounded: 'xl', // 'xl' = 16px
-      elevation: 0, 
-      style: 'text-transform: none; letter-spacing: normal; font-weight: 600;', // Chữ đậm hơn
+      rounded: 'xl',
+      elevation: 0,
+      style: 'text-transform: none; letter-spacing: normal; font-weight: 600;',
     },
-    // *** SỬA Ở ĐÂY: Bo góc lớn hơn cho Input ***
     VTextField: {
       variant: 'outlined',
       density: 'compact',
-      rounded: 'xl', // 'xl' = 16px
+      rounded: 'xl',
       color: 'primary',
     },
     VTextarea: {
-        variant: 'outlined',
-        density: 'compact',
-        rounded: 'xl', // 'xl' = 16px
-        color: 'primary',
+      variant: 'outlined',
+      density: 'compact',
+      rounded: 'xl',
+      color: 'primary',
     },
     VSelect: {
-        variant: 'outlined',
-        density: 'compact',
-        rounded: 'xl', // 'xl' = 16px
-        color: 'primary',
+      variant: 'outlined',
+      density: 'compact',
+      rounded: 'xl',
+      color: 'primary',
     },
     VCheckbox: {
-        density: 'compact',
-        color: 'primary',
+      density: 'compact',
+      color: 'primary',
     },
-    // *** SỬA Ở ĐÂY: Bo góc lớn hơn cho Chip ***
     VChip: {
-        rounded: 'xl', // 'xl' = 16px
-        size: 'small',
+      rounded: 'xl',
+      size: 'small',
     },
     VAlert: {
-        rounded: 'xl', // 'xl' = 16px
-        density: 'compact',
-        variant: 'tonal',
+      rounded: 'xl',
+      density: 'compact',
+      variant: 'tonal',
     },
     VList: {
-        bgColor: 'transparent',
+      bgColor: 'transparent',
     },
     VListItem: {
-        rounded: 'lg', // 'lg' = 8px (vừa phải cho list item)
+      rounded: 'lg',
     },
     VDialog: {
-        rounded: 'xl', // 'xl' = 16px
+      rounded: 'xl',
     },
     VMenu: {
-        rounded: 'xl', // 'xl' = 16px
+      rounded: 'xl',
     }
   },
-  // --- (Tùy chọn) Định nghĩa Typography (Font) ---
   typography: {
-    fontFamily: '"Inter", "Poppins", "Roboto", sans-serif', // Dùng font Inter/Poppins
-    h1: {
-      fontFamily: '"Poppins", sans-serif',
-      fontWeight: 700,
-    },
-    h2: {
-      fontFamily: '"Poppins", sans-serif',
-      fontWeight: 700,
-    },
-    h3: {
-      fontFamily: '"Poppins", sans-serif',
-      fontWeight: 600,
-    },
-    h4: {
-      fontFamily: '"Poppins", sans-serif',
-      fontWeight: 600,
-    },
-    h5: {
-      fontFamily: '"Poppins", sans-serif',
-      fontWeight: 600,
-    },
-    h6: {
-      fontFamily: '"Poppins", sans-serif',
-      fontWeight: 600,
-    },
-    // Các style khác dùng 'Inter'
+    fontFamily: '"Inter", "Poppins", "Roboto", sans-serif',
+    h1: { fontFamily: '"Poppins", sans-serif', fontWeight: 700 },
+    h2: { fontFamily: '"Poppins", sans-serif', fontWeight: 700 },
+    h3: { fontFamily: '"Poppins", sans-serif', fontWeight: 600 },
+    h4: { fontFamily: '"Poppins", sans-serif', fontWeight: 600 },
+    h5: { fontFamily: '"Poppins", sans-serif', fontWeight: 600 },
+    h6: { fontFamily: '"Poppins", sans-serif', fontWeight: 600 },
   }
 })
 
 // --- Khởi tạo App Vue ---
-
 const app = createApp(App)
 
-// --- (PHẦN SỬA ĐỔI) ---
-// 1. Khởi tạo Pinia MỘT LẦN
 const pinia = createPinia()
-// 2. Sử dụng plugin trên instance
-pinia.use(piniaPluginPersistedstate) 
-
-// 3. Sử dụng Pinia (đã cấu hình) cho app
+pinia.use(piniaPluginPersistedstate)
 app.use(pinia)
-// --- (KẾT THÚC SỬA ĐỔI) ---
-
 app.use(router)
-app.use(vuetify) // Sử dụng Vuetify đã cấu hình
+app.use(vuetify)
 
+// Lấy store sau khi app đã use(pinia)
+const authStore = useAuthStore(pinia)
 
-// --- (PHẦN THÊM MỚI) ---
-// 4. Lấy store SAU KHI app đã use(pinia)
-// (Truyền pinia instance để đảm bảo store được gắn đúng)
-const authStore = useAuthStore(pinia);
-
-// 5. Lắng nghe sự kiện storage từ các tab khác
+// Lắng nghe sự kiện storage từ các tab khác để đồng bộ logout
 window.addEventListener('storage', (event) => {
-  // Nếu key là 'accessToken' (hoặc 'refreshToken') VÀ nó bị xóa (newValue là null)
   if (event.key === 'accessToken' && event.newValue === null) {
     console.log('Phát hiện logout từ tab khác. Đồng bộ...');
-    
-    // Chỉ gọi logout nếu state của tab này vẫn đang là "đã đăng nhập"
     if (authStore.isAuthenticated) {
-      // Gọi hàm logout của store, hàm này sẽ dọn dẹp state và chuyển trang
       authStore.logout();
     }
   }
 });
-// --- (KẾT THÚC THÊM MỚI) ---
-
 
 app.mount('#app')

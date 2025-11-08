@@ -1,9 +1,10 @@
 // File: src/composables/usePlanActions.js
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { usePlanStore } from '@/stores/plan';
-import { useProgressStore } from '@/stores/progress';
-import { usePlanUiStore } from '@/stores/planUi';
+// [CẬP NHẬT] Stores
+import { usePlanStore } from '@/features/plan/stores/planStore';
+import { usePlanUiStore } from '@/features/plan/stores/planUiStore';
+import { useProgressStore } from '@/features/progress/stores/progressStore';
 
 export function usePlanActions() {
     const planStore = usePlanStore();

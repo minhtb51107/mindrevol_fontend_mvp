@@ -109,12 +109,16 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-import { useProgressStore } from '@/stores/progress';
-import { useCommunityStore } from '@/stores/community';
-import { usePlanStore } from '@/stores/plan';
-import { useAuthStore } from '@/stores/auth';
-import CheckInModal from '@/components/CheckInModal.vue';
-import ProgressDetailModal from '@/components/ProgressDetailModal.vue';
+
+// [CẬP NHẬT] Stores
+import { useProgressStore } from '@/features/progress/stores/progressStore';
+import { useCommunityStore } from '@/features/community/stores/communityStore';
+import { usePlanStore } from '@/features/plan/stores/planStore';
+import { useAuthStore } from '@/features/auth/stores/authStore';
+
+// [CẬP NHẬT] Feature Components (Internal)
+import CheckInModal from '@/features/progress/components/checkin/CheckInModal.vue';
+import ProgressDetailModal from '@/features/progress/components/ProgressDetailModal.vue';
 import { VCard, VCardText, VTable, VIcon, VProgressCircular, VAlert, VToolbar, VToolbarTitle, VSpacer, VBtn, VDivider, VAvatar } from 'vuetify/components';
 
 const props = defineProps({

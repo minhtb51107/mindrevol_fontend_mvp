@@ -1,6 +1,6 @@
 // File: src/api/progressService.js
-import apiClient from './axios';
-import dayjs from 'dayjs'; 
+import apiClient from '@/services/axios';
+import dayjs from 'dayjs';
 
 export default {
   // --- HÀM GỐC: Tạo Check-in Event ---

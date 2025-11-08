@@ -1,13 +1,16 @@
 // File: src/stores/progress.js
 import { defineStore } from 'pinia';
-import progressService from '@/api/progressService';
-import userService from '@/api/userService';
-import { useAuthStore } from './auth';
 import dayjs from 'dayjs';
-// --- THAY ĐỔI: Import planTaskStore thay vì planStore cho việc sync task ---
-import { usePlanStore } from './plan'; // Vẫn giữ nếu cần fetch lại plan details
-import { usePlanTaskStore } from './planTaskStore'; // <-- IMPORT MỚI QUAN TRỌNG
-import { useCommunityStore } from './community';
+
+// [CẬP NHẬT] Services
+import progressService from '@/features/progress/services/progressService';
+import userService from '@/features/auth/services/userService';
+
+// [CẬP NHẬT] Stores
+import { useAuthStore } from '@/features/auth/stores/authStore';
+import { usePlanStore } from '@/features/plan/stores/planStore';
+import { usePlanTaskStore } from '@/features/plan/stores/planTaskStore';
+import { useCommunityStore } from '@/features/community/stores/communityStore';
 
 function debounce(func, wait) {
     let timeout;

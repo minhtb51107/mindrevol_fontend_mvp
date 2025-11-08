@@ -1,9 +1,8 @@
 // File: src/router/index.js
-
 import { createRouter, createWebHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
-import { useAuthStore } from '@/stores/auth'
-import { usePlanCreatorStore } from '@/stores/planCreator';
+import { useAuthStore } from '@/features/auth/stores/authStore'
+// [CHANGED] Import Home từ vị trí mới
+import HomeView from '@/features/dashboard/views/HomeView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -15,96 +14,95 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+        path: '/dashboard-v2', // Route thử nghiệm cho dashboard mới
+        name: 'dashboard-v2',
+        // [CHANGED] Import từ vị trí mới
+        component: () => import('@/features/dashboard/views/MindRevolDashboard.vue'),
+        meta: { requiresAuth: true, layout: 'DefaultLayout' } // Dashboard này có thể tự lo layout
+    },
+    // === AUTH ROUTES ===
+    {
       path: '/login',
       name: 'login',
-      component: () => import('../views/LoginView.vue'),
+      component: () => import('@/features/auth/views/LoginView.vue'),
       meta: { layout: 'AuthLayout' }
     },
     {
       path: '/register',
       name: 'register',
-      component: () => import('../views/RegisterView.vue'),
+      component: () => import('@/features/auth/views/RegisterView.vue'),
       meta: { layout: 'AuthLayout' }
     },
     {
       path: '/activate',
       name: 'activate',
-      component: () => import('../views/ActivationView.vue'),
+      component: () => import('@/features/auth/views/ActivationView.vue'),
       meta: { layout: 'AuthLayout' }
     },
     {
       path: '/forgot-password',
       name: 'forgot-password',
-      component: () => import('../views/ForgotPasswordView.vue'),
+      component: () => import('@/features/auth/views/ForgotPasswordView.vue'),
       meta: { layout: 'AuthLayout' }
     },
     {
       path: '/reset-password',
       name: 'reset-password',
-      component: () => import('../views/ResetPasswordView.vue'),
+      component: () => import('@/features/auth/views/ResetPasswordView.vue'),
       meta: { layout: 'AuthLayout' }
     },
     {
-      path: '/change-password',
+      path: '/change-password', // (Có thể giữ hoặc bỏ nếu đã tích hợp vào ProfileModal)
       name: 'change-password',
-      component: () => import('../views/ChangePasswordView.vue'),
+      component: () => import('@/features/auth/views/ChangePasswordView.vue'),
       meta: { requiresAuth: true }
     },
+    {
+      path: '/profile',
+      name: 'profile',
+      component: () => import('@/features/auth/views/ProfileView.vue'),
+      meta: { requiresAuth: true }
+    },
+
+    // === PLAN ROUTES ===
     {
       path: '/plans/create',
       name: 'create-plan',
-      component: () => import('../views/CreatePlanView.vue'),
-      meta: { requiresAuth: true }
-    },
-    {
-      path: '/plan/:shareableLink',
-      name: 'plan-details',
-      component: () => import('../views/PlanDetailView.vue'),
+      component: () => import('@/features/plan/views/CreatePlanView.vue'),
       meta: { requiresAuth: true }
     },
     {
       path: '/create-plan/schedule',
-      name: 'plan-schedule', // Đây là Bước 2
-      component: () => import('@/views/SchedulePlanView.vue'),
-      meta: { requiresAuth: true, layout: 'default' },
+      name: 'plan-schedule',
+      component: () => import('@/features/plan/views/SchedulePlanView.vue'),
+      meta: { requiresAuth: true },
       beforeEnter: (to, from, next) => {
-        // Guard: Chỉ cho phép vào Bước 2 nếu có dữ liệu từ Bước 1
-        const creatorStore = usePlanCreatorStore();
-        if (creatorStore.durationInDays > 0 && creatorStore.startDate) {
-          next(); // Cho phép truy cập
-        } else {
-          // Không có dữ liệu, đá về Bước 1
-          console.warn('Truy cập /schedule không hợp lệ, chuyển về /create-plan');
-          next({ name: 'create-plan' });
-        }
+        // [CHANGED] Cập nhật đường dẫn import store trong navigation guard
+        import('@/features/plan/stores/planCreatorStore').then(({ usePlanCreatorStore }) => {
+            const creatorStore = usePlanCreatorStore();
+            if (creatorStore.durationInDays > 0 && creatorStore.startDate) {
+                next();
+            } else {
+                next({ name: 'create-plan' });
+            }
+        });
       }
     },
-    // *** THÊM ROUTE PROFILE ***
     {
-      path: '/profile', // Đường dẫn cho trang profile
-      name: 'profile',
-      component: () => import('../views/ProfileView.vue'), // Trỏ đến component ProfileView
-      meta: { requiresAuth: true } // Yêu cầu đăng nhập
-    },
-    // *** KẾT THÚC THÊM ***
+      path: '/plan/:shareableLink',
+      name: 'plan-details',
+      component: () => import('@/features/plan/views/PlanDetailView.vue'),
+      meta: { requiresAuth: true }
+    }
   ]
 })
 
-// Navigation Guard
-router.beforeEach(async (to, from, next) => { // Mark as async
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore();
-
-  // Ensure initial data (including profile) is loaded if authenticated
-  // This helps prevent flickering or missing data on direct navigation/refresh
   if (authStore.isAuthenticated && !authStore.profile && !authStore.isLoadingProfile) {
-    // Don't await here if fetchUserProfile updates state reactively
-    // But if subsequent logic *depends* on profile being loaded, you might need to await
-    // For now, let it run in the background
-     authStore.loadInitialData(); // Call the combined load function
+     authStore.loadInitialData();
   }
-
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
-
   if (requiresAuth && !authStore.isAuthenticated) {
     authStore.returnUrl = to.fullPath;
     next('/login');

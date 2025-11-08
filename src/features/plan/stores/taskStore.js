@@ -1,6 +1,6 @@
 // File: src/stores/taskStore.js
 import { defineStore } from 'pinia';
-import taskService from '@/api/taskService';
+import taskService from '@/features/plan/services/taskService';
 // *** BỎ IMPORT planStore ***
 // import { usePlanStore } from './plan';
 

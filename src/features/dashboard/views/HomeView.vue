@@ -182,20 +182,26 @@
 
 <script setup>
 // Imports components
-import ProgressChart from '@/components/ProgressChart.vue';
-import CommunityFeed from '@/components/CommunityFeed.vue';
-import QuoteOfTheDay from '@/components/QuoteOfTheDay.vue';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-// Imports stores
-import { useAuthStore } from '@/stores/auth';
-import { usePlanStore } from '@/stores/plan';
-import { useProgressStore } from '@/stores/progress';
-// Imports Vuetify components used in template
+
+// [CẬP NHẬT] Stores từ các feature khác
+import { useAuthStore } from '@/features/auth/stores/authStore';
+import { usePlanStore } from '@/features/plan/stores/planStore';
+import { useProgressStore } from '@/features/progress/stores/progressStore';
+
+// [CẬP NHẬT] Components từ các feature khác
+import ProgressChart from '@/features/progress/components/ProgressChart.vue';
+import CommunityFeed from '@/features/community/components/CommunityFeed.vue';
+
+// [CẬP NHẬT] Shared Components
+import QuoteOfTheDay from '@/components/common/QuoteOfTheDay.vue';
+
+// Imports Vuetify components (giữ nguyên)
 import {
-  VContainer, VRow, VCol, VCard, VCardTitle, VCardSubtitle, VCardText, VCardItem, VCardActions, VChip, VIcon, VSpacer, VProgressCircular, VAlert,
-  VChipGroup, VTextField, VBtn, VDivider, VList, VListItem, VListItemTitle, VListItemSubtitle, VAvatar,
-  VPagination // <-- Đã thêm VPagination
+  VContainer, VRow, VCol, VCard, VIcon, VBtn, VTextField, VChipGroup, VChip,
+  VProgressCircular, VAlert, VCardItem, VCardTitle, VCardSubtitle, VSpacer,
+  VDivider, VCardActions, VPagination
 } from 'vuetify/components';
 
 const router = useRouter();

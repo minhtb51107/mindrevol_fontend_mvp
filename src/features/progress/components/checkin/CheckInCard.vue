@@ -187,7 +187,8 @@
 
 <script setup>
 import { computed, ref, defineComponent } from 'vue';
-import { useAuthStore } from '@/stores/auth';
+// [CẬP NHẬT] Store
+import { useAuthStore } from '@/features/auth/stores/authStore';
 import dayjs from 'dayjs';
 import {
   VBtn,

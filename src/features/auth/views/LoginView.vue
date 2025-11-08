@@ -74,8 +74,10 @@
 <script setup>
 import { ref, reactive } from 'vue';
 import { RouterLink } from 'vue-router';
-import { useAuthStore } from '@/stores/auth';
-import GoogleLoginButton from '@/components/GoogleLoginButton.vue';
+// [CẬP NHẬT] Đường dẫn Store
+import { useAuthStore } from '@/features/auth/stores/authStore';
+// [CẬP NHẬT] Đường dẫn Component con
+import GoogleLoginButton from '@/features/auth/components/GoogleLoginButton.vue';
 import { VCard, VCardTitle, VCardText, VForm, VTextField, VBtn, VAlert, VDivider } from 'vuetify/components';
 
 const authStore = useAuthStore();

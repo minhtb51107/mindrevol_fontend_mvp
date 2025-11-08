@@ -1,8 +1,7 @@
-// File: src/api/taskService.js
-import apiClient from './axios';
+// File: src/features/plan/services/taskService.js
+import apiClient from '@/services/axios';
 
 export default {
-  // === Task CRUD (Chuyển từ planService sang) ===
   getTasksByDate(shareableLink, date) {
     return apiClient.get(`/plans/${shareableLink}/tasks`, {
       params: { date }
@@ -28,7 +27,6 @@ export default {
     });
   },
 
-  // === Comments (Giữ nguyên) ===
   addTaskComment(taskId, content) {
     return apiClient.post(`/tasks/${taskId}/comments`, { content });
   },
@@ -41,7 +39,6 @@ export default {
      return apiClient.put(`/tasks/comments/${commentId}`, { content });
   },
 
-  // === Attachments (Giữ nguyên) ===
   addTaskAttachment(taskId, fileInfo) {
     return apiClient.post(`/tasks/${taskId}/attachments`, fileInfo);
   },

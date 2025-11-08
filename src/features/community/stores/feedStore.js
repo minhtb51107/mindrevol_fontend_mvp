@@ -1,9 +1,13 @@
 // File: src/stores/feedStore.js
 import { defineStore } from 'pinia';
-import feedService from '@/api/feedService';
-import websocketService from '@/api/websocketService';
-import { useAuthStore } from './auth';
+
+// [CẬP NHẬT] Services & Utils
+import feedService from '@/features/community/services/feedService';
+import websocketService from '@/services/websocketService';
 import { formatTimeAgo } from '@/utils/formatters';
+
+// [CẬP NHẬT] Store từ feature khác
+import { useAuthStore } from '@/features/auth/stores/authStore';
 
 // *** ĐÃ CẬP NHẬT HÀM NÀY ***
 // Hàm xử lý dữ liệu API/WebSocket thành định dạng hiển thị

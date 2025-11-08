@@ -90,8 +90,10 @@
 
 <script setup>
 import { ref } from 'vue';
-import { useAuthStore } from '@/stores/auth';
-import ChangePasswordModal from '@/components/ChangePasswordModal.vue';
+// [CẬP NHẬT] Đường dẫn Store
+import { useAuthStore } from '@/features/auth/stores/authStore';
+// [CẬP NHẬT] Đường dẫn Component con (đã di chuyển vào cùng feature)
+import ChangePasswordModal from '@/features/auth/components/ChangePasswordModal.vue';
 import { VContainer, VRow, VCol, VCard, VCardTitle, VCardText, VBtn, VDivider, VTextField, VSkeletonLoader, VSnackbar } from 'vuetify/components';
 
 const authStore = useAuthStore();

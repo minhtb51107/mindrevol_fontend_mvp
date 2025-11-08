@@ -155,15 +155,17 @@
 
 <script setup>
 import { ref, computed } from 'vue';
-import { useProgressStore } from '@/stores/progress'; // THAY ĐỔI
-import { usePlanStore } from '@/stores/plan'; // MỚI
-import { useAuthStore } from '@/stores/auth';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import defaultAvatar from '@/assets/default-avatar.png'; 
+import defaultAvatar from '@/assets/default-avatar.png';
 
-// Import component MỚI
-import MentionTextarea from '@/components/MentionTextarea.vue';
+// [CẬP NHẬT] Stores
+import { useProgressStore } from '@/features/progress/stores/progressStore';
+import { usePlanStore } from '@/features/plan/stores/planStore';
+import { useAuthStore } from '@/features/auth/stores/authStore';
+
+// [CẬP NHẬT] Shared Components
+import MentionTextarea from '@/components/common/MentionTextarea.vue';
 
 // Import các component Vuetify
 import {

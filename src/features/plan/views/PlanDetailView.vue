@@ -129,24 +129,35 @@
 </template>
 
 <script setup>
+// [ĐÃ SỬA] Loại bỏ các dòng import trùng lặp ở đây
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { usePlanStore } from '@/stores/plan';
-import { usePlanTaskStore } from '@/stores/planTaskStore';
-import { usePlanUiStore } from '@/stores/planUi';
-import { useProgressStore } from '@/stores/progress';
-import { useCommunityStore } from '@/stores/community'; 
-import websocketService from '@/api/websocketService';
-import { usePlanWebSocket } from '@/composables/usePlanWebSocket';
-// [MỚI] Import composable actions
-import { usePlanActions } from '@/composables/usePlanActions';
+import dayjs from 'dayjs';
 
-import PlanInfoPanel from '@/components/PlanInfoPanel.vue';
-import TimelineDashboard from '@/components/TimelineDashboard.vue';
-import DailyTaskList from '@/components/DailyTaskList.vue';
-import PlanDialogs from '@/components/PlanDialogs.vue'; 
+// [CẬP NHẬT] Stores nội bộ feature Plan
+import { usePlanStore } from '@/features/plan/stores/planStore';
+import { usePlanTaskStore } from '@/features/plan/stores/planTaskStore';
+import { usePlanUiStore } from '@/features/plan/stores/planUiStore';
 
-import dayjs from 'dayjs'; // <-- THÊM DÒNG NÀY
+// [CẬP NHẬT] Stores từ features khác
+import { useProgressStore } from '@/features/progress/stores/progressStore';
+import { useCommunityStore } from '@/features/community/stores/communityStore';
+import { useAuthStore } from '@/features/auth/stores/authStore';
+
+// [CẬP NHẬT] Core Service
+import websocketService from '@/services/websocketService';
+
+// [CẬP NHẬT] Composables nội bộ feature Plan
+import { usePlanWebSocket } from '@/features/plan/composables/usePlanWebSocket';
+import { usePlanActions } from '@/features/plan/composables/usePlanActions';
+
+// [CẬP NHẬT] Components
+// 1. Nội bộ feature Plan
+import PlanInfoPanel from '@/features/plan/components/PlanInfoPanel.vue';
+import DailyTaskList from '@/features/plan/components/tasks/DailyTaskList.vue';
+import PlanDialogs from '@/features/plan/components/PlanDialogs.vue';
+// 2. Từ feature Progress (TimelineDashboard đã chuyển sang progress)
+import TimelineDashboard from '@/features/progress/components/TimelineDashboard.vue';
 
 import {
   VContainer, VRow, VCol, VCard, VCardItem, VCardTitle, VCardText, VList, VListItem, VListItemTitle, VListItemSubtitle, 

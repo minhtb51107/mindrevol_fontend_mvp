@@ -116,8 +116,9 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { usePlanCreatorStore } from '@/stores/planCreator';
-import { usePlanStore } from '@/stores/plan';
+// [CẬP NHẬT] Stores nội bộ feature Plan
+import { usePlanCreatorStore } from '@/features/plan/stores/planCreatorStore';
+import { usePlanStore } from '@/features/plan/stores/planStore';
 import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
 dayjs.locale('vi');

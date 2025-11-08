@@ -230,9 +230,10 @@
 
 <script setup>
 import { computed, ref, reactive } from 'vue';
-import { usePlanStore } from '@/stores/plan';
-import { useAuthStore } from '@/stores/auth';
-import planService from '@/api/planService'; // THÊM: Import service để gọi API Nudge
+// [CẬP NHẬT] Stores & Services
+import { usePlanStore } from '@/features/plan/stores/planStore';
+import { useAuthStore } from '@/features/auth/stores/authStore';
+import planService from '@/features/plan/services/planService';
 import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
 

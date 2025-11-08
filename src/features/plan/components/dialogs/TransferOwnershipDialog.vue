@@ -81,7 +81,7 @@
 
 <script setup>
 import { ref, watchEffect, computed } from 'vue'; // THÊM COMPUTED
-import { usePlanStore } from '@/stores/plan';
+import { usePlanStore } from '@/features/plan/stores/planStore';
 import { toast } from 'vue-sonner'; 
 
 const props = defineProps({

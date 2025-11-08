@@ -1,13 +1,19 @@
-// File: src/stores/auth.js
+// File: src/features/auth/stores/authStore.js
 import { defineStore } from 'pinia';
-import authService from '@/api/authService';
-import userService from '@/api/userService'; // *** THÊM IMPORT userService ***
 import router from '@/router';
-import apiClient from '@/api/axios';
-import { usePlanStore } from './plan';
-import { useNotificationStore } from './notificationStore';
-import { useProgressStore } from './progress';
-import { useFeedStore } from '@/stores/feedStore';
+
+// [CẬP NHẬT] Đường dẫn services
+import authService from '@/features/auth/services/authService';
+import userService from '@/features/auth/services/userService';
+
+// [CẬP NHẬT] Đường dẫn core services
+import apiClient from '@/services/axios';
+
+// [CẬP NHẬT] Đường dẫn các stores khác
+import { usePlanStore } from '@/features/plan/stores/planStore';
+import { useNotificationStore } from '@/features/notification/stores/notificationStore';
+import { useProgressStore } from '@/features/progress/stores/progressStore';
+import { useFeedStore } from '@/features/community/stores/feedStore';
 
 export const useAuthStore = defineStore('auth', {
     state: () => ({

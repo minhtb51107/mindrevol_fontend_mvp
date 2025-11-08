@@ -78,7 +78,7 @@
 
 <script setup>
 import { ref, reactive, watch, nextTick } from 'vue';
-import { usePlanStore } from '@/stores/plan';
+import { usePlanStore } from '@/features/plan/stores/planStore';
 import {
   VDialog, VCard, VCardTitle, VCardText, VCardActions, VContainer, VRow, VCol,
   VTextField, VTextarea, VForm, VBtn, VSpacer, VAlert

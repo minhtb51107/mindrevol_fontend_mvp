@@ -72,8 +72,8 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue';
-import { useProgressStore } from '@/stores/progress';
-import { usePlanStore } from '@/stores/plan';
+import { useProgressStore } from '@/features/progress/stores/progressStore';
+import { usePlanStore } from '@/features/plan/stores/planStore';
 import dayjs from 'dayjs';
 import 'dayjs/locale/vi'; 
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';

@@ -151,10 +151,13 @@
 
 <script setup>
 import { ref, watch, reactive } from 'vue';
-import { useAuthStore } from '@/stores/auth';
 import defaultAvatar from '@/assets/default-avatar.png';
+// [CẬP NHẬT] Đường dẫn Store
+import { useAuthStore } from '@/features/auth/stores/authStore';
+// [CẬP NHẬT] Component nội bộ feature (có thể dùng đường dẫn tương đối nếu cùng thư mục)
 import ChangePasswordModal from './ChangePasswordModal.vue';
-import fileUploadService from '@/api/fileUploadService'; // Import dịch vụ upload
+// [CẬP NHẬT] Core Service
+import fileUploadService from '@/services/fileUploadService';
 
 // Khai báo props và emits
 const props = defineProps({

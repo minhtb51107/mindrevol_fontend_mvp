@@ -40,9 +40,10 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
-import { useProgressStore } from '@/stores/progress';
-import VueApexCharts from 'vue3-apexcharts'; // Import component
-import { useTheme } from 'vuetify'; // Import useTheme để lấy màu theme
+// [CẬP NHẬT] Store
+import { useProgressStore } from '@/features/progress/stores/progressStore';
+import VueApexCharts from 'vue3-apexcharts';
+import { useTheme } from 'vuetify';
 import {
   VCard, VCardItem, VCardTitle, VCardSubtitle, VCardText, VIcon, VProgressCircular, VAlert, VSkeletonLoader, VBtn // Thêm VBtn
 } from 'vuetify/components';

@@ -1,9 +1,12 @@
 // File: src/stores/community.js
 import { defineStore } from 'pinia';
-import communityService from '@/api/communityService';
-import { useProgressStore } from './progress';
-import { usePlanStore } from './plan';
-import { useAuthStore } from './auth'; // Thêm import authStore
+// [CẬP NHẬT] Service nội bộ
+import communityService from '@/features/community/services/communityService';
+
+// [CẬP NHẬT] Stores từ các feature khác
+import { useProgressStore } from '@/features/progress/stores/progressStore';
+import { usePlanStore } from '@/features/plan/stores/planStore';
+import { useAuthStore } from '@/features/auth/stores/authStore';
 
 export const useCommunityStore = defineStore('community', {
   state: () => ({

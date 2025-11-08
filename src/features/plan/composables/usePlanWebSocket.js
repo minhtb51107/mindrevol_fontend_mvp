@@ -1,10 +1,13 @@
 // File: src/composables/usePlanWebSocket.js
 import { ref, onUnmounted, watch } from 'vue';
-import { usePlanStore } from '@/stores/plan';
-import { usePlanTaskStore } from '@/stores/planTaskStore';
-import { useProgressStore } from '@/stores/progress';
-import websocketService from '@/api/websocketService';
-import { useAuthStore } from '@/stores/auth';
+// [CẬP NHẬT] Stores
+import { usePlanStore } from '@/features/plan/stores/planStore';
+import { usePlanTaskStore } from '@/features/plan/stores/planTaskStore';
+import { useProgressStore } from '@/features/progress/stores/progressStore';
+import { useAuthStore } from '@/features/auth/stores/authStore';
+
+// [CẬP NHẬT] Core Service
+import websocketService from '@/services/websocketService';
 
 const isConnected = ref(false);
 const currentSubscribedLink = ref(null);

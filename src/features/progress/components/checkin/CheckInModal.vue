@@ -150,10 +150,14 @@
 
 <script setup>
 import { ref, reactive, computed, watch } from 'vue';
-import { useProgressStore } from '@/stores/progress';
-import { usePlanStore } from '@/stores/plan';
-import { usePlanTaskStore } from '@/stores/planTaskStore';
-import fileUploadService from '@/api/fileUploadService'; 
+
+// [CẬP NHẬT] Stores
+import { useProgressStore } from '@/features/progress/stores/progressStore';
+import { usePlanStore } from '@/features/plan/stores/planStore';
+import { usePlanTaskStore } from '@/features/plan/stores/planTaskStore';
+
+// [CẬP NHẬT] Core Service
+import fileUploadService from '@/services/fileUploadService';
 import { 
   VDialog, VCard, VCardTitle, VCardText, VCardActions, VAlert, VForm, 
   VChipGroup, VChip, VInput, VTextarea, VFileInput,

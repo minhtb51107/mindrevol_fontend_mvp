@@ -92,9 +92,9 @@
 
 <script setup>
 import { ref, reactive, computed, watch, nextTick } from 'vue';
-import { usePlanTaskStore } from '@/stores/planTaskStore';
-import { usePlanStore } from '@/stores/plan';
-import { useProgressStore } from '@/stores/progress';
+import { usePlanTaskStore } from '@/features/plan/stores/planTaskStore';
+import { usePlanStore } from '@/features/plan/stores/planStore';
+import { useProgressStore } from '@/features/progress/stores/progressStore';
 import dayjs from 'dayjs';
 
 const props = defineProps({
@@ -123,7 +123,8 @@ watch(() => props.modelValue, (val) => {
       // Mode Edit
       form.description = props.task.description;
       form.deadlineTime = props.task.deadlineTime || null;
-      form.taskDate = props.task.taskDate; // Có thể null nếu không muốn đổi ngày
+      // [SỬA LỖI] Dùng ngày đang chọn làm fallback nếu task không có ngày
+      form.taskDate = props.task.taskDate || progressStore.getSelectedDate; 
     } else {
       // Mode Add
       form.description = '';
@@ -157,7 +158,10 @@ const onSave = async () => {
   const payload = {
       description: form.description,
       deadlineTime: formattedTime,
-      taskDate: form.taskDate || undefined
+      // Nếu user đang edit và xóa ngày (chuyển ngày), taskDate sẽ là null
+      // Backend nên hiểu null là "giữ nguyên ngày cũ"
+      // Nhưng nếu form.taskDate có giá trị (do user chọn ngày mới), thì dùng nó
+      taskDate: form.taskDate || undefined 
   };
 
   try {
@@ -165,10 +169,13 @@ const onSave = async () => {
       if (!link) throw new Error("Missing plan link");
 
       if (isEditing.value) {
-          // Gọi update
-          await planTaskStore.updateTask(link, props.task.id, payload, props.task.taskDate);
+          // [SỬA LỖI] Phải truyền vào ngày GỐC của task (original date)
+          // Dùng ngày đang chọn làm fallback
+          const originalTaskDate = props.task.taskDate || progressStore.getSelectedDate;
+
+          await planTaskStore.updateTask(link, props.task.id, payload, originalTaskDate);
       } else {
-          // Gọi create
+          // Gọi create (payload đã chứa taskDate)
           await planTaskStore.addTask(link, payload);
       }
       emit('saved'); // Báo ra ngoài nếu cần hiển thị snackbar

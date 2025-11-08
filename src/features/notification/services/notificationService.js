@@ -1,4 +1,5 @@
-import apiClient from './axios';
+// [CẬP NHẬT] Core Service
+import apiClient from '@/services/axios';
 
 export default {
   // Lấy danh sách thông báo (có phân trang)

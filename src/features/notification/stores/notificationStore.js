@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
-import notificationService from '@/api/notificationService';
+// [CẬP NHẬT] Service nội bộ
+import notificationService from '@/features/notification/services/notificationService';
 import router from '@/router'; // Import router để điều hướng
 
 export const useNotificationStore = defineStore('notification', {

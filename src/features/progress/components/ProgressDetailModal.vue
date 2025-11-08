@@ -239,15 +239,18 @@
 
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'; // Thêm nextTick
-import { useCommunityStore } from '@/stores/community';
-import { usePlanStore } from '@/stores/plan';
-import { useAuthStore } from '@/stores/auth';
-import { useTaskStore } from '@/stores/taskStore';
-import progressService from '@/api/progressService';
-// *** THÊM IMPORT MENTIONTEXTAREA ***
-import MentionTextarea from '@/components/MentionTextarea.vue';
-// *** THÊM IMPORT formatters ***
-import { formatTimeAgo, formatFileSize } from '@/utils/formatters'; // Import hàm format
+// [CẬP NHẬT] Stores
+import { useCommunityStore } from '@/features/community/stores/communityStore';
+import { usePlanStore } from '@/features/plan/stores/planStore';
+import { useAuthStore } from '@/features/auth/stores/authStore';
+import { useTaskStore } from '@/features/plan/stores/taskStore'; // Lưu ý: taskStore nằm trong feature plan
+
+// [CẬP NHẬT] Services & Utils
+import progressService from '@/features/progress/services/progressService';
+import { formatTimeAgo, formatFileSize } from '@/utils/formatters';
+
+// [CẬP NHẬT] Shared Components
+import MentionTextarea from '@/components/common/MentionTextarea.vue';
 import { VDialog, VCard, VCardTitle, VCardText, VCardActions, VBtn, VIcon, VSheet, VDivider, VChipGroup, VChip, VForm, VTextarea, VProgressCircular, VAlert, VList, VListItem, VListItemTitle, VListItemSubtitle, VAvatar, VMenu, VSpacer, VExpansionPanels, VExpansionPanel, VExpansionPanelTitle, VExpansionPanelText, VFileInput } from 'vuetify/components';
 
 const props = defineProps({

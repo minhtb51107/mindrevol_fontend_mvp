@@ -190,14 +190,21 @@
 
 <script setup>
 import { ref, computed } from 'vue';
-import { useProgressStore } from '@/stores/progress';
-import { usePlanStore } from '@/stores/plan';
 import dayjs from 'dayjs';
-import DateSelector from '@/components/DateSelector.vue';
-import CheckInDetailCard from '@/components/CheckInDetailCard.vue';
-import CommentSection from '@/components/CommentSection.vue';
-// Import component mới
-import CheckInCard from '@/components/timeline/CheckInCard.vue';
+
+// [CẬP NHẬT] Stores
+import { useProgressStore } from '@/features/progress/stores/progressStore';
+import { usePlanStore } from '@/features/plan/stores/planStore';
+
+// [CẬP NHẬT] Components Shared
+import DateSelector from '@/components/common/DateSelector.vue';
+
+// [CẬP NHẬT] Components nội bộ Feature Progress
+import CheckInDetailCard from '@/features/progress/components/checkin/CheckInDetailCard.vue';
+import CheckInCard from '@/features/progress/components/checkin/CheckInCard.vue';
+
+// [CẬP NHẬT] Components từ Feature khác
+import CommentSection from '@/features/community/components/CommentSection.vue';
 import {
   VCard,
   VCardTitle,

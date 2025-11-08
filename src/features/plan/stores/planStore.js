@@ -1,9 +1,14 @@
 // File: src/stores/plan.js
 import { defineStore } from 'pinia';
-import planService from '@/api/planService';
+
 import router from '@/router';
-import { useAuthStore } from './auth';
+
 import dayjs from 'dayjs';
+
+// [CẬP NHẬT] Service nội bộ feature
+import planService from '@/features/plan/services/planService';
+// [CẬP NHẬT] Store từ feature khác
+import { useAuthStore } from '@/features/auth/stores/authStore';
 
 // Helper debounce
 function debounce(func, wait) {

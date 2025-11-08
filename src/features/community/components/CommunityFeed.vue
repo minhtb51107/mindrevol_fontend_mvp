@@ -39,10 +39,16 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted } from 'vue'; // Thêm onUnmounted
-import { useFeedStore } from '@/stores/feedStore'; // Import store mới
-import { VCard, VCardItem, VCardTitle, VCardActions, VList, VListItem, VListItemTitle, VListItemSubtitle, VAvatar, VIcon, VDivider, VBtn, VSpacer, VProgressCircular, VAlert, VSkeletonLoader } from 'vuetify/components';
+import { onMounted, onUnmounted } from 'vue';
+
+// [CẬP NHẬT] Store nội bộ feature
+import { useFeedStore } from '@/features/community/stores/feedStore';
+
+// [CẬP NHẬT] Utils
 import { formatTimeAgo } from '@/utils/formatters';
+
+// Imports Vuetify components (giữ nguyên)
+import { VCard, VCardItem, VCardTitle, VList, VListItem, VListItemTitle, VListItemSubtitle, VAvatar, VIcon, VDivider, VProgressCircular, VAlert, VSkeletonLoader } from 'vuetify/components';
 
 const feedStore = useFeedStore(); // Sử dụng feed store
 

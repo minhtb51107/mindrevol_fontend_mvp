@@ -1,7 +1,9 @@
 // File: src/stores/planTaskStore.js
 import { defineStore } from 'pinia';
-import taskService from '@/api/taskService';
-import { useAuthStore } from './auth';
+// [CẬP NHẬT] Service nội bộ feature
+import taskService from '@/features/plan/services/taskService';
+// [CẬP NHẬT] Store từ feature khác
+import { useAuthStore } from '@/features/auth/stores/authStore';
 import dayjs from 'dayjs';
 
 export const usePlanTaskStore = defineStore('planTask', {

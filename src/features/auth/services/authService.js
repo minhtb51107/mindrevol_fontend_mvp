@@ -1,6 +1,6 @@
 // File: src/api/authService.js
 
-import apiClient from './axios';
+import apiClient from '@/services/axios';
 
 // Các hàm này tương ứng với các endpoint trong AuthController.java
 export default {

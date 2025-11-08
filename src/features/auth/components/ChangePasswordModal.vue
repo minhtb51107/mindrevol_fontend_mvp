@@ -94,7 +94,8 @@
 
 <script setup>
 import { ref, reactive, watch } from 'vue';
-import { useAuthStore } from '@/stores/auth';
+// [CẬP NHẬT] Đường dẫn Store
+import { useAuthStore } from '@/features/auth/stores/authStore';
 import { VDialog, VCard, VCardTitle, VCardText, VForm, VTextField, VBtn, VAlert, VSpacer, VDivider, VIcon } from 'vuetify/components';
 
 const props = defineProps({

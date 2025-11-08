@@ -365,13 +365,21 @@
 <script setup>
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue';
 import { RouterView, RouterLink, useRoute } from 'vue-router';
-import { useAuthStore } from '@/stores/auth';
-import { useNotificationStore } from '@/stores/notificationStore';
-import { usePlanStore } from '@/stores/plan';
-import websocketService from '@/api/websocketService';
 import { useTheme } from 'vuetify';
-import ProfileModal from '@/components/ProfileModal.vue';
-import ChangePasswordModal from '@/components/ChangePasswordModal.vue';
+
+// [CẬP NHẬT] Stores từ các Feature
+import { useAuthStore } from '@/features/auth/stores/authStore';
+import { useNotificationStore } from '@/features/notification/stores/notificationStore';
+import { usePlanStore } from '@/features/plan/stores/planStore';
+
+// [CẬP NHẬT] Core Service
+import websocketService from '@/services/websocketService';
+
+// [CẬP NHẬT] Feature Components
+import ProfileModal from '@/features/auth/components/ProfileModal.vue';
+import ChangePasswordModal from '@/features/auth/components/ChangePasswordModal.vue';
+
+// [CẬP NHẬT] Utils (giữ nguyên nếu không di chuyển thư mục utils)
 import { formatTimeAgo } from '@/utils/formatters';
 
 import {

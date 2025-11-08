@@ -23,7 +23,8 @@
       @transfer-success="emit('show-snackbar', 'Đã gửi yêu cầu chuyển quyền.')"
   />
 
-  <DeleteConfirmDialog
+  <!-- [SỬA ĐỔI] Tên component đã được cập nhật thành AppConfirmDialog -->
+  <AppConfirmDialog
       v-model="uiStore.modals.deleteConfirm"
       :itemType="uiStore.confirmDialogType"
       @confirm="onGenericConfirm"
@@ -61,19 +62,25 @@
 
 <script setup>
 import { computed } from 'vue';
-import { usePlanUiStore } from '@/stores/planUi';
-import { usePlanStore } from '@/stores/plan';
-import { usePlanTaskStore } from '@/stores/planTaskStore';
-import { useAuthStore } from '@/stores/auth';
-import { useCommunityStore } from '@/stores/community';
+// [CẬP NHẬT] Stores
+import { usePlanUiStore } from '@/features/plan/stores/planUiStore';
+import { usePlanStore } from '@/features/plan/stores/planStore';
+import { usePlanTaskStore } from '@/features/plan/stores/planTaskStore';
+import { useAuthStore } from '@/features/auth/stores/authStore';
+import { useCommunityStore } from '@/features/community/stores/communityStore';
+// [THÊM] Import progress store để lấy ngày đang chọn
+import { useProgressStore } from '@/features/progress/stores/progressStore';
 
-// Import các dialog con
-import EditPlanModal from '@/components/dialogs/EditPlanModal.vue';
-import TransferOwnershipDialog from '@/components/dialogs/TransferOwnershipDialog.vue';
-import DeleteConfirmDialog from '@/components/dialogs/DeleteConfirmDialog.vue';
-import TaskDialog from '@/components/dialogs/TaskDialog.vue';
-import CheckInModal from '@/components/CheckInModal.vue';
-import ProgressDetailModal from '@/components/ProgressDetailModal.vue';
+
+// [CẬP NHẬT] Components con
+import EditPlanModal from './dialogs/EditPlanModal.vue';
+import TransferOwnershipDialog from './dialogs/TransferOwnershipDialog.vue';
+import TaskDialog from './dialogs/TaskDialog.vue';
+
+// [CẬP NHẬT] Components từ feature khác hoặc common
+import AppConfirmDialog from '@/components/common/AppConfirmDialog.vue';
+import CheckInModal from '@/features/progress/components/checkin/CheckInModal.vue';
+import ProgressDetailModal from '@/features/progress/components/ProgressDetailModal.vue';
 
 const emit = defineEmits(['show-snackbar', 'confirm-action']);
 
@@ -82,6 +89,7 @@ const planStore = usePlanStore();
 const planTaskStore = usePlanTaskStore();
 const authStore = useAuthStore();
 const communityStore = useCommunityStore();
+const progressStore = useProgressStore(); // [THÊM] Khởi tạo store
 
 // Computed cho Transfer Dialog
 const otherMembers = computed(() => {
@@ -98,10 +106,13 @@ const onTaskSaved = () => {
 const executeDeleteTask = async () => {
     if (!uiStore.taskToDelete) return;
     try {
+        // [SỬA LỖI] Dùng ngày đang chọn (selectedDate) làm fallback nếu taskDate không có
+        const dateToDelete = uiStore.taskToDelete.taskDate || progressStore.selectedDate;
+
         await planTaskStore.deleteTask(
             planStore.currentPlan.shareableLink,
             uiStore.taskToDelete.id,
-            uiStore.taskToDelete.taskDate
+            dateToDelete // Truyền ngày đã có fallback
         );
         emit('show-snackbar', 'Đã xóa công việc.', 'success');
         uiStore.closeDeleteTask();
@@ -110,14 +121,11 @@ const executeDeleteTask = async () => {
     }
 };
 
-// Proxy sự kiện confirm từ dialog con lên View cha để xử lý (vì logic archive/leave/remove phức tạp)
+// Proxy sự kiện confirm từ dialog con lên View cha để xử lý
 const onGenericConfirm = () => {
-    // Gửi kèm type và item để cha biết đường xử lý
     emit('confirm-action', { 
         type: uiStore.confirmDialogType, 
         item: uiStore.itemToProcess 
     });
-    // Không đóng dialog ngay tại đây, để View cha đóng sau khi xử lý xong (hoặc loading)
-    // UI Store sẽ tự đóng khi cha gọi uiStore.closeConfirmDialog()
 };
 </script>

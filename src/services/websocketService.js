@@ -1,7 +1,8 @@
-// File: src/api/websocketService.js
+// File: src/services/websocketService.js
 import SockJS from 'sockjs-client/dist/sockjs.min.js';
 import { Client } from '@stomp/stompjs';
-import { useAuthStore } from '@/stores/auth';
+// Cập nhật đường dẫn import mới
+import { useAuthStore } from '@/features/auth/stores/authStore';
 
 const SOCKET_URL = 'http://localhost:8080/ws';
 
@@ -163,7 +164,6 @@ const websocketService = {
       }
   },
 
-
   subscribe(topic, messageHandler) {
     const doSubscribe = () => {
         // Chỉ subscribe nếu client còn tồn tại và đang kết nối
@@ -211,7 +211,5 @@ const websocketService = {
       return stompClient?.connected ?? false;
   }
 };
-
-// *** XÓA PHẦN WATCH Ở ĐÂY ***
 
 export default websocketService;

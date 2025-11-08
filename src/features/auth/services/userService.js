@@ -1,5 +1,5 @@
 // File: src/api/userService.js
-import apiClient from './axios';
+import apiClient from '@/services/axios';
 
 export default {
   /**

@@ -88,7 +88,8 @@
 
 <script setup>
 import { ref, reactive } from 'vue';
-import { useAuthStore } from '@/stores/auth';
+// [CẬP NHẬT] Đường dẫn Store
+import { useAuthStore } from '@/features/auth/stores/authStore';
 import { VContainer, VRow, VCol, VCard, VCardTitle, VCardText, VForm, VTextField, VBtn, VAlert } from 'vuetify/components';
 
 const authStore = useAuthStore();

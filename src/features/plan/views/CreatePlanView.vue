@@ -119,8 +119,9 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { usePlanStore } from '@/stores/plan';
-import { usePlanCreatorStore } from '@/stores/planCreator';
+// [CẬP NHẬT] Stores nội bộ feature Plan
+import { usePlanStore } from '@/features/plan/stores/planStore';
+import { usePlanCreatorStore } from '@/features/plan/stores/planCreatorStore';
 import { 
   VContainer, VRow, VCol, VCard, VCardTitle, VCardText, VForm, 
   VTextField, VTextarea, VBtn, VAlert, VDivider 
