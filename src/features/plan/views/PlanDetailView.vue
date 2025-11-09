@@ -58,16 +58,14 @@
       <v-row class="main-layout-row flex-grow-1">
         
         <v-col cols="12" md="8" class="main-content-col">
-          <v-card class="fill-height" rounded="lg">
-            <TimelineDashboard 
-              class="fill-height" 
-              @open-check-in="uiStore.openNewCheckIn"
-              @edit-check-in="uiStore.openEditCheckIn"
-              @delete-check-in="(event) => uiStore.openConfirmDialog('delete-checkin', event)"
-              @comment-on-check-in="(event) => communityStore.selectProgress(event)"
-            />
-          </v-card>
-        </v-col>
+  <TimelineDashboard 
+    class="fill-height" 
+    @open-check-in="uiStore.openNewCheckIn"
+    @edit-check-in="uiStore.openEditCheckIn"
+    @delete-check-in="(event) => uiStore.openConfirmDialog('delete-checkin', event)"
+    @comment-on-check-in="(event) => communityStore.selectProgress(event)"
+  />
+</v-col>
 
         <v-col cols="12" md="4" class="sidebar-col d-flex flex-column">
           
@@ -303,33 +301,37 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Giữ nguyên style cũ */
+/* Đảm bảo container chính chiếm hết chiều cao còn lại */
 .fill-height { height: 100%; }
-.w-100 { width: 100%; }
 .d-flex.flex-column { display: flex; flex-direction: column; }
-.flex-grow-1 { flex-grow: 1 !important; }
 
+/* Dòng chính: Không cho phép nó cao hơn cha nó */
 .main-layout-row {
-  height: 100%; 
-  min-height: 0; 
+  flex: 1 1 auto;       /* Chiếm phần không gian còn lại */
+  min-height: 0 !important; /* QUAN TRỌNG: Cho phép co lại để không phá vỡ layout cha */
+  height: 100%;         /* Cố gắng chiếm 100% chiều cao */
+  overflow: hidden;     /* Ẩn phần thừa nếu có */
 }
-.main-layout-row > .v-col {
-  height: 100%;
-  padding-top: 0; 
-  padding-bottom: 0;
-}
+
+/* Cột chứa Dashboard: Phải bị khóa chiều cao */
 .main-content-col {
+  height: 100% !important;      /* Bắt buộc cao bằng cha (row) */
+  max-height: 100% !important;  /* Không được vượt quá */
+  min-height: 0 !important;     /* Cho phép co lại */
   display: flex;
   flex-direction: column;
-  height: 100%;
-  min-height: 0; 
+  padding-bottom: 0 !important; /* Tránh padding làm tăng chiều cao */
+  overflow: hidden !important;  /* Cắt bỏ mọi thứ con tràn ra */
 }
+
+/* Cột Sidebar (tương tự) */
 .sidebar-col {
-  height: 100%;
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
   display: flex;
   flex-direction: column;
-  min-height: 0; 
-  padding-left: 12px; 
+  overflow-y: auto; /* Sidebar có thể tự cuộn nếu cần */
 }
 .sidebar-row-info {
   flex-grow: 0; 
