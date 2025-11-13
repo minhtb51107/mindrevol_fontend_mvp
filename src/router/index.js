@@ -13,13 +13,6 @@ const router = createRouter({
       component: HomeView,
       meta: { requiresAuth: true }
     },
-    {
-        path: '/dashboard-v2', // Route thử nghiệm cho dashboard mới
-        name: 'dashboard-v2',
-        // [CHANGED] Import từ vị trí mới
-        component: () => import('@/features/dashboard/views/MindRevolDashboard.vue'),
-        meta: { requiresAuth: true, layout: 'DefaultLayout' } // Dashboard này có thể tự lo layout
-    },
     // === AUTH ROUTES ===
     {
       path: '/login',
@@ -63,31 +56,45 @@ const router = createRouter({
       component: () => import('@/features/auth/views/ProfileView.vue'),
       meta: { requiresAuth: true }
     },
+    {
+      path: '/friends',
+      name: 'friends',
+      component: () => import('@/features/community/views/FriendsView.vue'), // Hoặc đường dẫn bạn vừa tạo
+      meta: { requiresAuth: true }
+    },
 
     // === PLAN ROUTES ===
     {
       path: '/plans/create',
-      name: 'create-plan',
-      component: () => import('@/features/plan/views/CreatePlanView.vue'),
+      name: 'create-plan', // Giữ nguyên path và name (vì file vẫn tên cũ)
+      component: () => import('@/features/plan/views/CreatePlanView.vue'), // File này đã bị dán đè
       meta: { requiresAuth: true }
     },
+    // (Route 'plan-schedule' đã bị xóa)
     {
-      path: '/create-plan/schedule',
-      name: 'plan-schedule',
-      component: () => import('@/features/plan/views/SchedulePlanView.vue'),
-      meta: { requiresAuth: true },
-      beforeEnter: (to, from, next) => {
-        // [CHANGED] Cập nhật đường dẫn import store trong navigation guard
-        import('@/features/plan/stores/planCreatorStore').then(({ usePlanCreatorStore }) => {
-            const creatorStore = usePlanCreatorStore();
-            if (creatorStore.durationInDays > 0 && creatorStore.startDate) {
-                next();
-            } else {
-                next({ name: 'create-plan' });
-            }
-        });
-      }
+      path: '/plan/:shareableLink',
+      name: 'plan-details', // Giữ nguyên path và name
+      component: () => import('@/features/plan/views/PlanDetailView.vue'), // File này đã bị dán đè
+      meta: { requiresAuth: true }
     },
+    // {
+    //   path: '/create-plan/schedule',
+    //   name: 'plan-schedule',
+    //   component: () => import('@/features/plan/views/SchedulePlanView.vue'),
+    //   meta: { requiresAuth: true },
+    //   beforeEnter: (to, from, next) => {
+    //     // [CHANGED] Cập nhật đường dẫn import store trong navigation guard
+    //     import('@/features/plan/stores/planCreatorStore').then(({ usePlanCreatorStore }) => {
+    //         const creatorStore = usePlanCreatorStore();
+    //         if (creatorStore.durationInDays > 0 && creatorStore.startDate) {
+    //             next();
+    //         } else {
+    //             next({ name: 'create-plan' });
+    //         }
+    //     });
+    //   }
+    // },
+    
     {
       path: '/plan/:shareableLink',
       name: 'plan-details',

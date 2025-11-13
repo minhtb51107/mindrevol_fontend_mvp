@@ -2,6 +2,11 @@
 import apiClient from '@/services/axios';
 
 export default {
+createJourney(journeyData) {
+    // Gọi API /api/v1/plans/journeys mà ta vừa tạo
+    return apiClient.post('/plans/journeys', journeyData);
+  },
+  
   createPlan(planData) {
     return apiClient.post('/plans', planData);
   },

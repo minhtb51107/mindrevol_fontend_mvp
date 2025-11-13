@@ -1,186 +1,147 @@
-// File: src/stores/feedStore.js
+// File: src/features/community/stores/feedStore.js
 import { defineStore } from 'pinia';
-
-// [CẬP NHẬT] Services & Utils
 import feedService from '@/features/community/services/feedService';
 import websocketService from '@/services/websocketService';
-import { formatTimeAgo } from '@/utils/formatters';
-
-// [CẬP NHẬT] Store từ feature khác
 import { useAuthStore } from '@/features/auth/stores/authStore';
-
-// *** ĐÃ CẬP NHẬT HÀM NÀY ***
-// Hàm xử lý dữ liệu API/WebSocket thành định dạng hiển thị
-const processFeedItem = (item) => {
-  if (!item) return null;
-
-  let message = '';
-  let icon = 'mdi-information-outline';
-  let avatarColor = 'grey-lighten-3';
-  let iconColor = 'grey-darken-1';
-
-  // --- SỬ DỤNG item.actorFullName THAY VÌ item.userFullName ---
-  const actorName = item.actorFullName || 'Ai đó'; // Lấy tên actor, fallback về "Ai đó"
-
-  switch (item.eventType) {
-    case 'CHECK_IN':
-      message = `<strong>${actorName}</strong> vừa check-in kế hoạch "${item.planTitle || 'N/A'}"`;
-      icon = 'mdi-check';
-      avatarColor = 'success-lighten-4';
-      iconColor = 'success-darken-1';
-      break;
-    case 'STREAK_ACHIEVED':
-      message = `<strong>${actorName}</strong> đạt chuỗi <strong>${item.details?.streakDays || '?'} ngày</strong>! 🔥`;
-      icon = 'mdi-fire';
-      avatarColor = 'orange-lighten-4';
-      iconColor = 'orange-darken-2';
-      break;
-    case 'JOIN_PLAN':
-      message = `<strong>${actorName}</strong> đã tham gia kế hoạch "${item.planTitle || 'N/A'}"`;
-      icon = 'mdi-account-plus-outline';
-      avatarColor = 'blue-lighten-4';
-      iconColor = 'info';
-      break;
-    case 'PLAN_COMPLETE':
-      // Sự kiện này có thể không có actor, giữ nguyên logic cũ
-      message = `Chúc mừng nhóm đã hoàn thành kế hoạch "${item.planTitle || 'N/A'}"! 🎉`;
-      icon = 'mdi-party-popper';
-      avatarColor = 'purple-lighten-4';
-      iconColor = 'purple';
-      break;
-    case 'COMMENT_ADDED': // Thêm case này nếu bạn muốn hiển thị comment feed
-       message = `<strong>${actorName}</strong> đã bình luận về tiến độ ngày ${item.details?.progressDate || 'N/A'} của kế hoạch "${item.planTitle || 'N/A'}"`;
-       icon = 'mdi-comment-text-outline';
-       avatarColor = 'teal-lighten-4';
-       iconColor = 'teal';
-       break;
-    case 'REACTION_ADDED': // Thêm case này nếu bạn muốn hiển thị reaction feed
-        let reactionEmoji = '';
-        switch(item.details?.reactionType) {
-            case 'THUMBS_UP': reactionEmoji = '👍'; break;
-            case 'HEART': reactionEmoji = '❤️'; break;
-            case 'CELEBRATE': reactionEmoji = '🎉'; break;
-            case 'ROCKET': reactionEmoji = '🚀'; break;
-        }
-        message = `<strong>${actorName}</strong> đã thả ${reactionEmoji} cho tiến độ ngày ${item.details?.progressDate || 'N/A'} của kế hoạch "${item.planTitle || 'N/A'}"`;
-        icon = 'mdi-thumb-up-outline'; // Hoặc icon khác tùy reaction
-        avatarColor = 'pink-lighten-4';
-        iconColor = 'pink';
-        break;
-     case 'TASK_COMMENT_ADDED': // Thêm case này nếu có
-        message = `<strong>${actorName}</strong> đã bình luận về công việc "${item.details?.taskDescriptionShort || '...'}" trong kế hoạch "${item.planTitle || 'N/A'}"`;
-        icon = 'mdi-comment-processing-outline';
-        avatarColor = 'cyan-lighten-4';
-        iconColor = 'cyan';
-        break;
-    default:
-      message = `Hoạt động mới: ${item.eventType || 'Không xác định'}`;
-  }
-
-  // Trả về item đã xử lý, bao gồm cả actorFullName để dùng sau này nếu cần
-  return { ...item, message, icon, avatarColor, iconColor, timestamp: item.timestamp, actorFullName: item.actorFullName };
-};
-
 
 export const useFeedStore = defineStore('feed', {
   state: () => ({
-    feedItems: [],
-    currentPage: 0,
-    totalPages: 0,
+    feedItems: [], // Đây là "Feed Tri Kỷ"
     isLoading: false,
     error: null,
-    isSubscribed: false,
-    webSocketTopic: null,
+    currentPage: 0,
+    isLastPage: false,
+    
+    // *** BẮT ĐẦU PHẦN MỚI (PHẦN 4.B) ***
+    museumItems: [], // Feed cho "Bảo tàng"
+    isMuseumLoading: false,
+    museumError: null,
+    museumCurrentPage: 0,
+    isMuseumLastPage: false,
+    // *** KẾT THÚC PHẦN MỚI (PHẦN 4.B) ***
   }),
-
+  
   actions: {
+    /**
+     * Tải "Feed Tri Kỷ" (P4.A)
+     */
     async fetchFeed(loadMore = false) {
-      if (this.isLoading && !loadMore) return;
+      if (this.isLoading || (loadMore && this.isLastPage)) return;
+
       this.isLoading = true;
-      this.error = null;
-
-      const pageToFetch = loadMore ? this.currentPage : 0;
-
+      if (!loadMore) {
+        this.currentPage = 0;
+        this.feedItems = [];
+        this.isLastPage = false;
+      }
+      
       try {
-        const response = await feedService.getFeed(pageToFetch);
+        const response = await feedService.getFriendFeed(this.currentPage, 10);
         const data = response.data;
-        const newItems = data.content.map(processFeedItem).filter(item => item !== null);
-
-        if (loadMore) {
-          const existingIds = new Set(this.feedItems.map(i => i.id));
-          const trulyNewItems = newItems.filter(item => !existingIds.has(item.id));
-          this.feedItems.push(...trulyNewItems);
-        } else {
-          this.feedItems = newItems;
+        
+        if (data.content && data.content.length > 0) {
+          this.feedItems = loadMore ? [...this.feedItems, ...data.content] : data.content;
+          this.currentPage++;
         }
+        
+        this.isLastPage = data.last || data.content.length === 0;
+        this.error = null;
+        
+        this.subscribeToFeedUpdates(); // Vẫn gọi hàm này
 
-        this.currentPage = data.number + 1;
-        this.totalPages = data.totalPages;
-
-        this.subscribeToFeedUpdates();
-
-      } catch (err) {
-        console.error("Lỗi khi tải feed:", err);
-        this.error = "Không thể tải hoạt động nhóm.";
-        if (!loadMore) this.feedItems = [];
+      } catch (error) {
+        console.error("Lỗi tải Friend Feed:", error);
+        this.error = error.response?.data?.message || "Không thể tải hoạt động.";
       } finally {
         this.isLoading = false;
       }
     },
 
-    handleFeedUpdate(feedEventDto) {
-      console.log("WebSocket Feed Update Received:", feedEventDto);
-      const newItem = processFeedItem(feedEventDto);
-      if (newItem) {
-        const exists = this.feedItems.some(item => item.id === newItem.id);
-        if (!exists) {
-          this.feedItems.unshift(newItem);
-          if (this.feedItems.length > 50) {
-            this.feedItems.pop();
-          }
-        }
-      }
+    clearFeed() {
+      this.feedItems = [];
+      this.currentPage = 0;
+      this.isLastPage = false;
+      this.error = null;
+      this.unsubscribeFromFeedUpdates();
     },
 
+    // --- CÁC HÀM WEBSOCKET (Giữ nguyên) ---
+    // (Dựa trên file FeedServiceImpl.java của bạn)
     subscribeToFeedUpdates() {
-      const authStore = useAuthStore();
+      if (!websocketService.isConnected()) {
+        console.warn("WebSocket chưa kết nối.");
+        return;
+      }
+      
+      // Lấy ID user từ authStore (cần thiết cho topic cá nhân)
+      // Tạm thời dùng một cách gián tiếp
+      const authStore = useAuthStore(); // Import (hoặc lấy từ pinia)
       const userId = authStore.currentUser?.id;
 
-      if (!userId || this.isSubscribed || !websocketService.isConnected()) {
-          // ... (log messages giữ nguyên) ...
-          return;
-      }
-
-      this.webSocketTopic = `/topic/user/${userId}/feed`;
-
-      console.log(`Feed WS: Subscribing to ${this.webSocketTopic}`);
-      websocketService.subscribe(this.webSocketTopic, this.handleFeedUpdate)
-        .then(() => {
-          this.isSubscribed = true;
-          console.log(`Feed WS: Subscribed successfully to ${this.webSocketTopic}`);
-        })
-        .catch(err => {
-          console.error(`Feed WS: Failed to subscribe to ${this.webSocketTopic}`, err);
-          this.webSocketTopic = null;
+      if (userId) {
+        const userTopic = `/topic/user/${userId}/feed`;
+        console.log("Đăng ký topic:", userTopic);
+        websocketService.subscribe(userTopic, (feedEvent) => {
+          console.log("Nhận được feed event:", feedEvent);
+          // Reload lại feed
+          this.fetchFeed(false); 
         });
+      } else {
+        console.warn("Không tìm thấy User ID để đăng ký WebSocket feed.");
+      }
     },
 
     unsubscribeFromFeedUpdates() {
-      if (this.isSubscribed && this.webSocketTopic) {
-        console.log(`Feed WS: Unsubscribing from ${this.webSocketTopic}`);
-        websocketService.unsubscribe(this.webSocketTopic);
-        this.isSubscribed = false;
-        this.webSocketTopic = null;
+      if (websocketService.isConnected()) {
+         const authStore = useAuthStore();
+         const userId = authStore.currentUser?.id;
+         if (userId) {
+           const userTopic = `/topic/user/${userId}/feed`;
+           websocketService.unsubscribe(userTopic);
+         }
       }
     },
 
-    clearFeed() {
-        this.unsubscribeFromFeedUpdates();
-        this.feedItems = [];
-        this.currentPage = 0;
-        this.totalPages = 0;
-        this.isLoading = false;
-        this.error = null;
-    }
-  },
+    // *** BẮT ĐẦU PHẦN MỚI (PHẦN 4.B) ***
+    /**
+     * Tải "Bảo tàng" (Feed cá nhân)
+     */
+    async fetchMuseumFeed(userId, loadMore = false) {
+      if (this.isMuseumLoading || (loadMore && this.isMuseumLastPage)) return;
+
+      this.isMuseumLoading = true;
+      if (!loadMore) {
+        this.museumCurrentPage = 0;
+        this.museumItems = [];
+        this.isMuseumLastPage = false;
+      }
+      
+      try {
+        const response = await feedService.getUserFeed(userId, this.museumCurrentPage, 10);
+        const data = response.data;
+        
+        if (data.content && data.content.length > 0) {
+          this.museumItems = loadMore ? [...this.museumItems, ...data.content] : data.content;
+          this.museumCurrentPage++;
+        }
+        
+        this.isMuseumLastPage = data.last || data.content.length === 0;
+        this.museumError = null;
+
+      } catch (error) {
+        console.error("Lỗi tải Museum Feed:", error);
+        this.museumError = error.response?.data?.message || "Không thể tải hoạt động.";
+      } finally {
+        this.isMuseumLoading = false;
+      }
+    },
+
+    clearMuseumFeed() {
+      this.museumItems = [];
+      this.museumCurrentPage = 0;
+      this.isMuseumLastPage = false;
+      this.museumError = null;
+    },
+    // *** KẾT THÚC PHẦN MỚI (PHẦN 4.B) ***
+  }
 });

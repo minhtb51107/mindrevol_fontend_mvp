@@ -186,6 +186,7 @@ export const useAuthStore = defineStore('auth', {
           const planStore = usePlanStore();
           const notificationStore = useNotificationStore();
           const feedStore = useFeedStore(); // *** LẤY feedStore ***
+          const progressStore = useProgressStore();
 
             // Clear local state and storage FIRST
             const refreshTokenToInvalidate = this.refreshToken; // Store token before clearing state

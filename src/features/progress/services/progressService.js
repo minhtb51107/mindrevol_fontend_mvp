@@ -81,5 +81,12 @@ export default {
    */
   toggleReactionOnCheckIn(shareableLink, checkInId, reactionData) {
     return apiClient.post(`/plans/${shareableLink}/progress/check-in/${checkInId}/reactions`, reactionData);
-  }
+  },
+
+  // Thêm vào trong object progressService
+// Lấy dữ liệu cho "Hành trình đồng hành"
+  fetchJourneyPath(shareableLink) {
+    // URL ĐÚNG: /api/v1 (từ apiClient) + /plans/{link}/progress (từ Controller) + /journey-path (từ GetMapping)
+    return apiClient.get(`/plans/${shareableLink}/progress/journey-path`);
+  },
 };

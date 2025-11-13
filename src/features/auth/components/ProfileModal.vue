@@ -1,327 +1,355 @@
 <template>
-  <v-snackbar
-    v-model="snackbar.show"
-    :color="snackbar.color"
-    :timeout="snackbar.timeout"
-    location="top"
+  <v-dialog
+    :model-value="authStore.isProfileModalOpen"
+    @update:model-value="authStore.closeProfileModal()"
+    max-width="800px"
+    scrollable
   >
-    {{ snackbar.text }}
-    <template v-slot:actions>
-      <v-btn variant="text" @click="snackbar.show = false">Đóng</v-btn>
-    </template>
-  </v-snackbar>
-
-  <v-dialog :model-value="modelValue" @update:modelValue="$emit('update:modelValue')" persistent max-width="700px">
-    <v-card rounded="lg">
-      <v-card-title class="pa-4 bg-grey-lighten-3">
-        <span class="text-h6">Tài khoản của tôi</span>
-        <v-spacer></v-spacer>
-        <v-btn icon="mdi-close" variant="text" @click="$emit('update:modelValue', false)"></v-btn>
-      </v-card-title>
+    <v-card>
+      <v-card-text class="pa-4">
+        <v-row align="center">
+          <v-col cols="12" sm="auto" class="text-center">
+            <v-avatar size="96" color="primary">
+              <v-img
+                v-if="authStore.userAvatarUrl"
+                :src="authStore.userAvatarUrl"
+                :alt="authStore.userFullName"
+              ></v-img>
+              <span v-else class="text-h3">{{ authStore.userInitial }}</span>
+            </v-avatar>
+          </v-col>
+          <v-col>
+            <h1 class="text-h4 font-weight-bold">{{ authStore.userFullName }}</h1>
+            <p class="text-h6 text-medium-emphasis" v-if="authStore.currentUser">{{ authStore.currentUser.email }}</p>
+            <v-btn
+              icon="mdi-close"
+              variant="text"
+              class="d-sm-none"
+              style="position: absolute; top: 8px; right: 8px;"
+              @click="authStore.closeProfileModal()"
+            ></v-btn>
+          </v-col>
+        </v-row>
+      </v-card-text>
+      
       <v-divider></v-divider>
 
-      <div v-if="authStore.isLoadingProfile && !isUploading" class="pa-10 text-center">
-        <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
-        <p class="mt-4">Đang tải thông tin...</p>
-      </div>
+      <v-tabs v-model="tab" grow bg-color="transparent">
+        <v-tab value="museum">
+          <v-icon start>mdi-history</v-icon>
+          Bảo tàng (Hành trình)
+        </v-tab>
+        <v-tab value="settings">
+          <v-icon start>mdi-cog-outline</v-icon>
+          Cài đặt tài khoản
+        </v-tab>
+      </v-tabs>
 
-      <div v-else-if="authStore.profileError" class="pa-10 text-center">
-         <v-icon icon="mdi-alert-circle-outline" color="error" size="64" class="mb-4"></v-icon>
-         <h3 class="text-h6 mb-2">Lỗi tải thông tin</h3>
-         <p class="text-medium-emphasis">{{ authStore.profileError }}</p>
-         <v-btn color="primary" @click="authStore.fetchUserProfile" class="mt-4">Thử lại</v-btn>
-      </div>
-      
-      <div v-else>
-        <v-card-text class="pa-0">
-          <v-tabs v-model="currentTab" bg-color="transparent" color="primary" grow>
-            <v-tab value="info">
-              <v-icon start>mdi-account-circle-outline</v-icon>
-              Thông tin
-            </v-tab>
-            <v-tab value="security">
-              <v-icon start>mdi-lock-outline</v-icon>
-              Bảo mật
-            </v-tab>
-          </v-tabs>
-          <v-divider></v-divider>
+      <v-window v-model="tab">
+        <v-window-item value="museum" class="pa-0">
+          <div v-if="feedStore.isMuseumLoading && !feedStore.museumItems.length" class="d-flex justify-center align-center pa-10" style="min-height: 300px;">
+            <v-progress-circular indeterminate color="primary" size="40"></v-progress-circular>
+            <span class="ml-3 text-body-1 text-medium-emphasis">Đang tải...</span>
+          </div>
+          <v-alert v-else-if="feedStore.museumError" type="warning" variant="tonal" class="ma-4" density="comfortable">
+            Lỗi: {{ feedStore.museumError }}
+          </v-alert>
+          <div v-else-if="!feedStore.museumItems.length" class="d-flex flex-column justify-center align-center pa-10 text-medium-emphasis" style="min-height: 300px;">
+            <v-icon size="64" color="grey-lighten-2" class="mb-4">mdi-post-outline</v-icon>
+            <p>Bạn chưa đăng "Log" nào.</p>
+            <p class="text-caption">Hãy <router-link :to="{ name: 'create-plan' }" @click="authStore.closeProfileModal()">tạo hành trình</router-link> và bắt đầu ngay!</p>
+          </div>
 
-          <v-window v-model="currentTab">
-            <v-window-item value="info">
-              <v-form @submit.prevent="handleUpdateProfile" ref="profileFormRef">
-                <v-card-text class="pa-5">
-                  
-                  <div class="d-flex align-center mb-5">
-                    <v-avatar size="80" class="mr-4">
-                      <v-img :src="localPreviewUrl || form.photoUrl || defaultAvatar" alt="Avatar"></v-img>
-                    </v-avatar>
-                    <div>
-                       <v-file-input
-                        v-model="selectedFiles"
-                        label="Tải ảnh đại diện mới"
-                        accept="image/png, image/jpeg, image/webp"
-                        variant="outlined"
-                        density="compact"
-                        prepend-icon="mdi-camera-outline"
-                        hide-details
-                        @change="onFileSelect"
-                        @click:clear="clearFileSelection"
-                      ></v-file-input>
-                       <span class="text-caption text-medium-emphasis">Nên dùng ảnh vuông (tối đa 2MB).</span>
-                    </div>
-                  </div>
-
-                  <v-text-field
-                    v-model="form.fullname"
-                    label="Họ và tên *"
-                    prepend-inner-icon="mdi-account-outline"
-                    :rules="[rules.required]"
-                    class="mb-4"
-                  ></v-text-field>
-
-                  <v-textarea
-                    v-model="form.bio"
-                    label="Giới thiệu"
-                    prepend-inner-icon="mdi-text-account"
-                    rows="3"
-                    auto-grow
-                    counter
-                    maxlength="200"
-                    placeholder="Chia sẻ một chút về bản thân..."
-                  ></v-textarea>
-                </v-card-text>
-                <v-divider></v-divider>
-                <v-card-actions class="pa-4 bg-grey-lighten-4">
-                  <v-spacer></v-spacer>
-                  <v-btn 
-                    color="primary" 
-                    type="submit" 
-                    variant="flat"
-                    :loading="authStore.isLoadingProfile || isUploading"
-                    :disabled="authStore.isLoadingProfile || isUploading"
-                  >
-                    Lưu thay đổi
-                  </v-btn>
-                </v-card-actions>
-              </v-form>
-            </v-window-item>
-
-            <v-window-item value="security">
-              <v-card-text class="pa-5">
-                
-                <div v-if="authStore.currentUser?.authProvider === 'LOCAL'">
-                  <p class="text-body-1 mb-4">Bạn có thể thay đổi mật khẩu đăng nhập của mình tại đây.</p>
-                  <v-btn
-                    color="primary"
-                    @click="openChangePasswordModal = true"
-                    prepend-icon="mdi-lock-reset"
-                    variant="flat"
-                  >
-                    Đổi mật khẩu
-                  </v-btn>
-                </div>
-                
-                <div v-else>
-                   <p class="text-body-1 mb-2">Tài khoản của bạn hiện đang đăng nhập thông qua Google.</p>
-                   <p class="text-medium-emphasis mb-4">
-                     Bạn có thể tạo một mật khẩu riêng để đăng nhập bằng email và mật khẩu. 
-                     Chúng tôi sẽ gửi một liên kết đến email <strong class="text-high-emphasis">{{ authStore.currentUser?.email }}</strong> để bạn tạo mật khẩu.
-                   </p>
-                  <v-btn
-                    color="secondary"
-                    @click="handleSetPasswordRequest"
-                    prepend-icon="mdi-lock-plus-outline"
-                    variant="flat"
-                    :loading="isSendingEmail"
-                  >
-                    Gửi email tạo mật khẩu
-                  </v-btn>
-                </div>
-                
+          <div v-else class="social-feed-wrapper" style="max-height: 60vh; overflow-y: auto;">
+            <v-card
+              v-for="log in feedStore.museumItems"
+              :key="log.id"
+              class="mb-0"
+              variant="flat"
+              rounded="0"
+              :style="{ borderBottom: '1px solid rgba(var(--v-border-color), 0.1)' }"
+            >
+              <v-card-text>
+                <CheckInDetailCard :check-in="log" />
               </v-card-text>
-            </v-window-item>
-          </v-window>
-        </v-card-text>
-      </div>
-    </v-card>
+              <v-divider></v-divider>
+              <v-card-actions class="pa-2">
+                <v-btn
+                  variant="text"
+                  :color="hasReacted(log) ? 'primary' : 'medium-emphasis'"
+                  @click="handleToggleReaction(log.id, 'HEART')"
+                >
+                  <v-icon start>{{ hasReacted(log) ? 'mdi-heart' : 'mdi-heart-outline' }}</v-icon>
+                  {{ getTotalReactions(log) }} Thích
+                </v-btn>
+                <v-btn
+                  variant="text"
+                  color="medium-emphasis"
+                  @click="toggleCommentSection(log.id)"
+                >
+                  <v-icon start>mdi-comment-outline</v-icon>
+                  {{ log.commentCount || 0 }} Bình luận
+                </v-btn>
+                <v-spacer></v-spacer>
+                <v-menu v-if="canModifyLog(log)" location="bottom end">
+                  <template v-slot:activator="{ props }">
+                    <v-btn icon="mdi-dots-horizontal" variant="text" density="comfortable" size="small" v-bind="props"></v-btn>
+                  </template>
+                  <v-list density="compact">
+                    <v-list-item @click="uiStore.openEditCheckIn(log); authStore.closeProfileModal();" title="Chỉnh sửa Log"></v-list-item>
+                    <v-list-item @click="uiStore.openConfirmDialog('delete-checkin', log); authStore.closeProfileModal();" title="Xóa Log" class="text-error"></v-list-item>
+                  </v-list>
+                </v-menu>
+              </v-card-actions>
+              <v-expand-transition>
+                <div v-if="expandedLogId === log.id" class="px-4 pb-3">
+                  <v-divider class="mb-3"></v-divider>
+                  <CommentSection :comments="log.comments || []" :check-in-id="log.id" />
+                </div>
+              </v-expand-transition>
+            </v-card>
+            
+            <div v-if="!feedStore.isMuseumLastPage && !feedStore.isMuseumLoading" class="text-center pa-4">
+              <v-btn variant="outlined" @click="loadMore" :loading="feedStore.isMuseumLoading">
+                Tải thêm
+              </v-btn>
+            </div>
+          </div>
+        </v-window-item>
 
-    <ChangePasswordModal v-model="openChangePasswordModal" />
+        <v-window-item value="settings" class="pa-4">
+          <v-card-text v-if="authStore.currentUser" style="min-height: 300px;">
+            <h3 class="text-h6">Bảo mật</h3>
+            <p class="text-medium-emphasis mb-4">Quản lý mật khẩu đăng nhập của bạn.</p>
+            
+            <v-btn
+              v-if="authStore.currentUser?.authProvider === 'LOCAL'"
+              color="primary"
+              @click="showChangePasswordModal = true"
+              prepend-icon="mdi-lock-reset"
+            >
+              Đổi mật khẩu
+            </v-btn>
+            
+            <div v-else>
+              <v-btn
+                color="secondary"
+                @click="handleSetPasswordRequest"
+                prepend-icon="mdi-lock-plus-outline"
+                :loading="isSendingEmail"
+              >
+                Tạo mật khẩu đăng nhập
+              </v-btn>
+              <p class="text-caption text-medium-emphasis mt-2">
+                Tài khoản của bạn hiện đang đăng nhập qua Google. Tạo mật khẩu để có thể đăng nhập bằng email và mật khẩu.
+              </p>
+            </div>
+            
+            <v-divider class="my-6"></v-divider>
+            
+            <h3 class="text-h6">Đăng xuất</h3>
+            <v-btn
+              color="error"
+              variant="outlined"
+              @click="handleLogout"
+              prepend-icon="mdi-logout"
+              class="mt-4"
+            >
+              Đăng xuất
+            </v-btn>
+
+          </v-card-text>
+          <v-card-text v-else>
+            <v-progress-circular indeterminate></v-progress-circular>
+          </v-card-text>
+        </v-window-item>
+      </v-window>
+
+      <v-snackbar
+        v-model="showEmailSentAlert"
+        color="success"
+        timeout="5000"
+        location="bottom right"
+        :absolute="true"
+      >
+        Đã gửi email tạo mật khẩu. Vui lòng kiểm tra hộp thư của bạn.
+      </v-snackbar>
+      <v-snackbar
+        v-model="errorMessage"
+        color="error"
+        timeout="5000"
+        location="bottom right"
+        :absolute="true"
+      >
+        {{ errorMessage }}
+      </v-snackbar>
+
+    </v-card>
   </v-dialog>
+  
+  <ChangePasswordModal v-model="showChangePasswordModal" />
+  
+  <PlanDialogs 
+      @show-snackbar="showSnackbar"
+      @confirm-action="onConfirmAction"
+  />
 </template>
 
 <script setup>
-import { ref, watch, reactive } from 'vue';
-import defaultAvatar from '@/assets/default-avatar.png';
-// [CẬP NHẬT] Đường dẫn Store
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+// [CẬP NHẬT] Stores
 import { useAuthStore } from '@/features/auth/stores/authStore';
-// [CẬP NHẬT] Component nội bộ feature (có thể dùng đường dẫn tương đối nếu cùng thư mục)
-import ChangePasswordModal from './ChangePasswordModal.vue';
-// [CẬP NHẬT] Core Service
-import fileUploadService from '@/services/fileUploadService';
+import { useFeedStore } from '@/features/community/stores/feedStore';
+import { useProgressStore } from '@/features/progress/stores/progressStore';
+import { usePlanUiStore } from '@/features/plan/stores/planUiStore'; // <-- THÊM
 
-// Khai báo props và emits
-const props = defineProps({
-  modelValue: Boolean
-});
-const emit = defineEmits(['update:modelValue']);
+// [CẬP NHẬT] Components
+import ChangePasswordModal from '@/features/auth/components/ChangePasswordModal.vue';
+import CheckInDetailCard from '@/features/progress/components/checkin/CheckInDetailCard.vue';
+import CommentSection from '@/features/community/components/CommentSection.vue';
+import PlanDialogs from '@/features/plan/components/PlanDialogs.vue'; // <-- THÊM
+import { 
+  VContainer, VRow, VCol, VCard, VCardTitle, VCardText, VBtn, VDivider, VAvatar, 
+  VSnackbar, VIcon, VImg, VTabs, VTab, VWindow, VWindowItem,
+  VCardActions, VSpacer, VExpandTransition, VProgressCircular, VAlert,
+  VMenu, VList, VListItem, VDialog
+} from 'vuetify/components';
 
-// Store
 const authStore = useAuthStore();
+const feedStore = useFeedStore();
+const progressStore = useProgressStore();
+const uiStore = usePlanUiStore(); // <-- THÊM
 
-// State chung
-const currentTab = ref('info');
-const profileFormRef = ref(null);
-const snackbar = reactive({
-  show: false,
-  text: '',
-  color: 'success',
-  timeout: 4000
-});
+const tab = ref('museum'); // Mặc định mở "Bảo tàng"
+const expandedLogId = ref(null);
+const currentUserId = computed(() => authStore.currentUser?.id);
 
-// State cho Tab 1: Thông tin
-const form = reactive({
-  fullname: '',
-  bio: '',
-  photoUrl: ''
-});
-const rules = {
-  required: value => !!value || 'Thông tin bắt buộc.',
-};
-// Sửa: v-file-input trả về một mảng, nên ta init là mảng rỗng
-const selectedFiles = ref([]); // (SỬA ĐỔI P4) Lưu file(s) người dùng chọn
-const localPreviewUrl = ref(null); 
-const isUploading = ref(false); 
-
-// State cho Tab 2: Bảo mật
-const openChangePasswordModal = ref(false);
+// --- State cho logic Cài đặt (Giữ nguyên từ file cũ) ---
+const showChangePasswordModal = ref(false);
 const isSendingEmail = ref(false);
+const showEmailSentAlert = ref(false);
+const errorMessage = ref('');
 
+// --- Tải dữ liệu "Bảo tàng" ---
+// Sửa: Chỉ tải khi tab được mở
+watch(() => [tab.value, authStore.isProfileModalOpen], ([newTab, isOpen]) => {
+  if (isOpen && newTab === 'museum' && currentUserId.value && feedStore.museumItems.length === 0) {
+    feedStore.clearMuseumFeed(); // Xóa cũ
+    feedStore.fetchMuseumFeed(currentUserId.value, false);
+  }
+});
 
-// Đồng bộ form khi modal mở hoặc profile thay đổi
-watch(() => [props.modelValue, authStore.profile], ([newModelValue, newProfile]) => {
-  if (newModelValue) {
-    currentTab.value = 'info'; 
-    
-    // (SỬA ĐỔI P4) Reset trạng thái upload
-    selectedFiles.value = []; // Reset về mảng rỗng
-    localPreviewUrl.value = null;
-    isUploading.value = false;
+// Dọn dẹp khi modal đóng
+watch(() => authStore.isProfileModalOpen, (isOpen) => {
+  if (!isOpen) {
+    feedStore.clearMuseumFeed(); // Dọn dẹp
+    tab.value = 'museum'; // Reset về tab mặc định
+  }
+});
 
-    if (newProfile) {
-      form.fullname = newProfile.fullname || '';
-      form.bio = newProfile.bio || '';
-      form.photoUrl = newProfile.photoUrl || '';
+const loadMore = () => {
+  if (currentUserId.value) {
+    feedStore.fetchMuseumFeed(currentUserId.value, true);
+  }
+};
+
+// --- LOGIC TƯƠNG TÁC (Copy từ P4.A) ---
+const toggleCommentSection = (logId) => {
+    expandedLogId.value = expandedLogId.value === logId ? null : logId;
+};
+
+const handleToggleReaction = (logId, reactionType) => {
+    progressStore.toggleReactionOnCheckIn(logId, reactionType);
+    const logItem = feedStore.museumItems.find(item => item.id === logId);
+    if (logItem) {
+        if (!logItem.reactions) logItem.reactions = [];
+        const reaction = logItem.reactions.find(r => r.type === reactionType);
+        if (reaction) {
+            reaction.reactedByCurrentUser = !reaction.reactedByCurrentUser;
+            reaction.count += reaction.reactedByCurrentUser ? 1 : -1;
+        } else {
+             logItem.reactions.push({ type: reactionType, count: 1, reactedByCurrentUser: true });
+        }
     }
-  }
-}, { immediate: true, deep: true }); 
-
-
-// (SỬA ĐỔI P4) Xử lý khi người dùng chọn file
-const onFileSelect = (event) => {
-  const file = event.target.files[0]; // Lấy file đầu tiên
-  if (!file) {
-    clearFileSelection();
-    return;
-  }
-
-  if (file.size > 2 * 1024 * 1024) {
-    showSnackbar('File quá lớn. Vui lòng chọn ảnh dưới 2MB.', 'error');
-    selectedFiles.value = []; // Xóa file khỏi v-model
-    return;
-  }
-  
-  // selectedFiles (v-model) đã được cập nhật tự động
-  // Chỉ cần tạo link preview
-  localPreviewUrl.value = URL.createObjectURL(file);
 };
 
-// (SỬA ĐỔI P4) Xử lý khi người dùng nhấn nút 'x' của v-file-input
-const clearFileSelection = () => {
-    selectedFiles.value = [];
-    localPreviewUrl.value = null;
+const getTotalReactions = (log) => {
+    if (!log.reactions) return 0;
+    const heartReaction = log.reactions.find(r => r.type === 'HEART');
+    return heartReaction ? heartReaction.count : 0;
 };
 
+const hasReacted = (log) => {
+    if (!log.reactions || !authStore.currentUser) return false;
+    const heartReaction = log.reactions.find(r => r.type === 'HEART');
+    return heartReaction ? heartReaction.reactedByCurrentUser : false;
+};
 
-// (SỬA ĐỔI P4) Xử lý cập nhật profile
-const handleUpdateProfile = async () => {
-  if (!profileFormRef.value) return;
-  const { valid } = await profileFormRef.value.validate();
-  if (!valid) return;
+const canModifyLog = (log) => {
+    if (!authStore.currentUser) return false;
+    return log.author?.userId === authStore.currentUser.id;
+};
 
-  const fileToUpload = selectedFiles.value[0]; // Lấy file từ v-model
-
-  // 1. (MỚI) Xử lý upload ảnh nếu có file mới
-  if (fileToUpload) {
-    isUploading.value = true;
-    
-    // Tạo FormData
-    const formData = new FormData();
-    // Thêm file với key là "files" (số nhiều) để khớp backend
-    formData.append('files', fileToUpload);
-
-    try {
-      // Gọi API upload VỚI CONTEXT 'avatar'
-      const response = await fileUploadService.uploadFiles(formData, 'avatar');
-      
-      // ----- [BẮT ĐẦU SỬA LỖI LOGIC] -----
-      // SỬA 1: Dữ liệu trả về từ axios nằm trong 'response.data'
-      const fileList = response.data;
-      
-      // SỬA 2: Kiểm tra 'fileList' (là mảng) thay vì 'response' (là object)
-      if (fileList && fileList.length > 0) {
-        // SỬA 3: Lấy url từ 'fileList'
-        form.photoUrl = fileList[0].url; 
-      } else {
-        throw new Error("Server không trả về URL file.");
-      }
-      // ----- [KẾT THÚC SỬA LỖI LOGIC] -----
-
-    } catch (uploadError) {
-      const message = uploadError.response?.data?.message || 'Tải ảnh lên thất bại.';
-      showSnackbar(message, 'error');
-      isUploading.value = false;
-      return; // Dừng lại nếu upload lỗi
-    } finally {
-      isUploading.value = false;
+const showSnackbar = (text, color = 'success') => {
+    if (color === 'success') {
+        // Tạm thời dùng alert cho success
+        console.log("Success:", text);
+    } else {
+        errorMessage.value = text;
     }
-  }
+};
 
-  // 2. (Như cũ) Cập nhật thông tin profile (với photoUrl cũ hoặc mới)
-  try {
-    await authStore.updateUserProfile(form);
-    showSnackbar('Cập nhật thông tin thành công!', 'success');
-    clearFileSelection();
-  } catch (updateError) {
-     const message = updateError.response?.data?.message || 'Cập nhật thất bại. Vui lòng thử lại.';
-     showSnackbar(message, 'error');
+const onConfirmAction = (payload) => {
+  if (payload.action === 'delete-checkin' && payload.data) {
+    progressStore.deleteCheckInAction(payload.data.id)
+      .then(() => {
+        showSnackbar("Đã xóa Log thành công.", "success");
+        if (currentUserId.value) {
+          feedStore.fetchMuseumFeed(currentUserId.value, false);
+        }
+      })
+      .catch((err) => showSnackbar(err.message || "Lỗi khi xóa Log.", "error"));
   }
 };
 
-// (HÀM TỪ P3 - Giữ nguyên) Xử lý gửi email tạo mật khẩu
+
+// --- LOGIC CÀI ĐẶT (Giữ nguyên từ file cũ) ---
 const handleSetPasswordRequest = async () => {
   if (!authStore.currentUser?.email) {
-    showSnackbar("Không tìm thấy email người dùng.", "error");
+    errorMessage.value = "Không tìm thấy email người dùng.";
     return;
   }
-
   isSendingEmail.value = true;
+  errorMessage.value = '';
   try {
     await authStore.handleForgotPassword(authStore.currentUser.email);
-    showSnackbar(`Đã gửi email tạo mậtK_KHA_KHA_KHA_KHA_KHA_KHA khẩu đến ${authStore.currentUser.email}.`, 'success', 6000);
+    showEmailSentAlert.value = true;
   } catch (error) {
-    const message = error.response?.data?.message || 'Gửi email thất bại. Vui lòng thử lại.';
-    showSnackbar(message, 'error');
+    if (error.response) {
+      errorMessage.value = error.response.data?.message || 'Gửi email thất bại. Vui lòng thử lại.';
+    } else {
+      errorMessage.value = 'Đã có lỗi xảy ra. Vui lòng thử lại.';
+    }
   } finally {
     isSendingEmail.value = false;
   }
 };
 
-// (HÀM TỪ P3 - Giữ nguyên) Tiện ích hiển thị thông báo
-const showSnackbar = (text, color = 'success', timeout = 4000) => {
-  snackbar.text = text;
-  snackbar.color = color;
-  snackbar.timeout = timeout;
-  snackbar.show = true;
+// Thêm hàm Logout
+const handleLogout = async () => {
+  await authStore.logout();
+  // Modal sẽ tự đóng vì isProfileModalOpen sẽ bị reset
 };
-
 </script>
+
+<style scoped>
+.social-feed-wrapper .v-card {
+  transition: box-shadow 0.2s ease-in-out;
+}
+.social-feed-wrapper .v-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+.social-feed-wrapper .v-card:not(:last-child) {
+   border-bottom: 1px solid rgba(var(--v-border-color), 0.1) !important;
+}
+</style>

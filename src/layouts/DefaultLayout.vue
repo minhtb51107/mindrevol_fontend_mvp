@@ -170,11 +170,11 @@
               </v-list-item>
               <v-divider class="my-1"></v-divider>
               <v-list-item
-                @click="openProfileModal"
-                rounded="md"
-                prepend-icon="mdi-account-circle-outline"
-                title="Thông tin cá nhân"
-              ></v-list-item>
+  :to="{ name: 'profile' }"  
+  rounded="md"
+  prepend-icon="mdi-account-circle-outline"
+  title="Thông tin cá nhân"
+></v-list-item>
               <v-list-item
                 @click="openChangePasswordModal"
                 rounded="md"
@@ -255,17 +255,33 @@
             ></v-list-item>
           </v-list>
         </div>
-        <v-divider class="my-2 flex-shrink-0"></v-divider>
         <v-list nav dense class="flex-shrink-0">
-          <v-list-item
-            prepend-icon="mdi-view-dashboard-outline"
-            title="Dashboard"
-            :to="{ name: 'home' }"
-            exact
-            rounded="lg"
-          ></v-list-item>
-        </v-list>
+  <v-list-item
+    prepend-icon="mdi-view-dashboard-outline"
+    title="Dashboard"
+    :to="{ name: 'home' }"
+    exact
+    rounded="lg"
+  ></v-list-item>
 
+<v-list-item
+    prepend-icon="mdi-account-group-outline"
+    title="Kết nối"
+    :to="{ name: 'friends' }" 
+    exact
+    rounded="lg"
+  >
+    <template v-slot:append>
+      <v-badge
+        v-if="friendStore.requestCount > 0"
+        :content="friendStore.requestCount"
+        color="error"
+        inline
+      ></v-badge>
+    </template>
+    </v-list-item>
+  </v-list>
+        
         <div class="flex-grow-1" style="overflow-y: auto; min-height: 0">
           <v-list
             nav
@@ -378,6 +394,7 @@ import websocketService from '@/services/websocketService';
 // [CẬP NHẬT] Feature Components
 import ProfileModal from '@/features/auth/components/ProfileModal.vue';
 import ChangePasswordModal from '@/features/auth/components/ChangePasswordModal.vue';
+import { useFriendStore } from '@/features/community/stores/friendStore';
 
 // [CẬP NHẬT] Utils (giữ nguyên nếu không di chuyển thư mục utils)
 import { formatTimeAgo } from '@/utils/formatters';
@@ -410,6 +427,7 @@ const route = useRoute();
 const authStore = useAuthStore();
 const notificationStore = useNotificationStore();
 const planStore = usePlanStore();
+const friendStore = useFriendStore();
 const theme = useTheme();
 
 const notificationMenu = ref(false);
@@ -470,6 +488,12 @@ const markAllRead = () => {
 const setupNotificationWatcher = () => {
   if (authStore.isAuthenticated) {
     console.log('Setting up notification watcher: Authenticated');
+    if (!planStore.userPlans.length && !planStore.isUserPlansLoading) {
+      planStore.fetchUserPlans();
+    }
+    if (!friendStore.isLoading) { // Tải danh sách bạn bè và lời mời
+      friendStore.fetchAll(); 
+    }
     if (!notificationStore.isLoading) {
       notificationStore.fetchNotifications();
     }
@@ -487,10 +511,14 @@ const setupNotificationWatcher = () => {
         refreshInterval = null;
       }
     }, 60000);
+    friendStore.subscribeToFriendUpdates();
   } else {
     console.log('Setting up notification watcher: Not Authenticated');
     notificationStore.clearNotifications();
     planStore.clearUserPlans();
+    friendStore.friends = []; // <-- THÊM DÒNG NÀY
+    friendStore.pendingRequests = []; // <-- THÊM DÒNG NÀY
+    friendStore.unsubscribeFromFriendUpdates();
     if (refreshInterval) {
       clearInterval(refreshInterval);
       refreshInterval = null;

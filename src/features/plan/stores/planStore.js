@@ -98,6 +98,30 @@ export const usePlanStore = defineStore('plan', {
         this.debouncedFetchUserPlans(term);
     },
 
+    async createNewJourney(journeyData) {
+      this.isLoading = true;
+      this.error = null;
+      try {
+        const response = await planService.createJourney(journeyData);
+        const newJourneySummary = response.data;
+        if (newJourneySummary?.shareableLink) {
+          // CHUYỂN HƯỚNG TỚI ROUTE MỚI (sẽ tạo ở router/index.js)
+          router.push({ 
+            name: 'plan-details', // <-- SỬA LẠI THÀNH 'plan-details'
+            params: { shareableLink: newJourneySummary.shareableLink } 
+          });
+          // Tải lại danh sách (vẫn dùng chung API getMyPlans)
+          await this.fetchUserPlans();
+        }
+      } catch (error) {
+          console.error("Lỗi tạo hành trình:", error);
+          this.error = error.response?.data?.message || 'Không thể tạo hành trình.';
+          throw error;
+      } finally {
+          this.isLoading = false;
+      }
+    },
+
     // --- PLAN CRUD ACTIONS ---
     // Tạo Plan nhanh (Bước 1)
     async createNewPlan(planData) {

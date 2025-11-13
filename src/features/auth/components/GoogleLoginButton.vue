@@ -7,7 +7,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { useAuthStore } from '@/stores/auth';
+import { useAuthStore } from '@/features/auth/stores/authStore';
 
 const authStore = useAuthStore();
 const error = ref('');

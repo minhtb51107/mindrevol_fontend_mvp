@@ -48,6 +48,10 @@ export const useProgressStore = defineStore('progress', {
     editingCheckInCommentId: null,
     editingCheckInCommentContent: '',
     todayCompletedTaskIds: new Set(), // <-- BẮT BUỘC PHẢI CÓ DÒNG NÀY
+
+    // Thêm vào state
+journeyPathData: [],
+isLoadingJourneyPath: false,
   }),
 
   getters: {
@@ -291,6 +295,20 @@ export const useProgressStore = defineStore('progress', {
              console.warn("Không thể đồng bộ sang planTaskStore:", e);
          }
     }
+},
+
+// Thêm vào actions
+async fetchJourneyPath(shareableLink) {
+  if (this.isLoadingJourneyPath) return;
+  this.isLoadingJourneyPath = true;
+  try {
+    const data = await progressService.fetchJourneyPath(shareableLink); //
+    this.journeyPathData = data;
+  } catch (error) {
+    console.error('Lỗi khi tải Journey Path:', error);
+  } finally {
+    this.isLoadingJourneyPath = false;
+  }
 },
 
     async submitCheckIn(shareableLink, checkInData) {
